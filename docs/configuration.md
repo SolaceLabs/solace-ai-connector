@@ -4,7 +4,7 @@ The AI Event Connector is highly configurable. You can define the components of 
 
 ## Configuration File Format and Rules
 
-The configuration file is a YAML file that is loaded when the connector starts. Within the file 
+The configuration file is a YAML file that is loaded when the connector starts. 
 
 ### Special values
 
