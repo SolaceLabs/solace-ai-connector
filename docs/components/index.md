@@ -1,0 +1,20 @@
+# Built-in Components
+
+| Component | Description |
+| --- | --- |
+| [aggregate](aggregate.md) | Aggregate messages into one message. |
+| [broker_input](broker_input.md) | Connect to a messaging broker and receive messages from it. The component will output the payload, topic, and user properties of the message. |
+| [broker_output](broker_output.md) | Connect to a messaging broker and send messages to it. Note that this component requires that the data is transformed into the input schema. |
+| [delay](delay.md) | A simple component that simply passes the input to the output, but with a configurable delay. |
+| [error_input](error_input.md) | Receive processing errors from the Solace AI Event Connector. Note that the component_input configuration is ignored. This component should be used to create a flow that handles errors from other flows.  |
+| [iterate](iterate.md) | Take a single message that is a list and output each item in that list as a separate message |
+| [langchain_chat_model](langchain_chat_model.md) | Provide access to all the LangChain chat models via configuration |
+| [langchain_embeddings](langchain_embeddings.md) | Provide access to all the LangChain Text Embeddings components via configuration |
+| [langchain_vector_store_delete](langchain_vector_store_delete.md) | This component allows for entries in a LangChain Vector Store to be deleted. This is needed for the continued maintenance of the vector store. Due to the nature of langchain vector stores, you need to specify an embedding component even though it is not used in this component. |
+| [langchain_vector_store_embedding_index](langchain_vector_store_embedding_index.md) | Use LangChain Vector Stores to index text for later semantic searches. This will take text, run it through an embedding model and then store it in a vector database. |
+| [langchain_vector_store_embedding_search](langchain_vector_store_embedding_search.md) | Use LangChain Vector Stores to search a vector store with a semantic search. This will take text, run it through an embedding model with a query embedding and then find the closest matches in the store. |
+| [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
+| [pass_through](pass_through.md) | What goes in comes out |
+| [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. |
+| [stdout_output](stdout_output.md) | STDOUT output component |
+| [user_processor](user_processor.md) | A component that allows the processing stage to be defined in the configuration file. |

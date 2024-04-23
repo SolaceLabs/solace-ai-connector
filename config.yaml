@@ -1,0 +1,51 @@
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+
+
+# List of flows
+flows:
+  - name: llm_flow
+    trace_level: DEBUG
+    components:
+      - component_name: broker_input
+        component_module: inputs.solace_event_broker
+        component_config:
+          broker_connection_config:
+            connection_name: solace
+            url: ${SOLACE_URL}
+            client_username: ${SOLACE_USERNAME}
+            client_password: ${SOLACE_PASSWORD}
+            message_vpn: ${SOLACE_VPN}
+          queue_name: ${SOLACE_QUEUE}
+          subscriptions:
+            - a/b/c
+            - d/e/f
+      - component_name: llm
+        component_module: components.langchain_chat_model
+        component_config: &llm_config
+          langchain_component_name: AzureChatOpenAI
+          langchain_component_path: langchain_openai.chat_models.azure
+          langchain_component_config:
+            azure_endpoint: ${AZURE_OPENAI_API_ENDPOINT}
+            openai_api_key: ${AZURE_OPENAI_API_KEY}
+            openai_api_version: ${AZURE_OPENAI_API_VERSION}
+            deployment_name: ${AZURE_OPENAI_MODEL_DEPLOYMENT}
+            temperature: 0.01
+
+        input_transforms:
+          - type: copy
+            source_expression: result.text
+            dest_expression: text
+        component_input:
+          - source_expression: input.payload.text
+      - name: broker_output
+        component: outputs.solace_event_broker
+        config: 
+          broker_connection_config: 
+            share_connection: solace
+          topic_config:
+            reply: true
+      

@@ -1,0 +1,51 @@
+# BrokerInput
+
+Connect to a messaging broker and receive messages from it. The component will output the payload, topic, and user properties of the message.
+
+## Configuration Parameters
+
+```yaml
+component_name: <user-supplied-name>
+component_module: broker_input
+component_config:
+  broker_type: <string>
+  broker_url: <string>
+  broker_username: <string>
+  broker_password: <string>
+  broker_vpn: <string>
+  broker_queue_name: <string>
+  broker_subscriptions: <string>
+  payload_encoding: <string>
+  payload_format: <string>
+```
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| broker_type | True |  | Type of broker (Solace, MQTT, etc.) |
+| broker_url | True |  | Broker URL (e.g. tcp://localhost:55555) |
+| broker_username | True |  | Client username for broker |
+| broker_password | True |  | Client password for broker |
+| broker_vpn | True |  | Client VPN for broker |
+| broker_queue_name | True |  | Queue name for broker |
+| broker_subscriptions | True |  | Subscriptions for broker |
+| payload_encoding | False | utf-8 | Encoding for the payload (utf-8, base64, gzip, none) |
+| payload_format | False | json | Format for the payload (json, yaml, text) |
+
+
+
+## Component Output Schema
+
+```
+{
+  payload:   <string>,
+  topic:   <string>,
+  user_properties:   {
+    <freeform-object>
+  }
+}
+```
+| Field | Required | Description |
+| --- | --- | --- |
+| payload | True |  |
+| topic | True |  |
+| user_properties | True |  |

@@ -1,0 +1,63 @@
+#
+# This flow will:
+#   * Read user input from command line
+#   * Send the request to Bedrock Claud3 for a response
+#   * Output the result to STDOUT
+#
+#
+# The input message has the following schema:
+# {
+#   "text": "<question or request as text>",
+# }
+---
+log:
+  stdout_log_level: DEBUG
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+
+trace:
+  trace_file: solace_ai_event_connector.trace
+
+# List of flows
+flows:
+  - name: llm_request
+    components:
+
+      #
+      # Input from STDIN
+      #
+      - component_name: input
+        component_module: stdin_input
+
+      #
+      # Do an LLM request
+      #
+      - component_name: llm_request
+        component_module: langchain_chat_model
+        component_config:
+          langchain_module: langchain_community.chat_models
+          langchain_class: BedrockChat
+          langchain_component_config:
+            model_id: ${AWS_BEDROCK_ANTHROPIC_CLAUDE_MODEL_ID}
+            region_name: ${AWS_BEDROCK_ANTHROPIC_CLAUDE_REGION}
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:You are a helpful AI assistant. Please help with the user's request below:
+              <user-question>
+              {{text://input.payload:text}}
+              </user-question>
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+        component_input:
+          source_expression: user_data.llm_input
+
+      #
+      # Output to stdout
+      #
+      - component_name: stdout
+        component_module: stdout_output
+        component_config:
+

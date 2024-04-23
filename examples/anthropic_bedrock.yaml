@@ -1,0 +1,99 @@
+---
+# Example of a flow that listens to a Solace broker,
+# sends a message to an Anthropic Bedrock model, and
+# sends the response back to the Solace broker
+# It will ask the model to write a dry joke about the input
+# message. It takes the entire payload of the input message
+instance_name: LLM
+log:
+  stdout_log_level: DEBUG
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_connection_share: ${SOLACE_BROKER_URL}
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Storage
+storage:
+  - storage_name: default
+    storage_type: file
+    storage_config: 
+      path: app/data.json
+  - storage_name: backup
+    storage_type: aws_s3
+    storage_config:
+      aws_access_key_id: ${AWS_ACCESS_KEY_ID}
+      aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
+      aws_region_name: ${AWS_REGION_NAME}
+      bucket_name: ${AWS_BUCKET_NAME}
+      path: app/data.json
+
+# List of flows
+flows:
+  - name: test_flow
+    components:
+
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config: 
+          <<: *broker_connection
+          broker_queue_name: my_queue
+          broker_subscriptions:
+            - topic: my/topic1
+              qos: 1
+            - topic: my/topic2
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: text
+
+      - component_name: azure_openai_llm
+        component_module: langchain_chat_model
+        # Anthropic Claude2 in AWS Bedrock
+        component_config:
+          langchain_module: langchain_community.chat_models
+          langchain_class: BedrockChat
+          langchain_component_config:
+            model_id: ${AWS_BEDROCK_ANTHROPIC_CLAUDE_MODEL_ID}
+            model_kwargs:
+              temperature: 0.01
+
+        # Create an array of 'messages' with a single entry: {role: user, content: <input.payload>}
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:Write me a dry joke about:
+              {{text://input.payload}}
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+        component_input:
+          source_expression: user_data.llm_input
+
+      - component_name: solace_sw_broker
+        component_module: broker_output
+        component_config: 
+          broker_connection_share: ${SOLACE_BROKER_URL}
+          broker_type: solace
+          broker_url: ${SOLACE_BROKER_URL}
+          broker_username: ${SOLACE_BROKER_USERNAME}
+          broker_password: ${SOLACE_BROKER_PASSWORD}
+          broker_vpn: ${SOLACE_BROKER_VPN}
+          payload_encoding: utf-8
+          payload_format: text
+        input_transforms:
+          - type: copy
+            source_expression: user_data.temp
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:response/{{text://input.topic}}
+            dest_expression: user_data.output:topic
+        component_input:
+          source_expression: user_data.output

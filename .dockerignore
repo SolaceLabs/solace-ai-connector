@@ -1,0 +1,17 @@
+*.pyc
+*.pyo
+*.pyd
+__pycache__
+.pytest_cache
+.env
+.env_template
+docker-compose-local.yaml
+Makefile
+venv
+.venv
+.git*
+*.log
+project_notes.txt
+htmlcov
+.coverage
+

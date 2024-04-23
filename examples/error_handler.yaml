@@ -1,0 +1,105 @@
+---
+# This is an example configuration file that contains an 
+# error handler flow and a test flow. The error handler flow
+# will log any error messages locally and will also
+# send them to a Solace broker. 
+instance:
+  name: solace_ai_event_connector1
+log:
+  stdout_log_level: DEBUG
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_connection_share: ${SOLACE_BROKER_URL}
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# List of flows
+flows:
+  - name: error_handler
+    components:
+      - component_name: error_input
+        component_module: error_input
+        component_config:
+      - component_name: error_logger
+        component_module: logger
+        component_config:
+          log_level: ERROR
+          max_log_line_size: 1000
+        component_input:
+          source_expression: input.payload
+      - component_name: solace_sw_broker
+        component_module: broker_output
+        component_config: 
+          <<: *broker_connection
+          payload_format: json
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:ai_connector_error/{{input.user_properties:instance_name}}/{{input.user_properties:flow_name}}/{{input.user_properties:component_name}}
+            dest_expression: user_data.output:topic
+          - type: copy
+            source_expression: input.user_properties
+            dest_expression: user_data.output:user_properties
+        component_input:
+          source_expression: user_data.output
+
+
+  - name: test_flow
+    trace_level: DEBUG
+    components:
+
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config: 
+          <<: *broker_connection
+          broker_queue_name: my_queue
+          broker_subscriptions:
+            - topic: my/topic1
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: text
+
+      - component_name: pass_through
+        component_module: pass_through
+        component_config:
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.temp:text
+        component_input:
+          source_expression: user_data.temp:text
+
+      - component_name: solace_sw_broker
+        component_module: broker_output
+        component_config: 
+          <<: *broker_connection
+          payload_format: json
+        component_input:
+          source_expression: user_data.output
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.output:payload.original_payload
+          - type: copy
+            source_expression: input.user_properties
+            dest_expression: user_data.output:payload.user_properties
+          - type: copy
+            source_expression: input.topic
+            dest_expression: user_data.output:payload.topic
+          - type: copy
+            source_expression: template:response/{{input.topic}}
+            dest_expression: user_data.output:topic
+          - type: copy
+            source_expression: user_data.temp
+            dest_expression: user_data.output:user_properties
+        component_input:
+          source_expression: user_data.output

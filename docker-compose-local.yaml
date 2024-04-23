@@ -1,0 +1,8 @@
+version: '0.1'
+services:
+  solace-ai-connector:
+    image: solace/solace-ai-connector:local
+    env_file: .env
+    volumes:
+      - ~/.kube:/root/.kube
+#      - ~/.aws:/root/.aws <-- This is an example on how you can mount your local cloud provider credentials files and configurations

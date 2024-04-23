@@ -1,0 +1,42 @@
+"""Iterate over a list of items and output each one as a separate message"""
+
+from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from solace_ai_event_connector.common.message import Message
+
+info = {
+    "class_name": "Iterate",
+    "description": (
+        "Take a single message that is a list and "
+        "output each item in that list as a separate message"
+    ),
+    "config_parameters": [],
+    "input_schema": {
+        "type": "array",
+        "items": {
+            "type": "object",
+        },
+    },
+    "output_schema": {
+        "type": "object",
+        "properties": {},
+    },
+}
+
+
+class Iterate(ComponentBase):
+    def invoke(self, message, data):
+        # data is the list of items
+        # Loop over them and output each one as a separate message
+        if not isinstance(data, list):
+            raise ValueError("The iterate component requires the input to be a list")
+
+        for item in data:
+            # Create a new message for each item unless it is the last item
+            # in which case we reuse the existing message
+            if item != data[-1]:
+                new_message = Message(payload=item)
+            else:
+                new_message = message
+
+            # Send the message
+            self.process_post_invoke(item, new_message)
