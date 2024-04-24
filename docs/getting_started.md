@@ -19,8 +19,8 @@ This guide will help you get started with the Solace AI Event Connector.
 2. Optionally create a virtual environment:
 
     ```sh
-    python -m venv venv
-    source venv/bin/activate
+    python -m venv .venv
+    source .venv/bin/activate
     ```
 
 3. Install the required Python packages:
@@ -60,6 +60,8 @@ This guide will help you get started with the Solace AI Event Connector.
 
 To build a Docker image, run the following command:
 
-    ```sh
-    make build
-    ```
+```sh
+make build
+```
+
+Please now visit the [Documentation Page](index.md) for more information
