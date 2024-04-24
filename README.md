@@ -19,9 +19,9 @@ Please see the [documentation](docs/index.md) for more information.
 This is not an officially supported Solace product.
 
 For more information try these resources:
+- Ask the [Solace Community](https://solace.community)
+- The Solace Developer Portal website at: https://solace.dev
 
-    Ask the Solace Community
-    The Solace Developer Portal website at: https://solace.dev
 
 ## Contributing
 
