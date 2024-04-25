@@ -10,12 +10,13 @@ This guide will help you get started with the Solace AI Event Connector.
 
 ## Installation
 
-1. Clone the repository:
+1. Clone the repository and enter its directory:
 
     ```sh
     git clone git@github.com:SolaceLabs/solace-ai-connector.git
+    cd solace-ai-connector
     ```
-
+    
 2. Optionally create a virtual environment:
 
     ```sh
