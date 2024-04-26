@@ -1,51 +1,71 @@
 ---
+# Simple loopback flow
+# Solace -> Pass Through -> Solace
+# Make sure to have all the ${} environment variables set
 log:
-  stdout_log_level: INFO
+  stdout_log_level: DEBUG
   log_file_level: DEBUG
   log_file: solace_ai_event_connector.log
 
+shared_config:
+  - broker_config: &broker_connection
+      broker_connection_share: ${SOLACE_BROKER_URL}
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
 
 # List of flows
 flows:
-  - name: llm_flow
+  - name: test_flow
     trace_level: DEBUG
     components:
-      - component_name: broker_input
-        component_module: inputs.solace_event_broker
-        component_config:
-          broker_connection_config:
-            connection_name: solace
-            url: ${SOLACE_URL}
-            client_username: ${SOLACE_USERNAME}
-            client_password: ${SOLACE_PASSWORD}
-            message_vpn: ${SOLACE_VPN}
-          queue_name: ${SOLACE_QUEUE}
-          subscriptions:
-            - a/b/c
-            - d/e/f
-      - component_name: llm
-        component_module: components.langchain_chat_model
-        component_config: &llm_config
-          langchain_component_name: AzureChatOpenAI
-          langchain_component_path: langchain_openai.chat_models.azure
-          langchain_component_config:
-            azure_endpoint: ${AZURE_OPENAI_API_ENDPOINT}
-            openai_api_key: ${AZURE_OPENAI_API_KEY}
-            openai_api_version: ${AZURE_OPENAI_API_VERSION}
-            deployment_name: ${AZURE_OPENAI_MODEL_DEPLOYMENT}
-            temperature: 0.01
 
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config: 
+          <<: *broker_connection
+          broker_queue_name: my_queue
+          broker_subscriptions:
+            - topic: my/topic1
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: text
+
+      - component_name: pass_through
+        component_module: pass_through
+        component_config:
         input_transforms:
           - type: copy
-            source_expression: result.text
-            dest_expression: text
+            source_expression: input.payload
+            dest_expression: user_data.temp:text
         component_input:
-          - source_expression: input.payload.text
-      - name: broker_output
-        component: outputs.solace_event_broker
-        config: 
-          broker_connection_config: 
-            share_connection: solace
-          topic_config:
-            reply: true
-      
+          source_expression: user_data.temp:text
+
+      - component_name: solace_sw_broker
+        component_module: broker_output
+        component_config: 
+          <<: *broker_connection
+          payload_format: json
+        component_input:
+          source_expression: user_data.output
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.output:payload.original_payload
+          - type: copy
+            source_expression: input.user_properties
+            dest_expression: user_data.output:payload.user_properties
+          - type: copy
+            source_expression: input.topic
+            dest_expression: user_data.output:payload.topic
+          - type: copy
+            source_expression: template:response/{{input.topic}}
+            dest_expression: user_data.output:topic
+          - type: copy
+            source_expression: user_data.temp
+            dest_expression: user_data.output:user_properties
+        component_input:
+          source_expression: user_data.output
