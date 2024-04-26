@@ -173,7 +173,7 @@ def create_ai_prompt(full_info):
         configuration_prompt = f.read()
 
     # Read in an example configuration
-    with open("examples/rag/milvus_cohere_azure_rag.yaml", "r", encoding="utf-8") as f:
+    with open("examples/milvus_store.yaml", "r", encoding="utf-8") as f:
         example_config = f.read()
 
     prompt = (

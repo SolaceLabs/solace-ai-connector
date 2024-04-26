@@ -105,6 +105,8 @@ class ComponentBase:
 
                     self.error_queue.put(Message(payload=error_message))
 
+        self.stop_component()
+
     def get_next_message(self):
         # Get the next message from the input queue
         while not self.stop_signal.is_set():
@@ -309,3 +311,7 @@ class ComponentBase:
                 type="Component Input Data",
             )
         )
+
+    def stop_component(self):
+        # This should be overridden by the component
+        pass
