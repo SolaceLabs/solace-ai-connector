@@ -9,7 +9,7 @@ from solace_ai_event_connector.common.messaging.messaging_builder import (
     MessagingServiceBuilder,
 )
 
-# TODO - at the moment, there is no connection sharing supported. It should be possible
+# TBD - at the moment, there is no connection sharing supported. It should be possible
 # to share a connection between multiple components and even flows. The changes
 # required are:
 # 1. There is some global storage to hold all message_service objects

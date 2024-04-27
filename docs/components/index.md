@@ -15,6 +15,7 @@
 | [langchain_vector_store_embedding_search](langchain_vector_store_embedding_search.md) | Use LangChain Vector Stores to search a vector store with a semantic search. This will take text, run it through an embedding model with a query embedding and then find the closest matches in the store. |
 | [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
 | [pass_through](pass_through.md) | What goes in comes out |
+| [slack_input](slack_input.md) | Slack input component. The component connects to Slack using the Bolt API and receives messages from Slack channels. |
 | [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. |
 | [stdout_output](stdout_output.md) | STDOUT output component |
 | [user_processor](user_processor.md) | A component that allows the processing stage to be defined in the configuration file. |

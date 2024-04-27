@@ -1,0 +1,29 @@
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+
+
+# List of flows
+flows:
+  - name: slack_input
+    trace_level: DEBUG
+    components:
+      - component_name: slack_input
+        component_module: slack_input
+        component_config:
+          slack_bot_token: ${SLACK_BOT_TOKEN}
+          slack_app_token: ${SLACK_APP_TOKEN}
+
+      - component_name: stdout_output
+        component_module: stdout_output
+
+      # - name: broker_output
+      #   component: outputs.solace_event_broker
+      #   config: 
+      #     broker_connection_config: 
+      #       share_connection: solace
+      #     topic_config:
+      #       reply: true
+      

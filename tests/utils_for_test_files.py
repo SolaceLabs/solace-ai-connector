@@ -2,9 +2,11 @@
 
 import queue
 import sys
+import os
 import yaml
 
-sys.path.append("src")
+sys.path.insert(0, os.path.abspath("src"))
+
 
 # from solace_ai_event_connector.common.message import Message
 from solace_ai_event_connector.solace_ai_event_connector import (  # pylint: disable=wrong-import-position
@@ -19,12 +21,22 @@ class TestOutputComponent:
     """A simple output component that receives the output from the previous component.
     It is used to test the output of a flow."""
 
-    def __init__(self, queue_timeout=None):
-        self.queue = queue.Queue()
+    def __init__(self, queue_timeout=None, queue_size=0):
+        self.queue = queue.Queue(queue_size)
         self.queue_timeout = queue_timeout
+        self.stop = False
 
     def enqueue(self, message):
-        self.queue.put(message)
+        do_loop = True
+        while do_loop and not self.stop:
+            try:
+                self.queue.put(message, timeout=1)
+                do_loop = False
+            except queue.Full:
+                pass
+
+    def stop_output(self):
+        self.stop = True
 
     def get_output(self):
         try:
@@ -62,7 +74,7 @@ def create_connector(config_yaml, event_handlers=None, error_queue=None):
     return connector
 
 
-def create_test_flows(config_yaml, queue_timeout=None, error_queue=None):
+def create_test_flows(config_yaml, queue_timeout=None, error_queue=None, queue_size=0):
     # Create the connector
     connector = create_connector(config_yaml, error_queue=error_queue)
 
@@ -74,7 +86,9 @@ def create_test_flows(config_yaml, queue_timeout=None, error_queue=None):
         input_component = TestInputComponent(
             flow.component_groups[0][0].get_input_queue()
         )
-        output_component = TestOutputComponent(queue_timeout=queue_timeout)
+        output_component = TestOutputComponent(
+            queue_timeout=queue_timeout, queue_size=queue_size
+        )
         for component in flow.component_groups[-1]:
             component.set_next_component(output_component)
         flow_info.append(
@@ -88,6 +102,17 @@ def create_test_flows(config_yaml, queue_timeout=None, error_queue=None):
     return connector, flow_info
 
 
+def stop_test_flows(connector):
+    # For each of the flows, check if the last component is a TestOutputComponent
+    # If so, stop its output
+    for flow in connector.get_flows():
+        last_component = flow.component_groups[-1][-1]
+        # Get its next component
+        next_component = last_component.get_next_component()
+        if isinstance(next_component, TestOutputComponent):
+            next_component.stop_output()
+
+
 def send_message_to_flow(flow_info, message):
     input_component = flow_info["input_component"]
     input_component.enqueue(message)
@@ -99,6 +124,7 @@ def get_message_from_flow(flow_info):
 
 
 def dispose_connector(connector):
+    stop_test_flows(connector)
     connector.stop()
 
 
