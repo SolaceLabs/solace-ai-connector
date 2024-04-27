@@ -220,7 +220,13 @@ class ComponentBase:
 
     def enqueue(self, message):
         # Add the message to the input queue
-        self.input_queue.put(message)
+        do_loop = True
+        while not self.stop_signal.is_set() and do_loop:
+            try:
+                self.input_queue.put(message, timeout=1)
+                do_loop = False
+            except queue.Full:
+                pass
 
     def get_config(self, key=None, default=None):
         val = self.component_config.get(key, None)
@@ -253,6 +259,9 @@ class ComponentBase:
 
     def set_next_component(self, next_component):
         self.next_component = next_component
+
+    def get_next_component(self):
+        return self.next_component
 
     def set_queue_timeout(self, timeout_ms):
         # Set the timeout on the input queue

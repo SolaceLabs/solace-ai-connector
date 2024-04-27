@@ -3,7 +3,7 @@
 import base64
 import gzip
 import json
-import yaml
+import yaml  # pylint: disable=import-error
 
 from solace_ai_event_connector.common.log import log
 from solace_ai_event_connector.flow_components.inputs_outputs.broker_base import (

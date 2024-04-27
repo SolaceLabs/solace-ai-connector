@@ -1,7 +1,6 @@
 # An output component to print to STDOUT
 
-import yaml
-
+import yaml  # pylint: disable=import-error
 from solace_ai_event_connector.flow_components.component_base import ComponentBase
 
 info = {

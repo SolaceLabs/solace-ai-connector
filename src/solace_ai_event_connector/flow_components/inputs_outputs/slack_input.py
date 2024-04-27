@@ -1,15 +1,14 @@
 import threading
 import queue
-import requests
 import base64
-
-
-from threading import Event
 from copy import deepcopy
+import requests
+
+
+from slack_bolt import App  # pylint: disable=import-error
+from slack_bolt.adapter.socket_mode import SocketModeHandler
 from solace_ai_event_connector.flow_components.component_base import ComponentBase
 from solace_ai_event_connector.common.message import Message
-from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
 from solace_ai_event_connector.common.log import log
 
 
@@ -136,7 +135,7 @@ class SlackInput(ComponentBase):
             app=self.app,
             slack_app_token=self.slack_app_token,
             slack_bot_token=self.slack_bot_token,
-            queue=self.slack_receiver_queue,
+            input_queue=self.slack_receiver_queue,
             stop_event=self.stop_receiver_event,
             max_file_size=self.get_config("max_file_size"),
             max_total_file_size=self.get_config("max_total_file_size"),
@@ -165,7 +164,7 @@ class SlackReceiver(threading.Thread):
         app,
         slack_app_token,
         slack_bot_token,
-        queue,
+        input_queue,
         stop_event,
         max_file_size=20,
         max_total_file_size=20,
@@ -174,7 +173,7 @@ class SlackReceiver(threading.Thread):
         self.app = app
         self.slack_app_token = slack_app_token
         self.slack_bot_token = slack_bot_token
-        self.queue = queue
+        self.input_queue = input_queue
         self.stop_event = stop_event
         self.max_file_size = max_file_size
         self.max_total_file_size = max_total_file_size
@@ -204,7 +203,7 @@ class SlackReceiver(threading.Thread):
                         "Total file size exceeds the maximum limit. Skipping download."
                     )
                     break
-                b64_file = self.download_file_as_base64_string(file_url, file_name)
+                b64_file = self.download_file_as_base64_string(file_url)
                 files.append(
                     {
                         "name": file_name,
@@ -232,9 +231,9 @@ class SlackReceiver(threading.Thread):
             "user_id": event.get("user"),
         }
         message = Message(payload=obj)
-        self.queue.put(message)
+        self.input_queue.put(message)
 
-    def download_file_as_base64_string(self, file_url, file_name):
+    def download_file_as_base64_string(self, file_url):
         headers = {"Authorization": "Bearer " + self.slack_bot_token}
         response = requests.get(file_url, headers=headers, timeout=10)
         base64_string = base64.b64encode(response.content).decode("utf-8")
