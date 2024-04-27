@@ -50,6 +50,8 @@ class Message:
         # If the expression is callable, call it
         if callable(expression):
             return expression(self)
+        if isinstance(expression, (dict, list)):
+            return expression
         # If the expression starts with 'template:', render the template
         if expression.startswith("template:"):
             return self.fill_template(expression.split(":", 1)[1])
@@ -376,7 +378,7 @@ class Message:
         # All we need is the list of ack callbacks
         message.ack_callbacks.extend(self.ack_callbacks)
 
-    def trace(self, trace_queue, location, type):
+    def trace(self, trace_queue, location, trace_type):
         trace_string = ""
         if (self.payload is not None) and (len(self.payload) > 0):
             trace_string = (
@@ -407,7 +409,7 @@ class Message:
         trace_message = TraceMessage(
             location=location,
             message=trace_string,
-            type=type,
+            trace_type=trace_type,
         )
         trace_queue.put(trace_message)
 
