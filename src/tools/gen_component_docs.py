@@ -1,17 +1,16 @@
 import os
-import ast
 import re
 import sys
 import json
-import yaml
 import importlib.util
+import yaml  # pylint: disable=import-error
 
 sys.path.append("src")
 
 
 # Function to descend into a directory and find all Python files
 def find_python_files(directory):
-    for root, dirs, files in os.walk(directory):
+    for root, _, files in os.walk(directory):
         for file in files:
             # Skip if 'for_testing' is in the path
             if "for_testing" in root:
@@ -37,32 +36,32 @@ current_component = ""
 full_info = {}
 
 
-def create_markdown_documentation(directory, output_dir, type):
+def create_markdown_documentation(directory, output_dir, module_type):
     components = []
 
     # full_info contains all the info dictionaries. This will be used later
     # to produce an AI prompt to help users create a new configuration
-    full_info[type] = []
+    full_info[module_type] = []
     for file, info in find_info_dicts(directory):
         # Get the base file name without the extension
         name = re.sub(r".*/", "", file)
         name = re.sub(r".py$", "", name)
-        global current_component
+        global current_component  # pylint: disable=global-statement
         current_component = name
 
-        full_info[type].append(info)
+        full_info[module_type].append(info)
 
         # Create the markdown documentation
         markdown = f"# {info['class_name']}\n\n"
         markdown += f"{info['description']}\n\n"
         markdown += "## Configuration Parameters\n\n"
         markdown += "```yaml\n"
-        if type == "component":
+        if module_type == "component":
             markdown += "component_name: <user-supplied-name>\n"
             markdown += f"component_module: {name}\n"
             markdown += "component_config:\n"
-        elif type == "transform":
-            markdown += f"input_transforms:\n"
+        elif module_type == "transform":
+            markdown += "input_transforms:\n"
             markdown += f"  type: {name}\n"
         for param in info["config_parameters"]:
             markdown += f"  {param['name']}: <{param.get('type', 'string')}>\n"
@@ -139,8 +138,8 @@ def create_markdown_documentation(directory, output_dir, type):
         f.write(markdown)
 
 
-def create_ai_prompt(full_info):
-    """Use the full_info dictionary to create an AI prompt to help users create a
+def create_ai_prompt(info):
+    """Use the info dictionary to create an AI prompt to help users create a
     new configuration. This prompt will contain all the component and transform information,
     information about the purpose of the connector and an example configuration. Later, the
     user will have to provide the message {input_schema, queue, topic}, and the desired
@@ -173,12 +172,12 @@ def create_ai_prompt(full_info):
         configuration_prompt = f.read()
 
     # Read in an example configuration
-    with open("examples/rag/milvus_cohere_azure_rag.yaml", "r", encoding="utf-8") as f:
-        example_config = f.read()
+    # with open("examples/milvus_store.yaml", "r", encoding="utf-8") as f:
+    #     example_config = f.read()
 
     prompt = (
         "Here is a structure that defines all the built-in components and transforms. \n"
-        f"<transform_and_components_yaml>\n{yaml.dump(full_info, default_flow_style=False)}\n"
+        f"<transform_and_components_yaml>\n{yaml.dump(info, default_flow_style=False)}\n"
         "</transform_and_components_yaml>\n\n"
         "Here is the markdown documentation for the configuration file: \n"
         f"<markdown_documentation>\n{configuration_prompt}\n</markdown_documentation>\n"

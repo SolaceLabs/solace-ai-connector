@@ -1,13 +1,16 @@
 """This file tests acks in a flow"""
+
 import sys
 import queue
 
 sys.path.append("src")
 
 from utils_for_test_files import (  # pylint: disable=wrong-import-position
-    create_connector,
-    create_and_run_component,
-    # dispose_connector,
+    # create_connector,
+    # create_and_run_component,
+    dispose_connector,
+    create_test_flows,
+    send_message_to_flow,
 )
 from solace_ai_event_connector.common.message import (  # pylint: disable=wrong-import-position
     Message,
@@ -35,21 +38,25 @@ flows:
     # Setup the error queue
     error_queue = queue.Queue()
 
-    message = Message(payload={"text": "Hello, World!"})
-    create_and_run_component(
-        config_yaml, message, error_queue=error_queue, no_output=True
-    )
+    connector, flows = create_test_flows(config_yaml, error_queue=error_queue)
+    flow = flows[0]
 
-    error_message = error_queue.get(timeout=1)
-    payload = error_message.get_data("input.payload")
-    assert payload["location"] == {
-        "instance": "test_instance",
-        "flow": "test_flow",
-        "component": "give_ack_output",
-        "component_index": 0,
-    }
-    assert payload["error"] == {
-        "text": "This is an ack message",
-        "exception": "Exception",
-    }
-    assert payload["message"]["payload"] == {"text": "Hello, World!"}
+    message = Message(payload={"text": "Hello, World!"})
+    send_message_to_flow(flow, message)
+
+    try:
+        error_message = error_queue.get(timeout=5)
+        payload = error_message.get_data("input.payload")
+        assert payload["location"] == {
+            "instance": "test_instance",
+            "flow": "test_flow",
+            "component": "give_ack_output",
+            "component_index": 0,
+        }
+        assert payload["error"] == {
+            "text": "This is an ack message",
+            "exception": "Exception",
+        }
+        assert payload["message"]["payload"] == {"text": "Hello, World!"}
+    finally:
+        dispose_connector(connector)

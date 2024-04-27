@@ -9,33 +9,43 @@ from solace_ai_event_connector.common.log import log
 
 
 def import_from_directories(module_name, base_path=None):
-    for path in sys.path:
+    dirs = sys.path
+    if base_path:
+        dirs.append(base_path)
+    for path in dirs:
         print(f"path: {path}")
-        for directory in get_subdirectories():
-            print(f"directory: {directory}")
+        for directory in get_subdirectories(path):
             ## Skip if __pycache__ or .git
             if directory.endswith("__pycache__") or directory.endswith(".git"):
                 continue
-            module_path = os.path.join(path, directory, module_name + ".py")
-            print(f"module_path: {module_path}")
+            if path == "src":
+                print(f"directory: {directory}")
+            module_path = os.path.join(directory, module_name + ".py")
+            # print(f"module_path: {module_path}")
             if os.path.exists(module_path):
                 try:
                     spec = importlib.util.spec_from_file_location(
                         module_name, module_path
                     )
                     module = importlib.util.module_from_spec(spec)
+                    # Insert this module's directory into sys.path so that it
+                    # can import other modules
+                    sys.path.insert(0, os.path.dirname(module_path))
                     spec.loader.exec_module(module)
                 except Exception as e:
                     log.error("Exception importing %s: %s", module_path, e)
                     raise e
                 return module
-        raise ImportError(f"Could not import module '{module_name}'")
+    raise ImportError(f"Could not import module '{module_name}'")
 
 
-def get_subdirectories():
-    script_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def get_subdirectories(path=None):
+    # script_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # directory = os.curdir
+    # if path:
+    #     directory = path
     subdirectories = []
-    for dirpath, dirnames, _ in os.walk(script_directory):
+    for dirpath, dirnames, _ in os.walk(path):
         subdirectories.extend([os.path.join(dirpath, name) for name in dirnames])
     return subdirectories
 
@@ -226,10 +236,10 @@ def get_source_expression(config_obj, key="source_expression"):
     return config_obj.get(key, None)
 
 
-def get_obj_text(format, text):
+def get_obj_text(block_format, text):
     """Extract the text of the object in the specified format. It simply
     looks for a ```<format> key"""
     # if ```<format> is in the text, get all text between that and the next ```
-    if f"```{format}" in text:
-        return text.split(f"```{format}")[1].split("```")[0]
+    if f"```{block_format}" in text:
+        return text.split(f"```{block_format}")[1].split("```")[0]
     return text
