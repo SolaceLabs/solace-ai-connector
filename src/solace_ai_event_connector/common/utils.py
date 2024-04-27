@@ -230,7 +230,7 @@ def create_lambda_function_for_source_expression(source_expression):
 def get_source_expression(config_obj, key="source_expression"):
     if "source_value" in config_obj:
         source_value = config_obj.get("source_value")
-        if callable(source_value):
+        if callable(source_value) or isinstance(source_value, (dict, list)):
             return source_value
         return "static:" + str(source_value)
     return config_obj.get(key, None)

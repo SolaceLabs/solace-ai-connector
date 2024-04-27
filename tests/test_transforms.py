@@ -1,7 +1,6 @@
 """This file tests the input_transforms configuration and execution"""
 
 import sys
-import queue
 
 sys.path.append("src")
 
@@ -298,3 +297,30 @@ flows:
         create_connector(config_yaml)
     except ValueError as e:
         assert str(e).endswith("Transform does not have a dest expression")
+
+
+def test_source_value_as_an_object():
+    """Test that a source value can be an object"""
+    # Create a simple configuration
+    config_yaml = """
+flows:
+  - name: test_flow
+    components:
+      - component_name: pass_through
+        component_module: pass_through
+        input_transforms:
+          - type: copy
+            source_value:
+              one: 1
+              two: 2
+            dest_expression: user_data.temp:my_obj
+        component_input:
+          source_expression: user_data.temp
+"""
+
+    message = Message()
+    output_message = create_and_run_component(config_yaml, message)
+
+    # Check the output
+    assert output_message.get_data("user_data.temp") == {"my_obj": {"one": 1, "two": 2}}
+    assert output_message.get_data("previous") == {"my_obj": {"one": 1, "two": 2}}
