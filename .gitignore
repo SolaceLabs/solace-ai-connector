@@ -4,6 +4,7 @@ launch.json
 temp/
 *.trace
 examples/private
+launch.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
