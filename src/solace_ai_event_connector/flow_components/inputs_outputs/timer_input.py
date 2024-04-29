@@ -35,6 +35,10 @@ class TimerInput(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.interval_ms = self.get_config("interval_ms")
+        if not self.interval_ms:
+            raise ValueError(
+                "interval_ms configuration parameter is required for timer_input component."
+            )
         self.skip_messages_if_behind = self.get_config("skip_messages_if_behind")
         self.last_message_time = None
 
@@ -42,11 +46,8 @@ class TimerInput(ComponentBase):
         # Get the delta time since the last message
         current_time = self.get_current_time()
         if not self.last_message_time:
-            self.last_message_time = current_time
+            self.last_message_time = current_time - (self.interval_ms / 1000)
         delta_time = (current_time - self.last_message_time) * 1000
-        log.debug(
-            f"Get message. Current time: {current_time}, last message time: {self.last_message_time}, delta time: {delta_time}"
-        )
         if delta_time >= self.interval_ms:
             if self.skip_messages_if_behind:
                 self.last_message_time = current_time
@@ -56,7 +57,6 @@ class TimerInput(ComponentBase):
         else:
             # Sleep for the remaining time
             sleep_time = (self.interval_ms - delta_time) / 1000
-            log.debug(f"Sleeping for {sleep_time} s")
             self.last_message_time += sleep_time
             time.sleep(sleep_time)
 

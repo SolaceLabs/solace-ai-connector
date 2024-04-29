@@ -317,7 +317,7 @@ class ComponentBase:
             TraceMessage(
                 message=trace_string,
                 location=self.log_identifier,
-                type="Component Input Data",
+                trace_type="Component Input Data",
             )
         )
 
