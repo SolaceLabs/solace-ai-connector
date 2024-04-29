@@ -14,13 +14,21 @@ def import_from_directories(module_name, base_path=None):
         dirs.append(base_path)
     for path in dirs:
         print(f"path: {path}")
-        for directory in get_subdirectories(path):
+        dirs = [path]
+        dirs.extend(get_subdirectories(path))
+        for directory in dirs:
             ## Skip if __pycache__ or .git
             if directory.endswith("__pycache__") or directory.endswith(".git"):
                 continue
-            if path == "src":
+            if (
+                path
+                == "../ai-eda-solace-chat/solace-ai-connector-custom-components/chatapps/global"
+            ):
                 print(f"directory: {directory}")
-            module_path = os.path.join(directory, module_name + ".py")
+            module_file = module_name
+            if "." in module_name:
+                module_file = module_name.replace(".", os.sep)
+            module_path = os.path.join(directory, module_file + ".py")
             # print(f"module_path: {module_path}")
             if os.path.exists(module_path):
                 try:
@@ -30,7 +38,8 @@ def import_from_directories(module_name, base_path=None):
                     module = importlib.util.module_from_spec(spec)
                     # Insert this module's directory into sys.path so that it
                     # can import other modules
-                    sys.path.insert(0, os.path.dirname(module_path))
+                    if path not in sys.path:
+                        sys.path.insert(0, path)
                     spec.loader.exec_module(module)
                 except Exception as e:
                     log.error("Exception importing %s: %s", module_path, e)
@@ -83,14 +92,18 @@ def import_module(name, base_path=None):
     """Import a module by name"""
 
     if base_path:
-        sys.path.append(base_path)
+        print("added base path", base_path)
+        if not os.path.exists(base_path):
+            sys.path.append(base_path)
     try:
         module = importlib.import_module(name)
     except ModuleNotFoundError:
         try:
             module = import_from_directories(name, base_path=base_path)
         except Exception as e:
-            raise ImportError(f"Module '{name}' not found ", e) from e
+            raise ImportError(
+                f"Module load error for {name}, base_path={base_path} ", e
+            ) from e
     return module
 
 
@@ -107,6 +120,7 @@ def invoke_config(config, allow_source_expression=False):
     If any parameters are a function, then we need to return a lambda function that will call
     the function when invoked.
     """
+    path = config.get("path")
     module = config.get("module")
     obj = config.get("object")
     attribute = config.get("attribute")
@@ -117,7 +131,7 @@ def invoke_config(config, allow_source_expression=False):
         raise ValueError("Cannot have both module and object in an 'invoke' config")
 
     if module:
-        obj = import_module(module)
+        obj = import_module(module, base_path=path)
         # obj = import_module(module)
 
     if obj:
