@@ -49,7 +49,7 @@ def main(files):
         full_config = merge_config(full_config, config)
 
     # Create the application
-    app = SolaceAiEventConnector(config)
+    app = SolaceAiEventConnector(full_config)
 
     # Start the application
     app.run()
