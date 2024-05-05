@@ -46,7 +46,7 @@ class Message:
     #
     # The type of the data returned will depend on the data type specified. It could be an object,
     # array, string, etc.
-    def get_data(self, expression, calling_object=None):
+    def get_data(self, expression, calling_object=None, data_type=None):
         # If the expression is callable, call it
         if callable(expression):
             return expression(self)
@@ -59,7 +59,23 @@ class Message:
             return expression.split(":", 1)[1]
         data_object = self.get_data_object(expression, calling_object=calling_object)
         data = self.get_data_value(data_object, expression)
+
+        if data_type:
+            data = self.convert_data_type(data, data_type)
+
         return data
+
+    def convert_data_type(self, data, data_type):
+        type_map = {
+            "string": str,
+            "int": int,
+            "float": float,
+            "bool": bool,
+        }
+        if isinstance(data, (dict, list)):
+            # Can't convert a dict or list to a primitive type
+            return data
+        return type_map.get(data_type, str)(data)
 
     def set_data(self, expression, value):
         if ":" not in expression:

@@ -1,13 +1,13 @@
 import threading
 import queue
 import base64
-from copy import deepcopy
 import requests
 
 
-from slack_bolt import App  # pylint: disable=import-error
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from solace_ai_event_connector.flow_components.inputs_outputs.slack_base import (
+    SlackBase,
+)
 from solace_ai_event_connector.common.message import Message
 from solace_ai_event_connector.common.log import log
 
@@ -30,6 +30,11 @@ info = {
             "description": "The Slack app token to connect to Slack.",
         },
         {
+            "name": "share_slack_connection",
+            "type": "string",
+            "description": "Share the Slack connection with other components in this instance.",
+        },
+        {
             "name": "max_file_size",
             "type": "number",
             "description": "The maximum file size to download from Slack in MB. Default: 20MB",
@@ -39,7 +44,8 @@ info = {
         {
             "name": "max_total_file_size",
             "type": "number",
-            "description": "The maximum total file size to download from Slack in MB. Default: 20MB",
+            "description": "The maximum total file size to download "
+            "from Slack in MB. Default: 20MB",
             "default": 20,
             "required": False,
         },
@@ -117,12 +123,9 @@ info = {
 }
 
 
-class SlackInput(ComponentBase):
+class SlackInput(SlackBase):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.slack_bot_token = self.get_config("slack_bot_token")
-        self.slack_app_token = self.get_config("slack_app_token")
-        self.app = App(token=self.slack_bot_token)
         self.slack_receiver_queue = None
         self.slack_receiver = None
         self.init_slack_receiver()
@@ -154,8 +157,8 @@ class SlackInput(ComponentBase):
         message = self.slack_receiver_queue.get()
         return message
 
-    def invoke(self, message, data):
-        return deepcopy(message.get_payload())
+    def invoke(self, _message, data):
+        return data
 
 
 class SlackReceiver(threading.Thread):
@@ -216,21 +219,33 @@ class SlackReceiver(threading.Thread):
 
         user_email = self.get_user_email(event["user"])
         (text, mention_emails) = self.process_text_for_mentions(event["text"])
-        obj = {
+        payload = {
             "text": text,
             "files": files,
             "user_email": user_email,
             "mentions": mention_emails,
             "type": event.get("type"),
             "client_msg_id": event.get("client_msg_id"),
-            "ts": event.get("ts"),
+            "ts": event.get("thread_ts") or event.get("ts"),
             "channel": event.get("channel"),
             "subtype": event.get("subtype"),
             "event_ts": event.get("event_ts"),
             "channel_type": event.get("channel_type"),
             "user_id": event.get("user"),
         }
-        message = Message(payload=obj)
+        user_properties = {
+            "user_email": user_email,
+            "type": event.get("type"),
+            "client_msg_id": event.get("client_msg_id"),
+            "ts": event.get("thread_ts") or event.get("ts"),
+            "channel": event.get("channel"),
+            "subtype": event.get("subtype"),
+            "event_ts": event.get("event_ts"),
+            "channel_type": event.get("channel_type"),
+            "user_id": event.get("user"),
+        }
+        message = Message(payload=payload, user_properties=user_properties)
+        message.set_previous(payload)
         self.input_queue.put(message)
 
     def download_file_as_base64_string(self, file_url):
@@ -251,13 +266,16 @@ class SlackReceiver(threading.Thread):
             if mention.startswith("U"):
                 user_id = mention.split(">")[0]
                 response = self.app.client.users_info(user=user_id)
-                mention_emails.append(
-                    response.get("user", {}).get("profile", {}).get("email")
-                )
-                text = text.replace(
-                    f"<@{user_id}>",
-                    response.get("user", {}).get("profile", {}).get("email"),
-                )
+                profile = response.get("user", {}).get("profile")
+                if profile:
+                    replacement = profile.get(
+                        "email", "<@" + profile.get("real_name_normalized") + ">"
+                    )
+                    mention_emails.append(replacement)
+                    text = text.replace(
+                        f"<@{user_id}>",
+                        replacement,
+                    )
         return text, mention_emails
 
     def register_handlers(self):

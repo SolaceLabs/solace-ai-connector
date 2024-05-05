@@ -34,7 +34,11 @@ class Iterate(ComponentBase):
             # Create a new message for each item unless it is the last item
             # in which case we reuse the existing message
             if item != data[-1]:
-                new_message = Message(payload=item)
+                topic = message.get_topic()
+                user_properties = message.get_user_properties()
+                new_message = Message(
+                    payload=item, topic=topic, user_properties=user_properties
+                )
             else:
                 new_message = message
 

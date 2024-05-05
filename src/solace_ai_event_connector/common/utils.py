@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import sys
+import re
 import builtins
 
 from solace_ai_event_connector.common.log import log
@@ -173,9 +174,9 @@ def call_function(function, params, allow_source_expression):
                 #     raise ValueError(
                 #         "source_expression() is not allowed in this context"
                 #     )
-                expression = extract_source_expression(value)
+                (expression, data_type) = extract_source_expression(value)
                 positional[index] = create_lambda_function_for_source_expression(
-                    expression
+                    expression, data_type=data_type
                 )
                 have_lambda = True
             elif callable(value):
@@ -187,8 +188,10 @@ def call_function(function, params, allow_source_expression):
                     raise ValueError(
                         "source_expression() is not allowed in this context"
                     )
-                expression = extract_source_expression(value)
-                keyword[key] = create_lambda_function_for_source_expression(expression)
+                (expression, data_type) = extract_source_expression(value)
+                keyword[key] = create_lambda_function_for_source_expression(
+                    expression, data_type=data_type
+                )
                 have_lambda = True
             elif callable(value):
                 have_lambda = True
@@ -210,9 +213,13 @@ def extract_source_expression(se_call):
     # First remove the source_expression( and the trailing )
     # Account for possible whitespace
     expression = se_call.split("source_expression(")[1].split(")")[0].strip()
+    data_type = None
+    if "," in expression:
+        (expression, data_type) = re.split(r"\s*,\s*", expression)
+
     if not expression:
         raise ValueError("source_expression() must contain an expression")
-    return expression
+    return (expression, data_type)
 
 
 def call_function_with_params(message, function, positional, keyword):
@@ -236,9 +243,9 @@ def call_function_with_params(message, function, positional, keyword):
     return function()
 
 
-def create_lambda_function_for_source_expression(source_expression):
+def create_lambda_function_for_source_expression(source_expression, data_type=None):
     """Create a lambda function that will call the source expression when invoked"""
-    return lambda message: message.get_data(source_expression)
+    return lambda message: message.get_data(source_expression, data_type=data_type)
 
 
 def get_source_expression(config_obj, key="source_expression"):

@@ -1,0 +1,50 @@
+---
+# Example uses goes from STDIN to STDOUT with a chat model with history
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+
+# List of flows
+flows:
+  - name: test_flow
+    components:
+
+      # Input from a Solace broker
+      - component_name: stdin
+        component_module: stdin_input
+        component_config:
+
+      - component_name: chat_with_history
+        component_module: langchain_chat_model_with_history
+        component_config:
+          langchain_module: langchain_aws
+          langchain_class: ChatBedrock
+          langchain_component_config:
+            model_id: anthropic.claude-3-sonnet-20240229-v1:0
+            model_kwargs:
+              temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 2
+          history_max_length: 6000
+        input_transforms:
+          - type: copy
+            source_value: 1
+            dest_expression: user_data.temp:session_id
+          - type: copy
+            source_value:
+                content: "You are a helpful assistant"
+                role: "system"
+            dest_expression: user_data.temp:messages.0
+          - type: copy
+            source_expression: input.payload:text
+            dest_expression: user_data.temp:messages.1.content
+          - type: copy
+            source_value: user
+            dest_expression: user_data.temp:messages.1.role
+        component_input:
+          source_expression: user_data.temp
+
+      - component_name: stdout
+        component_module: stdout_output

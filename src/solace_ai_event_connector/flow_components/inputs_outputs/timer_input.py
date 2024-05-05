@@ -25,6 +25,8 @@ info = {
             "then the component will always wait at least the interval time before "
             "generating the next message. Note that due to some messages in the pipeline, there "
             "will always be a couple of quick messages generated.",
+            "default": False,
+            "required": False,
         },
     ],
     "output_schema": "any",
