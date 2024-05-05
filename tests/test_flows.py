@@ -1,6 +1,7 @@
 """This test file tests all things to do with the flows and the components that make up the flows"""
 
 import pytest
+import time
 
 from utils_for_test_files import (
     create_test_flows,
@@ -159,3 +160,42 @@ flows:
     assert len(flows) == 2
     assert flows[0].name == "test_flow"
     assert flows[1].name == "test_flow2"
+
+
+def test_multiple_flow_instances():
+    """Test that multiple flow instances work"""
+    config_yaml = """
+log:
+  log_file_level: DEBUG
+  log_file: solace_ai_event_connector.log
+flows:
+  - name: test_flow
+    num_instances: 4
+    components:
+      - component_name: delay1
+        component_module: delay
+        component_input:
+          source_expression: input.payload:text
+"""
+    # Create the connector
+    connector, flows = create_test_flows(config_yaml)
+
+    # Send the same message through the flow 16 times
+    for i in range(16):
+        message = Message(payload={"text": "Hello, World!"})
+        send_message_to_flow(flows[i % 4], message)
+
+    # Get the current time
+    start_time = time.time()
+
+    # Verify that the messages are received in order
+    for i in range(16):
+        output_message = get_message_from_flow(flows[i % 4])
+        assert output_message.get_data("previous") == "Hello, World!"
+
+    # Check the time taken - it should be less than 5 seconds
+    end_time = time.time()
+    assert end_time - start_time < 5
+    assert end_time - start_time > 3
+
+    dispose_connector(connector)

@@ -20,8 +20,6 @@ info = {
 
 
 class Stdout(ComponentBase):
-    def send_message(self, message):
-        pass
 
     def invoke(self, message, data):
         # Print the message to STDOUT

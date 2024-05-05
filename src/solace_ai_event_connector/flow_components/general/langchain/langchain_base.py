@@ -37,7 +37,6 @@ class LangChainBase(ComponentBase):
 
     def create_component(self, config, cls):
         component = None
-        component = cls(**config)
         if not config:
             config = {}
         try:

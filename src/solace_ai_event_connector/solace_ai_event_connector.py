@@ -44,14 +44,20 @@ class SolaceAiEventConnector:
         """Loop through the flows and create them"""
         for index, flow in enumerate(self.config.get("flows", [])):
             log.debug("Creating flow %s", flow.get("name"))
-            flow_instance = self.create_flow(flow, index)
-            self.flows.append(flow_instance)
+            num_instances = flow.get("num_instances", 1)
+            if num_instances < 1:
+                num_instances = 1
+            for i in range(num_instances):
+                flow_instance = self.create_flow(flow, index, i)
+                self.flows.append(flow_instance)
 
-    def create_flow(self, flow: dict, index: int):
+    def create_flow(self, flow: dict, index: int, flow_instance_index: int):
         """Create a single flow"""
+
         return Flow(
             flow_config=flow,
             flow_index=index,
+            flow_instance_index=flow_instance_index,
             stop_signal=self.stop_signal,
             error_queue=self.error_queue,
             instance_name=self.instance_name,
