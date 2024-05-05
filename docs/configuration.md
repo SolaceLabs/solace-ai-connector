@@ -133,9 +133,15 @@ Here is an example of using the `invoke_functions` module to do some simple oper
 ##### source_expression()
 
 If the `invoke` block is used within an area of the configuration that relates to message processing 
-(e.g. input_transforms), an invoke function call can use the special function `source_expression()` for 
+(e.g. input_transforms), an invoke function call can use the special function `source_expression(<expression>[, type])` for 
 any of its parameters. This function will be replaced with the value of the source expression at runtime.
-It is an error to use `source_expression()` outside of a message processing.
+It is an error to use `source_expression()` outside of a message processing. The second parameter is optional
+and will convert the result to the specified type. The following types are supported:
+- `int`
+- `float`
+- `bool`
+- `str`
+If the value is a dict or list, the type request will be ignored
 
 Example:
 ```yaml
@@ -150,12 +156,13 @@ Example:
               function: add
               params:
                 positional:
-                  - source_expression(input.payload:my_obj.val1)
+                  - source_expression(input.payload:my_obj.val1, int)
                   - 2
          dest_expression: user_data.my_obj:result
 ```
 
-In the above example, the `source_expression()` function is used to get the value of `input.payload:my_obj.val1` and add 2 to it.
+In the above example, the `source_expression()` function is used to get the value of `input.payload:my_obj.val1`,
+convert it to an `int` and add 2 to it.
 
 ##### user_processor component and invoke
 

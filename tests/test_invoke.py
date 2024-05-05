@@ -581,6 +581,98 @@ def test_invoke_with_source_expression_simple():
     assert config == {"source_expression": 3}
 
 
+def test_invoke_with_source_expression_cast_to_int():
+    """Verify that the source expression is evaluated"""
+    config = resolve_config_values(
+        {
+            "source_expression": {
+                "invoke": {
+                    "module": "invoke_functions",
+                    "function": "add",
+                    "params": {
+                        "positional": [
+                            "source_expression(input.payload:my_obj.val1, int )",
+                            2,
+                        ],
+                    },
+                },
+            },
+        }
+    )
+    message = Message(payload={"my_obj": {"val1": "1"}})
+    config["source_expression"] = config["source_expression"](message)
+    assert config == {"source_expression": 3}
+
+
+def test_invoke_with_source_expression_cast_to_float():
+    """Verify that the source expression is evaluated"""
+    config = resolve_config_values(
+        {
+            "source_expression": {
+                "invoke": {
+                    "module": "invoke_functions",
+                    "function": "add",
+                    "params": {
+                        "positional": [
+                            "source_expression(input.payload:my_obj.val1, float )",
+                            2,
+                        ],
+                    },
+                },
+            },
+        }
+    )
+    message = Message(payload={"my_obj": {"val1": "1.1"}})
+    config["source_expression"] = config["source_expression"](message)
+    assert config == {"source_expression": 3.1}
+
+
+def test_invoke_with_source_expression_cast_to_bool():
+    """Verify that the source expression is evaluated"""
+    config = resolve_config_values(
+        {
+            "source_expression": {
+                "invoke": {
+                    "module": "invoke_functions",
+                    "function": "and_op",
+                    "params": {
+                        "positional": [
+                            "source_expression(input.payload:my_obj.val1 , bool )",
+                            True,
+                        ],
+                    },
+                },
+            },
+        }
+    )
+    message = Message(payload={"my_obj": {"val1": "True"}})
+    config["source_expression"] = config["source_expression"](message)
+    assert config == {"source_expression": True}
+
+
+def test_invoke_with_source_expression_cast_to_str():
+    """Verify that the source expression is evaluated"""
+    config = resolve_config_values(
+        {
+            "source_expression": {
+                "invoke": {
+                    "module": "invoke_functions",
+                    "function": "add",
+                    "params": {
+                        "positional": [
+                            "source_expression(input.payload:my_obj.val1,str)",
+                            "2",
+                        ],
+                    },
+                },
+            },
+        }
+    )
+    message = Message(payload={"my_obj": {"val1": 1}})
+    config["source_expression"] = config["source_expression"](message)
+    assert config == {"source_expression": "12"}
+
+
 def test_invoke_with_source_expression_keyword():
     """Verify that the source expression is evaluated"""
     config = resolve_config_values(

@@ -14,6 +14,7 @@ class Flow:
         instance_name=None,
         storage_manager=None,
         trace_queue=None,
+        flow_instance_index=0,
     ):
         self.flow_config = flow_config
         self.flow_index = flow_index
@@ -25,6 +26,7 @@ class Flow:
         self.instance_name = instance_name
         self.storage_manager = storage_manager
         self.trace_queue = trace_queue
+        self.flow_instance_index = flow_instance_index
         self.threads = []
         self.create_components()
 

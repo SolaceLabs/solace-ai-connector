@@ -62,6 +62,23 @@ info = {
             "description": "Propagate acknowledgements from the broker to the previous components",
             "default": True,
         },
+        {
+            "name": "copy_user_properties",
+            "required": False,
+            "description": "Copy user properties from the input message",
+            "default": False,
+        },
+        {
+            "name": "decrement_ttl",
+            "required": False,
+            "description": "If present, decrement the user_properties.ttl by 1",
+        },
+        {
+            "name": "discard_on_ttl_expiration",
+            "required": False,
+            "description": "If present, discard the message when the user_properties.ttl is 0",
+            "default": False,
+        },
     ],
     "input_schema": {
         "type": "object",
@@ -86,6 +103,8 @@ class BrokerOutput(BrokerBase):
         super().__init__(**kwargs)
         self.needs_acknowledgement = False
         self.propagate_acknowledgements = self.get_config("propagate_acknowledgements")
+        self.copy_user_properties = self.get_config("copy_user_properties")
+        self.decrement_ttl = self.get_config("decrement_ttl")
         self.connect()
 
     def invoke(self, message, data):
@@ -127,7 +146,24 @@ class BrokerOutput(BrokerBase):
         egress_data = message.get_data("previous")
         payload = self.encode_payload(egress_data.get("payload", ""))
         topic = egress_data.get("topic")
-        user_properties = egress_data.get("user_properties")
+        user_properties = {}
+        if self.copy_user_properties:
+            user_properties = message.get_user_properties()
+
+        if egress_data.get("user_properties"):
+            # Merge user properties from the input message with the user properties from the config
+            user_properties.update(egress_data.get("user_properties"))
+
+        if self.decrement_ttl and user_properties.get("ttl"):
+            user_properties["ttl"] = int(user_properties["ttl"]) - 1
+
+        if (
+            self.get_config("discard_on_ttl_expiration")
+            and user_properties.get("ttl") <= 0
+        ):
+            log.info("Discarding message due to TTL expiration: %s", message)
+            return
+
         log.debug(
             "Sending message to broker: topic=%s, user_properties=%s, payload=%s",
             topic,
