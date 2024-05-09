@@ -384,7 +384,9 @@ class Message:
     def call_acknowledgements(self):
         """Call all the ack callbacks. This is used to notify the previous components that the
         message has been acknowledged."""
-        for callback in self.ack_callbacks:
+        ack_callbacks = self.ack_callbacks
+        self.ack_callbacks = []
+        for callback in ack_callbacks:
             callback()
 
     def set_topic_delimiter(self, topic_delimiter):
