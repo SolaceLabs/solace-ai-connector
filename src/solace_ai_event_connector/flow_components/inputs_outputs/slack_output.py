@@ -131,7 +131,11 @@ class SlackOutput(SlackBase):
         thread_ts = message.get_data("previous:ts")
 
         if not isinstance(messages, list):
-            messages = [messages]
+            if messages is not None:
+                messages = [messages]
+            else:
+                messages = []
+
         for text in messages:
             self.app.client.chat_postMessage(
                 channel=channel, text=text, thread_ts=thread_ts
@@ -140,7 +144,7 @@ class SlackOutput(SlackBase):
         for file in files:
             file_content = base64.b64decode(file["content"])
             self.app.client.files_upload_v2(
-                channels=channel,
+                channel=channel,
                 file=file_content,
                 thread_ts=thread_ts,
                 filename=file["name"],

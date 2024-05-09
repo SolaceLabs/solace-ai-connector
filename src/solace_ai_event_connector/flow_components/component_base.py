@@ -82,6 +82,7 @@ class ComponentBase:
                     traceback.format_exc(),
                 )
                 if self.error_queue:
+                    user_properties = message.get_user_properties() if message else {}
                     error_message = {
                         "error": {
                             "text": str(e),
@@ -98,12 +99,19 @@ class ComponentBase:
                         error_message["message"] = {
                             "payload": message.get_payload(),
                             "topic": message.get_topic(),
-                            "user_properties": message.get_user_properties(),
+                            "user_properties": user_properties,
                             "user_data": message.get_user_data(),
                             "previous": message.get_previous(),
                         }
+                        # Call the acknowledgements
+                        message.call_acknowledgements()
 
-                    self.error_queue.put(Message(payload=error_message))
+                    self.error_queue.put(
+                        Message(
+                            payload=error_message,
+                            user_properties=user_properties,
+                        )
+                    )
 
         self.stop_component()
 
