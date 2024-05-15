@@ -49,6 +49,20 @@ info = {
             "default": 20,
             "required": False,
         },
+        {
+            "name": "listen_to_channels",
+            "type": "boolean",
+            "description": "Whether to listen to channels or not. Default: False",
+            "default": False,
+            "required": False,
+        },
+        {
+            "name": "send_history_on_join",
+            "type": "boolean",
+            "description": "Send history on join. Default: False",
+            "default": False,
+            "required": False,
+        },
     ],
     "output_schema": {
         "type": "object",
@@ -142,6 +156,8 @@ class SlackInput(SlackBase):
             stop_event=self.stop_receiver_event,
             max_file_size=self.get_config("max_file_size"),
             max_total_file_size=self.get_config("max_total_file_size"),
+            listen_to_channels=self.get_config("listen_to_channels"),
+            send_history_on_join=self.get_config("send_history_on_join"),
         )
         self.slack_receiver.start()
 
@@ -171,6 +187,8 @@ class SlackReceiver(threading.Thread):
         stop_event,
         max_file_size=20,
         max_total_file_size=20,
+        listen_to_channels=False,
+        send_history_on_join=False,
     ):
         threading.Thread.__init__(self)
         self.app = app
@@ -180,13 +198,24 @@ class SlackReceiver(threading.Thread):
         self.stop_event = stop_event
         self.max_file_size = max_file_size
         self.max_total_file_size = max_total_file_size
+        self.listen_to_channels = listen_to_channels
+        self.send_history_on_join = send_history_on_join
         self.register_handlers()
 
     def run(self):
         SocketModeHandler(self.app, self.slack_app_token).connect()
         self.stop_event.wait()
 
-    def handle_event(self, event):
+    def handle_channel_event(self, event):
+        # For now, just do the normal handling
+        channel_name = (self.get_channel_name(event.get("channel")),)
+
+        self.handle_event(event, channel_name)
+
+    def handle_group_event(self, event):
+        log.info("Received a private group event. Ignoring.")
+
+    def handle_event(self, event, channel_name=None):
         files = []
         total_file_size = 0
         if "files" in event:
@@ -228,6 +257,7 @@ class SlackReceiver(threading.Thread):
             "client_msg_id": event.get("client_msg_id"),
             "ts": event.get("thread_ts") or event.get("ts"),
             "channel": event.get("channel"),
+            "channel_name": channel_name or "",
             "subtype": event.get("subtype"),
             "event_ts": event.get("event_ts"),
             "channel_type": event.get("channel_type"),
@@ -256,7 +286,7 @@ class SlackReceiver(threading.Thread):
 
     def get_user_email(self, user_id):
         response = self.app.client.users_info(user=user_id)
-        return response["user"]["profile"]["email"]
+        return response["user"]["profile"].get("email", "")
 
     def process_text_for_mentions(self, text):
         mention_emails = []
@@ -278,11 +308,80 @@ class SlackReceiver(threading.Thread):
                     )
         return text, mention_emails
 
+    def get_channel_name(self, channel_id):
+        response = self.app.client.conversations_info(channel=channel_id)
+        return response["channel"].get("name")
+
+    def get_channel_history(self, channel_id):
+        response = self.app.client.conversations_history(channel=channel_id)
+
+        # Go through the messages and remove any that have a sub_type
+        messages = []
+        for message in response["messages"]:
+            if "subtype" not in message and "text" in message:
+                payload = {
+                    "text": message.get("text"),
+                    "user_email": self.get_user_email(message.get("user")),
+                    "mentions": [],
+                    "type": message.get("type"),
+                    "client_msg_id": message.get("client_msg_id"),
+                    "ts": message.get("ts"),
+                    "channel": channel_id,
+                    "subtype": message.get("subtype"),
+                    "user_id": message.get("user"),
+                }
+                messages.append(message)
+
+        return messages
+
+    def handle_new_channel_join(self, event):
+        """We have been added to a new channel. This will get all the history and send it to the input queue."""
+        history = self.get_channel_history(event.get("channel"))
+        payload = {
+            "text": "New channel joined",
+            "user_email": "",
+            "mentions": [],
+            "type": "channel_join",
+            "client_msg_id": "",
+            "ts": "",
+            "channel": event.get("channel"),
+            "subtype": "channel_join",
+            "event_ts": "",
+            "channel_type": "channel",
+            "channel_name": self.get_channel_name(event.get("channel")),
+            "user_id": "",
+            "history": history,
+        }
+        user_properties = {
+            "type": "channel_join",
+            "channel": event.get("channel"),
+            "subtype": "channel_join",
+            "channel_type": "channel",
+        }
+        message = Message(payload=payload, user_properties=user_properties)
+        message.set_previous(payload)
+        self.input_queue.put(message)
+
     def register_handlers(self):
         @self.app.event("message")
         def handle_chat_message(event):
-            self.handle_event(event)
+            print("Got message event: ", event, event.get("channel_type"))
+            if event.get("channel_type") == "im":
+                self.handle_event(event)
+            elif event.get("channel_type") == "channel":
+                self.handle_channel_event(event)
+            elif event.get("channel_type") == "group":
+                self.handle_group_event(event)
 
         @self.app.event("app_mention")
         def handle_app_mention(event):
+            print("Got app_mention event: ", event)
             self.handle_event(event)
+
+        @self.app.event("member_joined_channel")
+        def handle_member_joined_channel(event, say, context):
+            if (
+                self.send_history_on_join
+                and event.get("user") == context["bot_user_id"]
+            ):
+                self.handle_new_channel_join(event)

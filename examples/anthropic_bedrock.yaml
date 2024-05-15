@@ -53,7 +53,7 @@ flows:
           payload_encoding: utf-8
           payload_format: text
 
-      - component_name: azure_openai_llm
+      - component_name: llm
         component_module: langchain_chat_model
         # Anthropic Claude2 in AWS Bedrock
         component_config:
