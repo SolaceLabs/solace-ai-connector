@@ -18,6 +18,7 @@ class SolaceAiEventConnector:
         self.flows = []
         self.trace_queue = None
         self.trace_thread = None
+        self.flow_input_queues = {}
         self.stop_signal = threading.Event()
         self.event_handlers = event_handlers or {}
         self.error_queue = error_queue if error_queue else queue.Queue()
@@ -49,6 +50,8 @@ class SolaceAiEventConnector:
                 num_instances = 1
             for i in range(num_instances):
                 flow_instance = self.create_flow(flow, index, i)
+                flow_input_queue = flow_instance.get_flow_input_queue()
+                self.flow_input_queues[flow.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
 
     def create_flow(self, flow: dict, index: int, flow_instance_index: int):
@@ -63,7 +66,16 @@ class SolaceAiEventConnector:
             instance_name=self.instance_name,
             storage_manager=self.storage_manager,
             trace_queue=self.trace_queue,
+            connector=self,
         )
+
+    def send_message_to_flow(self, flow_name, message):
+        """Send a message to a flow"""
+        flow_input_queue = self.flow_input_queues.get(flow_name)
+        if flow_input_queue:
+            flow_input_queue.put(message)
+        else:
+            log.error("Can't send message to flow %s. Not found", flow_name)
 
     def wait_for_flows(self):
         """Wait for the flows to finish"""

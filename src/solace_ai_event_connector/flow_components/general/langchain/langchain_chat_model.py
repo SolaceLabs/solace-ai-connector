@@ -13,5 +13,7 @@ info["class_name"] = "LangChainChatModel"
 
 class LangChainChatModel(LangChainChatModelBase):
 
-    def invoke_model(self, messages, session_id=None, clear_history=False):
+    def invoke_model(
+        self, input_message, messages, session_id=None, clear_history=False
+    ):
         return self.component.invoke(messages)

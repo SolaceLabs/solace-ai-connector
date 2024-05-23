@@ -30,6 +30,7 @@ class ComponentBase:
         self.instance_name = kwargs.pop("instance_name", None)
         self.storage_manager = kwargs.pop("storage_manager", None)
         self.trace_queue = kwargs.pop("trace_queue", False)
+        self.connector = kwargs.pop("connector", None)
 
         self.component_config = self.config.get("component_config") or {}
         self.name = self.config.get("component_name", "<unnamed>")
@@ -225,6 +226,10 @@ class ComponentBase:
             message.call_acknowledgements()
             return
         self.next_component.enqueue(message)
+
+    def send_to_flow(self, flow_name, message):
+        if self.connector:
+            self.connector.send_message_to_flow(flow_name, message)
 
     def enqueue(self, message):
         # Add the message to the input queue

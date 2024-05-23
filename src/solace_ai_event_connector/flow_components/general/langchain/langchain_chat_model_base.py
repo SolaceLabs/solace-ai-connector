@@ -112,7 +112,7 @@ class LangChainChatModelBase(LangChainBase):
         clear_history = data.get("clear_history", False)
 
         llm_res = self.invoke_model(
-            messages, session_id=session_id, clear_history=clear_history
+            message, messages, session_id=session_id, clear_history=clear_history
         )
 
         res_format = self.get_config("llm_response_format", "text")
@@ -134,5 +134,7 @@ class LangChainChatModelBase(LangChainBase):
             return llm_res.content
 
     @abstractmethod
-    def invoke_model(self, messages, session_id=None, clear_history=False):
+    def invoke_model(
+        self, input_message, messages, session_id=None, clear_history=False
+    ):
         pass

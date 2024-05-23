@@ -63,6 +63,12 @@ info = {
             "default": False,
             "required": False,
         },
+        {
+            "name": "acknowledgement_message",
+            "type": "string",
+            "description": "The message to send to acknowledge the user's message has been received.",
+            "required": False,
+        },
     ],
     "output_schema": {
         "type": "object",
@@ -158,6 +164,7 @@ class SlackInput(SlackBase):
             max_total_file_size=self.get_config("max_total_file_size"),
             listen_to_channels=self.get_config("listen_to_channels"),
             send_history_on_join=self.get_config("send_history_on_join"),
+            acknowledgement_message=self.get_config("acknowledgement_message"),
         )
         self.slack_receiver.start()
 
@@ -189,6 +196,7 @@ class SlackReceiver(threading.Thread):
         max_total_file_size=20,
         listen_to_channels=False,
         send_history_on_join=False,
+        acknowledgement_message=None,
     ):
         threading.Thread.__init__(self)
         self.app = app
@@ -200,6 +208,7 @@ class SlackReceiver(threading.Thread):
         self.max_total_file_size = max_total_file_size
         self.listen_to_channels = listen_to_channels
         self.send_history_on_join = send_history_on_join
+        self.acknowledgement_message = acknowledgement_message
         self.register_handlers()
 
     def run(self):
@@ -208,14 +217,15 @@ class SlackReceiver(threading.Thread):
 
     def handle_channel_event(self, event):
         # For now, just do the normal handling
-        channel_name = (self.get_channel_name(event.get("channel")),)
+        channel_name = self.get_channel_name(event.get("channel"))
+        event["channel_name"] = channel_name
 
-        self.handle_event(event, channel_name)
+        self.handle_event(event)
 
     def handle_group_event(self, event):
         log.info("Received a private group event. Ignoring.")
 
-    def handle_event(self, event, channel_name=None):
+    def handle_event(self, event):
         files = []
         total_file_size = 0
         if "files" in event:
@@ -246,18 +256,30 @@ class SlackReceiver(threading.Thread):
                     }
                 )
 
+        team_domain = None
+        try:
+            permalink = self.app.client.chat_getPermalink(
+                channel=event["channel"], message_ts=event["event_ts"]
+            )
+            team_domain = permalink.get("permalink", "").split("//")[1]
+            team_domain = team_domain.split(".")[0]
+        except Exception as e:
+            log.error("Error getting team domain: %s", e)
+
         user_email = self.get_user_email(event["user"])
         (text, mention_emails) = self.process_text_for_mentions(event["text"])
         payload = {
             "text": text,
             "files": files,
             "user_email": user_email,
+            "team_id": event.get("team"),
+            "team_domain": team_domain,
             "mentions": mention_emails,
             "type": event.get("type"),
             "client_msg_id": event.get("client_msg_id"),
-            "ts": event.get("thread_ts") or event.get("ts"),
+            "ts": event.get("thread_ts"),
             "channel": event.get("channel"),
-            "channel_name": channel_name or "",
+            "channel_name": event.get("channel_name", ""),
             "subtype": event.get("subtype"),
             "event_ts": event.get("event_ts"),
             "channel_type": event.get("channel_type"),
@@ -265,15 +287,25 @@ class SlackReceiver(threading.Thread):
         }
         user_properties = {
             "user_email": user_email,
+            "team_id": event.get("team"),
             "type": event.get("type"),
             "client_msg_id": event.get("client_msg_id"),
-            "ts": event.get("thread_ts") or event.get("ts"),
+            "ts": event.get("thread_ts"),
             "channel": event.get("channel"),
             "subtype": event.get("subtype"),
             "event_ts": event.get("event_ts"),
             "channel_type": event.get("channel_type"),
             "user_id": event.get("user"),
         }
+
+        if self.acknowledgement_message:
+            ack_msg_ts = self.app.client.chat_postMessage(
+                channel=event["channel"],
+                text=self.acknowledgement_message,
+                thread_ts=event.get("thread_ts"),
+            ).get("ts")
+            user_properties["ack_msg_ts"] = ack_msg_ts
+
         message = Message(payload=payload, user_properties=user_properties)
         message.set_previous(payload)
         self.input_queue.put(message)
@@ -286,7 +318,7 @@ class SlackReceiver(threading.Thread):
 
     def get_user_email(self, user_id):
         response = self.app.client.users_info(user=user_id)
-        return response["user"]["profile"].get("email", "")
+        return response["user"]["profile"].get("email", user_id)
 
     def process_text_for_mentions(self, text):
         mention_emails = []
@@ -312,31 +344,52 @@ class SlackReceiver(threading.Thread):
         response = self.app.client.conversations_info(channel=channel_id)
         return response["channel"].get("name")
 
-    def get_channel_history(self, channel_id):
+    def get_channel_history(self, channel_id, team_id):
         response = self.app.client.conversations_history(channel=channel_id)
+
+        # First search through messages to get all their replies
+        messages_to_add = []
+        for message in response["messages"]:
+            if "subtype" not in message and "text" in message:
+                if "reply_count" in message:
+                    # Get the replies
+                    replies = self.app.client.conversations_replies(
+                        channel=channel_id, ts=message.get("ts")
+                    )
+                    messages_to_add.extend(replies["messages"])
+
+        response["messages"].extend(messages_to_add)
 
         # Go through the messages and remove any that have a sub_type
         messages = []
+        emails = {}
         for message in response["messages"]:
             if "subtype" not in message and "text" in message:
+                if message.get("user") not in emails:
+                    emails[message.get("user")] = self.get_user_email(
+                        message.get("user")
+                    )
                 payload = {
                     "text": message.get("text"),
-                    "user_email": self.get_user_email(message.get("user")),
+                    "team_id": team_id,
+                    "user_email": emails[message.get("user")],
                     "mentions": [],
                     "type": message.get("type"),
-                    "client_msg_id": message.get("client_msg_id"),
+                    "client_msg_id": message.get("client_msg_id") or message.get("ts"),
                     "ts": message.get("ts"),
+                    "event_ts": message.get("event_ts") or message.get("ts"),
                     "channel": channel_id,
                     "subtype": message.get("subtype"),
                     "user_id": message.get("user"),
+                    "message_id": message.get("client_msg_id"),
                 }
-                messages.append(message)
+                messages.append(payload)
 
         return messages
 
     def handle_new_channel_join(self, event):
         """We have been added to a new channel. This will get all the history and send it to the input queue."""
-        history = self.get_channel_history(event.get("channel"))
+        history = self.get_channel_history(event.get("channel"), event.get("team"))
         payload = {
             "text": "New channel joined",
             "user_email": "",
@@ -376,6 +429,8 @@ class SlackReceiver(threading.Thread):
         @self.app.event("app_mention")
         def handle_app_mention(event):
             print("Got app_mention event: ", event)
+            event["channel_type"] = "im"
+            event["channel_name"] = self.get_channel_name(event.get("channel"))
             self.handle_event(event)
 
         @self.app.event("member_joined_channel")
