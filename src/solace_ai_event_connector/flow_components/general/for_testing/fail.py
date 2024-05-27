@@ -1,6 +1,6 @@
 """A simple component that simply passes the input to the output, but with a configurable delay"""
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ...component_base import ComponentBase
 
 
 info = {

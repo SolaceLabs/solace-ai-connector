@@ -1,7 +1,7 @@
 """Iterate over a list of items and output each one as a separate message"""
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
-from solace_ai_event_connector.common.message import Message
+from ..component_base import ComponentBase
+from ...common.message import Message
 
 info = {
     "class_name": "Iterate",

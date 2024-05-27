@@ -29,8 +29,8 @@ from solace.messaging.resources.topic_subscription import TopicSubscription
 from solace.messaging.resources.topic import Topic
 from solace import SOLACE_LOGGING_CONFIG
 
-from solace_ai_event_connector.common.messaging.messaging import Messaging
-from solace_ai_event_connector.common.log import log
+from .messaging import Messaging
+from ..log import log
 
 
 class MessageHandlerImpl(MessageHandler):

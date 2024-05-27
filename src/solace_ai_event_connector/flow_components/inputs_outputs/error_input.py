@@ -4,8 +4,8 @@ For example, the user could send the errors to a log or send them to a broker.""
 
 import time
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.flow_components.component_base import (
+from ...common.log import log
+from ..component_base import (
     ComponentBase,
 )
 

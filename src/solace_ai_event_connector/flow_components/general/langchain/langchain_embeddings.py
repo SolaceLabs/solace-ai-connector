@@ -1,7 +1,7 @@
 # This is a wrapper around all the LangChain Text Embedding models
 # The configuration will control dynamic loading of the specific model
 
-from solace_ai_event_connector.flow_components.general.langchain.langchain_base import (
+from .langchain_base import (
     LangChainBase,
 )
 

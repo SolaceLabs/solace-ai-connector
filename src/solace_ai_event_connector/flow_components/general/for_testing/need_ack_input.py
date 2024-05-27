@@ -2,7 +2,7 @@
 processing. This is used to test the ack functionality of the connector. 
 This component is used in the tests."""
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ...component_base import ComponentBase
 
 
 info = {

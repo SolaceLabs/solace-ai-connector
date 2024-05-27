@@ -6,11 +6,11 @@ import json
 import yaml
 
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.flow_components.inputs_outputs.broker_base import (
+from ...common.log import log
+from .broker_base import (
     BrokerBase,
 )
-from solace_ai_event_connector.common.message import Message
+from ...common.message import Message
 
 info = {
     "class_name": "BrokerOutput",

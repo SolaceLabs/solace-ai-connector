@@ -1,6 +1,6 @@
 # This is the base class for vector store embedding classes
 
-from solace_ai_event_connector.flow_components.general.langchain.langchain_base import (
+from .langchain_base import (
     LangChainBase,
 )
 

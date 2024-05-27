@@ -1,7 +1,7 @@
 """Main class for the flow"""
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.utils import import_module
+from ..common.utils import import_module
 
 
 class Flow:
@@ -15,6 +15,7 @@ class Flow:
         storage_manager=None,
         trace_queue=None,
         flow_instance_index=0,
+        connector=None,
     ):
         self.flow_config = flow_config
         self.flow_index = flow_index
@@ -27,6 +28,8 @@ class Flow:
         self.storage_manager = storage_manager
         self.trace_queue = trace_queue
         self.flow_instance_index = flow_instance_index
+        self.connector = connector
+        self.flow_input_queue = None
         self.threads = []
         self.create_components()
 
@@ -46,6 +49,8 @@ class Flow:
             for component in component_group:
                 thread = component.create_thread_and_run()
                 self.threads.append(thread)
+
+        self.flow_input_queue = self.component_groups[0][0].get_input_queue()
 
     def create_component_group(self, component, index):
         component_module = component.get("component_module", "")
@@ -82,6 +87,7 @@ class Flow:
                 instance_name=self.instance_name,
                 storage_manager=self.storage_manager,
                 trace_queue=self.trace_queue,
+                connector=self.connector,
             )
             sibling_component = component_instance
 
@@ -90,6 +96,9 @@ class Flow:
 
         # Add the component to the list
         self.component_groups.append(component_group)
+
+    def get_flow_input_queue(self):
+        return self.flow_input_queue
 
     def wait_for_threads(self):
         for thread in self.threads:

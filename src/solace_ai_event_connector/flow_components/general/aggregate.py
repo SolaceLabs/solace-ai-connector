@@ -3,9 +3,9 @@
 import time
 import math
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
-from solace_ai_event_connector.common.message import Message
+from ...common.log import log
+from ..component_base import ComponentBase
+from ...common.message import Message
 
 info = {
     "class_name": "Aggregate",

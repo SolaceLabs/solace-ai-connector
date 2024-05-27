@@ -1,6 +1,7 @@
 """A chat model based on LangChain that includes keeping per-session history of the conversation."""
 
 import threading
+from collections import namedtuple
 
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -12,7 +13,8 @@ from langchain.schema.messages import (
     SystemMessage,
 )
 
-from solace_ai_event_connector.flow_components.general.langchain.langchain_chat_model_base import (
+from ....common.message import Message
+from .langchain_chat_model_base import (
     LangChainChatModelBase,
     info_base,
 )
@@ -60,6 +62,23 @@ info["config_parameters"].extend(
             "description": "The configuration for the history class.",
             "type": "object",
         },
+        {
+            "name": "stream_to_flow",
+            "required": False,
+            "description": "Name the flow to stream the output to - this must be configured for llm_mode='stream'.",
+            "default": "",
+        },
+        {
+            "name": "llm_mode",
+            "required": False,
+            "description": "The mode for streaming results: 'sync' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response.",
+        },
+        {
+            "name": "stream_batch_size",
+            "required": False,
+            "description": "The minimum number of words in a single streaming result. Default: 15.",
+            "default": 15,
+        },
     ]
 )
 info["input_schema"]["properties"]["session_id"] = {
@@ -82,8 +101,13 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         super().__init__(**kwargs)
         self.history_max_turns = self.get_config("history_max_turns", 20)
         self.history_max_tokens = self.get_config("history_max_tokens", 8000)
+        self.stream_to_flow = self.get_config("stream_to_flow", "")
+        self.llm_mode = self.get_config("llm_mode", "none")
+        self.stream_batch_size = self.get_config("stream_batch_size", 15)
 
-    def invoke_model(self, messages, session_id=None, clear_history=False):
+    def invoke_model(
+        self, input_message, messages, session_id=None, clear_history=False
+    ):
 
         if clear_history:
             self.clear_history(session_id)
@@ -117,12 +141,48 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             history_messages_key="chat_history",
         )
 
-        return runnable.invoke(
+        if self.llm_mode == "none":
+            return runnable.invoke(
+                {"input": human_message},
+                config={
+                    "configurable": {"session_id": session_id},
+                },
+            )
+
+        aggregate_result = ""
+        current_batch = ""
+        for chunk in runnable.stream(
             {"input": human_message},
             config={
                 "configurable": {"session_id": session_id},
             },
+        ):
+            # print(f"Streaming chunk: {chunk.content}")
+            aggregate_result += chunk.content
+            current_batch += chunk.content
+            if len(current_batch.split()) >= self.stream_batch_size:
+                if self.stream_to_flow:
+                    self.send_streaming_message(
+                        input_message, current_batch, aggregate_result
+                    )
+                current_batch = ""
+
+        if current_batch:
+            if self.stream_to_flow:
+                self.send_streaming_message(
+                    input_message, current_batch, aggregate_result
+                )
+
+        result = namedtuple("Result", ["content"])(aggregate_result)
+
+        return result
+
+    def send_streaming_message(self, input_message, chunk, aggregate_result):
+        message = Message(
+            payload={"chunk": chunk, "aggregate_result": aggregate_result},
+            user_properties=input_message.get_user_properties(),
         )
+        self.send_to_flow(self.stream_to_flow, message)
 
     def create_history(self):
 

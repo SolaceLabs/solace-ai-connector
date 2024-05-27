@@ -1,6 +1,6 @@
 """Memory storage class"""
 
-from solace_ai_event_connector.storage.storage import Storage
+from .storage import Storage
 
 
 class StorageMemory(Storage):

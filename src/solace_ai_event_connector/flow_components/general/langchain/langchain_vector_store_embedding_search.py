@@ -4,11 +4,11 @@ as well, so the configuration for this component will also include the
 embedding model configuration
 """
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.flow_components.general.langchain.langchain_base import (
+from ....common.log import log
+from .langchain_base import (
     LangChainBase,
 )
-from solace_ai_event_connector.flow_components.general.langchain.langchain_vector_store_embedding_base import (
+from .langchain_vector_store_embedding_base import (
     LangChainVectorStoreEmbeddingsBase,
 )
 

@@ -1,7 +1,7 @@
 # Copy List Item transform
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.transforms.transform_base import TransformBase
+from .transform_base import TransformBase
 
 # input_transforms:
 #   - type: copy_list_item

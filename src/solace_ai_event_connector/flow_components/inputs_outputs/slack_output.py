@@ -1,12 +1,8 @@
 import base64
-from copy import deepcopy
 
 
-from solace_ai_event_connector.flow_components.inputs_outputs.slack_base import (
-    SlackBase,
-)
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.common.log import log
+from .slack_base import SlackBase
+from ...common.log import log
 
 
 info = {
@@ -115,39 +111,66 @@ class SlackOutput(SlackBase):
         message_info = data.get("message_info")
         content = data.get("content")
         text = content.get("text")
+        stream = content.get("stream")
         channel = message_info.get("channel")
         thread_ts = message_info.get("ts")
+        ack_msg_ts = message_info.get("ack_msg_ts")
+
         return {
             "channel": channel,
             "text": text,
             "files": content.get("files"),
             "thread_ts": thread_ts,
+            "ack_msg_ts": ack_msg_ts,
+            "stream": stream,
         }
 
     def send_message(self, message):
-        channel = message.get_data("previous:channel")
-        messages = message.get_data("previous:text")
-        files = message.get_data("previous:files") or []
-        thread_ts = message.get_data("previous:ts")
+        try:
+            channel = message.get_data("previous:channel")
+            messages = message.get_data("previous:text")
+            stream = message.get_data("previous:stream")
+            files = message.get_data("previous:files") or []
+            thread_ts = message.get_data("previous:ts")
+            ack_msg_ts = message.get_data("previous:ack_msg_ts")
 
-        if not isinstance(messages, list):
-            if messages is not None:
-                messages = [messages]
-            else:
-                messages = []
+            if not isinstance(messages, list):
+                if messages is not None:
+                    messages = [messages]
+                else:
+                    messages = []
 
-        for text in messages:
-            self.app.client.chat_postMessage(
-                channel=channel, text=text, thread_ts=thread_ts
-            )
+            for text in messages:
+                if stream:
+                    if ack_msg_ts:
+                        try:
+                            self.app.client.chat_update(
+                                channel=channel, ts=ack_msg_ts, text=text
+                            )
+                        except Exception:
+                            # It is normal to possibly get an update after the final message has already
+                            # arrived and deleted the ack message
+                            pass
+                else:
+                    self.app.client.chat_postMessage(
+                        channel=channel, text=text, thread_ts=thread_ts
+                    )
 
-        for file in files:
-            file_content = base64.b64decode(file["content"])
-            self.app.client.files_upload_v2(
-                channel=channel,
-                file=file_content,
-                thread_ts=thread_ts,
-                filename=file["name"],
-            )
+            for file in files:
+                file_content = base64.b64decode(file["content"])
+                self.app.client.files_upload_v2(
+                    channel=channel,
+                    file=file_content,
+                    thread_ts=thread_ts,
+                    filename=file["name"],
+                )
+        except Exception as e:
+            log.error(f"Error sending slack message: {e}")
 
         super().send_message(message)
+
+        try:
+            if ack_msg_ts and not stream:
+                self.app.client.chat_delete(channel=channel, ts=ack_msg_ts)
+        except Exception:
+            pass

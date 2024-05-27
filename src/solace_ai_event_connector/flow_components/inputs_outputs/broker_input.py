@@ -5,11 +5,9 @@ import gzip
 import json
 import yaml  # pylint: disable=import-error
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.flow_components.inputs_outputs.broker_base import (
-    BrokerBase,
-)
-from solace_ai_event_connector.common.message import Message
+from ...common.log import log
+from .broker_base import BrokerBase
+from ...common.message import Message
 
 info = {
     "class_name": "BrokerInput",
@@ -139,7 +137,7 @@ class BrokerInput(BrokerBase):
         return payload
 
     def acknowledge_message(self, broker_message):
-        print("Acknowledging message")
+        # print("Acknowledging message")
         self.messaging_service.ack_message(broker_message)
 
     def get_acknowledgement_callback(self):

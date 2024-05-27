@@ -6,12 +6,12 @@ import traceback
 import pprint
 
 from abc import abstractmethod
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.utils import resolve_config_values
-from solace_ai_event_connector.common.utils import get_source_expression
-from solace_ai_event_connector.common.transforms.transforms import Transforms
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.common.trace_message import TraceMessage
+from ..common.log import log
+from ..common.utils import resolve_config_values
+from ..common.utils import get_source_expression
+from ..common.transforms.transforms import Transforms
+from ..common.message import Message
+from ..common.trace_message import TraceMessage
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -30,6 +30,7 @@ class ComponentBase:
         self.instance_name = kwargs.pop("instance_name", None)
         self.storage_manager = kwargs.pop("storage_manager", None)
         self.trace_queue = kwargs.pop("trace_queue", False)
+        self.connector = kwargs.pop("connector", None)
 
         self.component_config = self.config.get("component_config") or {}
         self.name = self.config.get("component_name", "<unnamed>")
@@ -225,6 +226,10 @@ class ComponentBase:
             message.call_acknowledgements()
             return
         self.next_component.enqueue(message)
+
+    def send_to_flow(self, flow_name, message):
+        if self.connector:
+            self.connector.send_message_to_flow(flow_name, message)
 
     def enqueue(self, message):
         # Add the message to the input queue
