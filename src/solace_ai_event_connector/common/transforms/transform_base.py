@@ -1,7 +1,7 @@
 # Coordinator for performing transforms on data
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.utils import get_source_expression
+from ..utils import get_source_expression
 
 
 class TransformBase:

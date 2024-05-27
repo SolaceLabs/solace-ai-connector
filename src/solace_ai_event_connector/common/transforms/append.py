@@ -1,7 +1,7 @@
 """Append Transform - add a value to a list"""
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.transforms.transform_base import TransformBase
+from ..log import log
+from .transform_base import TransformBase
 
 info = {
     "class_name": "AppendTransform",

@@ -6,8 +6,8 @@ import yaml
 import pprint
 
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.trace_message import TraceMessage
+from .log import log
+from .trace_message import TraceMessage
 
 
 class Message:

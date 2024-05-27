@@ -6,7 +6,7 @@ import sys
 import re
 import builtins
 
-from solace_ai_event_connector.common.log import log
+from .log import log
 
 
 def import_from_directories(module_name, base_path=None):
@@ -14,18 +14,12 @@ def import_from_directories(module_name, base_path=None):
     if base_path:
         dirs.append(base_path)
     for path in dirs:
-        print(f"path: {path}")
         dirs = [path]
         dirs.extend(get_subdirectories(path))
         for directory in dirs:
             ## Skip if __pycache__ or .git
             if directory.endswith("__pycache__") or directory.endswith(".git"):
                 continue
-            if (
-                path
-                == "../ai-eda-solace-chat/solace-ai-connector-custom-components/chatapps/global"
-            ):
-                print(f"directory: {directory}")
             module_file = module_name
             if "." in module_name:
                 module_file = module_name.replace(".", os.sep)
@@ -33,6 +27,10 @@ def import_from_directories(module_name, base_path=None):
             # print(f"module_path: {module_path}")
             if os.path.exists(module_path):
                 try:
+                    if module_path.startswith("src/solace_ai_event_connector"):
+                        module_name = module_path.replace("src/", "").replace("/", ".")
+                        if module_name.endswith(".py"):
+                            module_name = module_name[:-3]
                     spec = importlib.util.spec_from_file_location(
                         module_name, module_path
                     )
@@ -93,7 +91,6 @@ def import_module(name, base_path=None):
     """Import a module by name"""
 
     if base_path:
-        print("added base path", base_path)
         if not os.path.exists(base_path):
             sys.path.append(base_path)
     try:

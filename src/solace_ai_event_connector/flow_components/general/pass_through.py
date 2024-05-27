@@ -1,6 +1,6 @@
 # A simple pass-through component - what goes in comes out
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ..component_base import ComponentBase
 
 
 info = {

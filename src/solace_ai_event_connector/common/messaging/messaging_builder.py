@@ -1,6 +1,6 @@
 """Class to build a Messaging Service object"""
 
-from solace_ai_event_connector.common.messaging.solace_messaging import SolaceMessaging
+from .solace_messaging import SolaceMessaging
 
 
 # Make a Messaging Service builder - this is a factory for Messaging Service objects

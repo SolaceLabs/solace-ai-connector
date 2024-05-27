@@ -13,8 +13,8 @@ from langchain.schema.messages import (
     SystemMessage,
 )
 
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.flow_components.general.langchain.langchain_chat_model_base import (
+from ....common.message import Message
+from .langchain_chat_model_base import (
     LangChainChatModelBase,
     info_base,
 )

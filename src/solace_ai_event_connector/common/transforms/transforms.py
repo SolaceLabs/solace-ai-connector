@@ -1,14 +1,14 @@
 # Coordinator for performing transforms on data
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.transforms.copy import CopyTransform
-from solace_ai_event_connector.common.transforms.append import AppendTransform
-from solace_ai_event_connector.common.transforms.map import MapTransform
-from solace_ai_event_connector.common.transforms.copy_list_item import (
+from .copy import CopyTransform
+from .append import AppendTransform
+from .map import MapTransform
+from .copy_list_item import (
     CopyListItemTransform,
 )
-from solace_ai_event_connector.common.transforms.reduce import ReduceTransform
-from solace_ai_event_connector.common.transforms.filter import FilterTransform
+from .reduce import ReduceTransform
+from .filter import FilterTransform
 
 name_to_class = {
     "copy": CopyTransform,

@@ -4,10 +4,10 @@ import threading
 import queue
 
 from datetime import datetime
-from solace_ai_event_connector.common.log import log, setup_log
-from solace_ai_event_connector.common.utils import resolve_config_values
-from solace_ai_event_connector.flow.flow import Flow
-from solace_ai_event_connector.storage.storage_manager import StorageManager
+from .common.log import log, setup_log
+from .common.utils import resolve_config_values
+from .flow.flow import Flow
+from .storage.storage_manager import StorageManager
 
 
 class SolaceAiEventConnector:

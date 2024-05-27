@@ -3,8 +3,8 @@ take a value from either the source list (or anywhere else in the message) and p
 same index in the destination list. If the destination list is shorter than the source list, 
 the destination list will be extended to match the length of the source list. """
 
-from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.transforms.transform_base import TransformBase
+from ..log import log
+from .transform_base import TransformBase
 
 info = {
     "class_name": "MapTransform",

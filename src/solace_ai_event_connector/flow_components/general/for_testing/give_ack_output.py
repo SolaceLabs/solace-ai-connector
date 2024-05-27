@@ -1,6 +1,6 @@
 """Test component to ack the message when it is processed"""
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ...component_base import ComponentBase
 
 
 info = {

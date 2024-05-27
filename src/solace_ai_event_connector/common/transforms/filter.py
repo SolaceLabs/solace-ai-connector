@@ -1,7 +1,7 @@
 """List filter transform"""
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.transforms.transform_base import TransformBase
+from .transform_base import TransformBase
 
 info = {
     "class_name": "FilterTransform",
