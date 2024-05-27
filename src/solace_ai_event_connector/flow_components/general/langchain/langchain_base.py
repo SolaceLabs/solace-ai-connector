@@ -2,8 +2,8 @@
 
 import importlib
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
-from solace_ai_event_connector.common.utils import resolve_config_values
+from ...component_base import ComponentBase
+from ....common.utils import resolve_config_values
 
 
 class LangChainBase(ComponentBase):

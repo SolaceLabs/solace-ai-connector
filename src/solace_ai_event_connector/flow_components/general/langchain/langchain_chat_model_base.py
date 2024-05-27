@@ -5,7 +5,7 @@ import json
 import yaml
 from abc import abstractmethod
 
-from solace_ai_event_connector.common.utils import get_obj_text
+from ....common.utils import get_obj_text
 from langchain.schema.messages import (
     HumanMessage,
     SystemMessage,
@@ -14,7 +14,7 @@ from langchain.schema.messages import (
     ChatMessage,
 )
 
-from solace_ai_event_connector.flow_components.general.langchain.langchain_base import (
+from .langchain_base import (
     LangChainBase,
 )
 

@@ -2,7 +2,7 @@
 
 import os
 import json
-from solace_ai_event_connector.storage.storage import Storage
+from .storage import Storage
 
 info = {
     "class_name": "StorageFile",

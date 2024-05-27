@@ -2,7 +2,7 @@
 'invoke' configuration to create the processing stage at configuration time. 
 The 'invoke' configuration will be executed at runtime, once per message"""
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ..component_base import ComponentBase
 
 
 info = {

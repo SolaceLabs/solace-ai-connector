@@ -1,6 +1,6 @@
 """Simple memory tester component"""
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ...component_base import ComponentBase
 
 
 info = {

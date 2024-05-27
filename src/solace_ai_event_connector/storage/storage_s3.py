@@ -1,7 +1,7 @@
 """AWS S3 storage implementation for the storage interface."""
 
 import boto3
-from solace_ai_event_connector.storage.storage import Storage
+from .storage import Storage
 
 
 class StorageS3(Storage):

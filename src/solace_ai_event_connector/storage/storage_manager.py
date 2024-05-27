@@ -1,9 +1,9 @@
 """Create and hold the storage handlers"""
 
-from solace_ai_event_connector.storage.storage import Storage
-from solace_ai_event_connector.storage.storage_file import StorageFile
-from solace_ai_event_connector.storage.storage_memory import StorageMemory
-from solace_ai_event_connector.storage.storage_s3 import StorageS3
+from .storage import Storage
+from .storage_file import StorageFile
+from .storage_memory import StorageMemory
+from .storage_s3 import StorageS3
 
 
 class StorageManager:

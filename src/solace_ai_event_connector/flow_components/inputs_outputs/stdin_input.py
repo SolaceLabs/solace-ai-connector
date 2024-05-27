@@ -1,8 +1,8 @@
 # An input component that reads from STDIN
 
 from copy import deepcopy
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
-from solace_ai_event_connector.common.message import Message
+from ..component_base import ComponentBase
+from ...common.message import Message
 
 
 info = {

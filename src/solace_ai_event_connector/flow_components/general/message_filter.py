@@ -3,8 +3,8 @@ evaluates to True, the message will be passed on. If the expression evaluates to
 message will be discarded. If the message is discarded, any previous components that require
 an acknowledgement will be acknowledged. """
 
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
-from solace_ai_event_connector.common.message import Message
+from ..component_base import ComponentBase
+from ...common.message import Message
 
 
 info = {

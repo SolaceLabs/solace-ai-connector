@@ -1,7 +1,7 @@
 """Main class for the flow"""
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.utils import import_module
+from ..common.utils import import_module
 
 
 class Flow:
