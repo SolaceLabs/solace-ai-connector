@@ -5,11 +5,9 @@ import requests
 
 
 from slack_bolt.adapter.socket_mode import SocketModeHandler
-from solace_ai_event_connector.flow_components.inputs_outputs.slack_base import (
-    SlackBase,
-)
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.common.log import log
+from .slack_base import SlackBase
+from ...common.message import Message
+from ...common.log import log
 
 
 info = {

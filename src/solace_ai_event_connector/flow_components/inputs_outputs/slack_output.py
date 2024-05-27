@@ -1,12 +1,8 @@
 import base64
-from copy import deepcopy
 
 
-from solace_ai_event_connector.flow_components.inputs_outputs.slack_base import (
-    SlackBase,
-)
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.common.log import log
+from .slack_base import SlackBase
+from ...common.log import log
 
 
 info = {

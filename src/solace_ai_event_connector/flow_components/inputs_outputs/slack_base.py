@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from slack_bolt import App  # pylint: disable=import-error
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
+from ..component_base import ComponentBase
 
 
 class SlackBase(ComponentBase, ABC):

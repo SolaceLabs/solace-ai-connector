@@ -3,11 +3,9 @@
 from abc import abstractmethod
 
 # from solace_ai_event_connector.common.log import log
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.flow_components.component_base import ComponentBase
-from solace_ai_event_connector.common.messaging.messaging_builder import (
-    MessagingServiceBuilder,
-)
+from ..component_base import ComponentBase
+from ...common.message import Message
+from ...common.messaging.messaging_builder import MessagingServiceBuilder
 
 # TBD - at the moment, there is no connection sharing supported. It should be possible
 # to share a connection between multiple components and even flows. The changes

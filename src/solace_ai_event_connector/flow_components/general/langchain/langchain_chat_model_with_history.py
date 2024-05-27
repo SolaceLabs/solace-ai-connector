@@ -76,8 +76,8 @@ info["config_parameters"].extend(
         {
             "name": "stream_batch_size",
             "required": False,
-            "description": "The minimum number of words in a single streaming result. Default: 10.",
-            "default": 10,
+            "description": "The minimum number of words in a single streaming result. Default: 15.",
+            "default": 15,
         },
     ]
 )
@@ -103,7 +103,7 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         self.history_max_tokens = self.get_config("history_max_tokens", 8000)
         self.stream_to_flow = self.get_config("stream_to_flow", "")
         self.llm_mode = self.get_config("llm_mode", "none")
-        self.stream_batch_size = self.get_config("stream_batch_size", 10)
+        self.stream_batch_size = self.get_config("stream_batch_size", 15)
 
     def invoke_model(
         self, input_message, messages, session_id=None, clear_history=False
