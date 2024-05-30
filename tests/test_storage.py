@@ -14,7 +14,7 @@ from utils_for_test_files import (  # pylint: disable=wrong-import-position
     send_message_to_flow,
     get_message_from_flow,
 )
-from solace_ai_event_connector.common.message import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.message import (  # pylint: disable=wrong-import-position
     Message,
 )
 
@@ -26,7 +26,7 @@ def test_memory_storage():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 storage:
   - name: memory
     storage_type: memory
@@ -64,7 +64,7 @@ def test_file_storage():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 storage:
   - name: file
     storage_type: file

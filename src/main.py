@@ -1,7 +1,7 @@
 import os
 import sys
 import yaml
-from solace_ai_event_connector.solace_ai_event_connector import SolaceAiEventConnector
+from .solace_ai_connector.solace_ai_connector import SolaceAiConnector
 
 
 def load_config(file):
@@ -49,7 +49,7 @@ def main(files):
         full_config = merge_config(full_config, config)
 
     # Create the application
-    app = SolaceAiEventConnector(full_config)
+    app = SolaceAiConnector(full_config)
 
     # Start the application
     app.run()

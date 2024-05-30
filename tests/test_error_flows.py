@@ -13,7 +13,7 @@ from utils_for_test_files import (  # pylint: disable=wrong-import-position
     send_message_to_flow,
     get_message_from_flow,
 )
-from solace_ai_event_connector.common.message import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.message import (  # pylint: disable=wrong-import-position
     Message,
 )
 
@@ -25,7 +25,7 @@ def test_basic_error_flow():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   # This will fail with the specified error
   - name: fail_flow

@@ -11,9 +11,9 @@ from utils_for_test_files import (
     send_message_to_flow,
     get_message_from_flow,
 )
-from solace_ai_event_connector.common.message import Message
+from solace_ai_connector.common.message import Message
 
-# from solace_ai_event_connector.common.log import log
+# from solace_ai_connector.common.log import log
 
 
 # @pytest.fixture
@@ -33,7 +33,7 @@ from solace_ai_event_connector.common.message import Message
 #         """
 # log:
 #   log_file_level: DEBUG
-#   log_file: solace_ai_event_connector.log
+#   log_file: solace_ai_connector.log
 # flows:
 #   - name: test_flow
 #     components:
@@ -125,7 +125,7 @@ def test_on_flow_creation_event():
     config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -167,7 +167,7 @@ def test_multiple_flow_instances():
     config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     num_instances: 4

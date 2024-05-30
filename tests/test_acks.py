@@ -12,7 +12,7 @@ from utils_for_test_files import (  # pylint: disable=wrong-import-position
     create_test_flows,
     send_message_to_flow,
 )
-from solace_ai_event_connector.common.message import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.message import (  # pylint: disable=wrong-import-position
     Message,
 )
 
@@ -24,7 +24,7 @@ def test_basic_ack():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:

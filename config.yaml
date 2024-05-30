@@ -5,7 +5,7 @@
 log:
   stdout_log_level: DEBUG
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 
 shared_config:
   - broker_config: &broker_connection

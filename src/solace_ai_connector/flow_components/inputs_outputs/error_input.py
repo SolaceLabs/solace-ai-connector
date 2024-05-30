@@ -9,7 +9,7 @@ from ..component_base import (
     ComponentBase,
 )
 
-# from solace_ai_event_connector.common.message import Message
+# from solace_ai_connector.common.message import Message
 
 info = {
     "class_name": "ErrorInput",

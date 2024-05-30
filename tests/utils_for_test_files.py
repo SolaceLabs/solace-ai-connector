@@ -8,11 +8,11 @@ import yaml
 sys.path.insert(0, os.path.abspath("src"))
 
 
-# from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.solace_ai_event_connector import (  # pylint: disable=wrong-import-position
-    SolaceAiEventConnector,
+# from solace_ai_connector.common.message import Message
+from solace_ai_connector.solace_ai_connector import (  # pylint: disable=wrong-import-position
+    SolaceAiConnector,
 )
-from solace_ai_event_connector.common.log import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.log import (  # pylint: disable=wrong-import-position
     log,
 )
 
@@ -63,7 +63,7 @@ def create_connector(config_yaml, event_handlers=None, error_queue=None):
     """Create a connector from a config"""
 
     # Create the connector
-    connector = SolaceAiEventConnector(
+    connector = SolaceAiConnector(
         yaml.safe_load(config_yaml),
         event_handlers=event_handlers,
         error_queue=error_queue,
