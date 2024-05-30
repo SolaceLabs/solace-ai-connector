@@ -8,10 +8,10 @@ sys.path.append("src")
 from utils_for_test_files import (  # pylint: disable=wrong-import-position
     create_and_run_component,
 )
-from solace_ai_event_connector.common.utils import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.utils import (  # pylint: disable=wrong-import-position
     resolve_config_values,
 )
-from solace_ai_event_connector.common.message import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.message import (  # pylint: disable=wrong-import-position
     Message,
 )
 
@@ -359,7 +359,8 @@ def test_resolve_config_values_missing_module():
 # Test the resolve_config_values function with a missing function
 def test_resolve_config_values_missing_function():
     with pytest.raises(
-        AttributeError, match="module 'invoke_functions' has no attribute 'missing'"
+        AttributeError,
+        match="module 'solace_ai_connector.common.invoke_functions' has no attribute 'missing'",
     ):
         resolve_config_values(
             {
@@ -380,7 +381,8 @@ def test_resolve_config_values_missing_function():
 # Test the resolve_config_values function with a missing attribute
 def test_resolve_config_values_missing_attribute():
     with pytest.raises(
-        AttributeError, match="module 'invoke_functions' has no attribute 'missing'"
+        AttributeError,
+        match="module 'solace_ai_connector.common.invoke_functions' has no attribute 'missing'",
     ):
         resolve_config_values(
             {
@@ -810,7 +812,7 @@ def test_invoke_with_source_expression_with_real_flow():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -881,7 +883,7 @@ def test_reduce_transform_accumulator():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -916,7 +918,7 @@ def test_reduce_transform_make_list():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -954,7 +956,7 @@ def test_map_transform_add_2():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -988,7 +990,7 @@ def test_filter_transform_greater_than_2():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -1022,7 +1024,7 @@ def test_filter_transform_sub_field_greater_than_2():
 instance_name: test_instance
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:

@@ -2,7 +2,7 @@
 
 from abc import abstractmethod
 
-# from solace_ai_event_connector.common.log import log
+# from solace_ai_connector.common.log import log
 from ..component_base import ComponentBase
 from ...common.message import Message
 from ...common.messaging.messaging_builder import MessagingServiceBuilder

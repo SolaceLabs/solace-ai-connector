@@ -3,7 +3,7 @@
 log:
   stdout_log_level: INFO
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 
 # List of flows
 flows:

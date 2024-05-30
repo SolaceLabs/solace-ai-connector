@@ -1,6 +1,5 @@
 """List reduce transform"""
 
-# from solace_ai_event_connector.common.log import log
 from .transform_base import TransformBase
 
 info = {

@@ -10,17 +10,17 @@ from utils_for_test_files import (  # pylint: disable=wrong-import-position
     create_connector,
 )
 
-from solace_ai_event_connector.solace_ai_event_connector import (  # pylint: disable=wrong-import-position
-    SolaceAiEventConnector,
+from solace_ai_connector.solace_ai_connector import (  # pylint: disable=wrong-import-position
+    SolaceAiConnector,
 )
 
-# from solace_ai_event_connector.common.log import log
+# from solace_ai_connector.common.log import log
 
 
 def test_no_config_file():
     """Test that the program exits if no configuration file is provided"""
     try:
-        SolaceAiEventConnector(None)
+        SolaceAiConnector(None)
     except ValueError as e:
         assert str(e) == "No config provided"
 
@@ -31,9 +31,9 @@ def test_no_flows():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -46,7 +46,7 @@ def test_no_flow_name():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - components:
       - component_name: delay1
@@ -61,7 +61,7 @@ flows:
         component_input:
           source_expression: input.payload:text
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -74,11 +74,11 @@ def test_no_flow_components():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -91,12 +91,12 @@ def test_flow_components_not_list():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components: not_a_list
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -109,7 +109,7 @@ def test_no_component_name():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -117,7 +117,7 @@ flows:
         component_input:
           source_expression: input.payload:text
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -130,13 +130,13 @@ def test_no_component_module():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log 
+  log_file: solace_ai_connector.log 
 flows:
   - name: test_flow
     components:
       - component_name: delay1
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -149,14 +149,14 @@ def test_bad_module():
         config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
       - component_name: delay1
         component_module: not_a_module
 """
-        SolaceAiEventConnector(
+        SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
     except ValueError as e:
@@ -168,7 +168,7 @@ def test_component_missing_info_attribute():
     config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:

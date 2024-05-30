@@ -6,7 +6,7 @@ import sys
 import pytest
 
 sys.path.append("src")
-from solace_ai_event_connector.common.message import Message
+from solace_ai_connector.common.message import Message
 
 # Create a few different messages to test with
 # We need to make sure we populate them with interesting and complicated payloads, user_properties and topics

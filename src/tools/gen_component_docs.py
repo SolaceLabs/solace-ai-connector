@@ -358,10 +358,10 @@ def schema_as_human_readable_string(schema):
 
 # Call the function
 create_markdown_documentation(
-    "src/solace_ai_event_connector/flow_components", "docs/components", "component"
+    "src/solace_ai_connector/flow_components", "docs/components", "component"
 )
 create_markdown_documentation(
-    "src/solace_ai_event_connector/common/transforms", "docs/transforms", "transform"
+    "src/solace_ai_connector/common/transforms", "docs/transforms", "transform"
 )
 
 create_ai_prompt(full_info)
