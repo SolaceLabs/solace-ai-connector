@@ -11,10 +11,10 @@ def convert_imports(root_dir):
 
                 with open(file_path, "w") as file:
                     for line in lines:
-                        if line.startswith("from solace_ai_event_connector"):
+                        if line.startswith("from solace_ai_connector"):
                             # Calculate the relative import path
                             import_path = line[
-                                len("from solace_ai_event_connector.") :
+                                len("from solace_ai_connector.") :
                             ].strip()
                             the_rest = import_path.split(" ", 1)[1]
                             import_path = import_path.split(" ")[0]
@@ -47,5 +47,5 @@ def convert_imports(root_dir):
 if __name__ == "__main__":
     # Change directory to src
     os.chdir("src")
-    root_directory = "solace_ai_event_connector"
+    root_directory = "solace_ai_connector"
     convert_imports(root_directory)

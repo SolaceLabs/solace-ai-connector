@@ -27,8 +27,11 @@ def import_from_directories(module_name, base_path=None):
             # print(f"module_path: {module_path}")
             if os.path.exists(module_path):
                 try:
-                    if module_path.startswith("src/solace_ai_event_connector"):
-                        module_name = module_path.replace("src/", "").replace("/", ".")
+                    # if module_path.startswith("src/solace_ai_connector"):
+                    if "src/solace_ai_connector" in module_path:
+                        # Remove everything up to and including src/
+                        module_name = re.sub(r".*src/", "", module_path)
+                        module_name = module_name.replace("/", ".")
                         if module_name.endswith(".py"):
                             module_name = module_name[:-3]
                     spec = importlib.util.spec_from_file_location(

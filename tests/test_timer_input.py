@@ -11,8 +11,8 @@ from utils_for_test_files import (
     send_message_to_flow,
     get_message_from_flow,
 )
-from solace_ai_event_connector.common.message import Message
-from solace_ai_event_connector.common.log import log
+from solace_ai_connector.common.message import Message
+from solace_ai_connector.common.log import log
 
 
 def test_basic_timer():
@@ -20,7 +20,7 @@ def test_basic_timer():
     config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -69,7 +69,7 @@ def test_with_no_skip_timer():
     config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:
@@ -112,7 +112,7 @@ def test_with_skip_timer():
     config_yaml = """
 log:
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 flows:
   - name: test_flow
     components:

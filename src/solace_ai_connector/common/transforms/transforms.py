@@ -1,6 +1,5 @@
 # Coordinator for performing transforms on data
 
-# from solace_ai_event_connector.common.log import log
 from .copy import CopyTransform
 from .append import AppendTransform
 from .map import MapTransform

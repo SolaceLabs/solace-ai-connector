@@ -13,10 +13,10 @@
 log:
   stdout_log_level: DEBUG
   log_file_level: DEBUG
-  log_file: solace_ai_event_connector.log
+  log_file: solace_ai_connector.log
 
 trace:
-  trace_file: solace_ai_event_connector.trace
+  trace_file: solace_ai_connector.trace
 
 # List of flows
 flows:

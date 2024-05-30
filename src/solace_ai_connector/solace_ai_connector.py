@@ -10,8 +10,8 @@ from .flow.flow import Flow
 from .storage.storage_manager import StorageManager
 
 
-class SolaceAiEventConnector:
-    """Solace AI Event Connector"""
+class SolaceAiConnector:
+    """Solace AI Connector"""
 
     def __init__(self, config, event_handlers=None, error_queue=None):
         self.config = config or {}
@@ -26,9 +26,7 @@ class SolaceAiEventConnector:
         self.setup_trace()
         resolve_config_values(self.config)
         self.validate_config()
-        self.instance_name = self.config.get(
-            "instance_name", "solace_ai_event_connector"
-        )
+        self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.storage_manager = StorageManager(self.config.get("storage", []))
 
     def run(self):
@@ -102,7 +100,7 @@ class SolaceAiEventConnector:
         log_config = self.config.get("log", {})
         stdout_log_level = log_config.get("stdout_log_level", "INFO")
         file_log_level = log_config.get("file_log_level", "DEBUG")
-        log_file = log_config.get("log_file", "solace_ai_event_connector.log")
+        log_file = log_config.get("log_file", "solace_ai_connector.log")
         setup_log(log_file, stdout_log_level, file_log_level)
 
     def setup_trace(self):
