@@ -1,7 +1,7 @@
 import os
 import sys
 import yaml
-from .solace_ai_connector.solace_ai_connector import SolaceAiConnector
+from solace_ai_connector.solace_ai_connector import SolaceAiConnector
 
 
 def load_config(file):
