@@ -4,7 +4,10 @@ VERSION ?= local
 gen-docs:
 	@python3 src/tools/gen_component_docs.py
 
-build: gen-docs
+build-pypi:
+	@python3 -m build
+
+build: gen-docs build-pypi
 	@docker build  --platform=linux/amd64 -t solace/solace-ai-connector:${VERSION} .
 
 run-local:
@@ -19,7 +22,7 @@ structure-test:
 	--config container-structure-test-file.yaml
 
 pytest:
-  @pytest
+	@pytest
 
 pytest-docker:
 	@docker run --rm --entrypoint pytest solace/solace-ai-connector:${VERSION} 
