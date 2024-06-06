@@ -28,9 +28,13 @@ def import_from_directories(module_name, base_path=None):
             if os.path.exists(module_path):
                 try:
                     # if module_path.startswith("src/solace_ai_connector"):
-                    if "src/solace_ai_connector" in module_path:
+                    if "/solace_ai_connector/" in module_path:
                         # Remove everything up to and including src/
-                        module_name = re.sub(r".*src/", "", module_path)
+                        module_name = re.sub(
+                            r".*/solace_ai_connector/",
+                            "solace_ai_connector/",
+                            module_path,
+                        )
                         module_name = module_name.replace("/", ".")
                         if module_name.endswith(".py"):
                             module_name = module_name[:-3]

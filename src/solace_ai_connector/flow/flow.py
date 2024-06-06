@@ -78,7 +78,7 @@ class Flow:
             component_instance = component_class(
                 config=component,
                 index=index,
-                module_info=self.module_info,
+                # module_info=self.module_info,
                 flow_name=self.name,
                 stop_signal=self.stop_signal,
                 sibling_component=sibling_component,
