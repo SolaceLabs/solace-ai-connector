@@ -2,6 +2,7 @@
 
 import threading
 from collections import namedtuple
+from copy import deepcopy
 
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -20,7 +21,7 @@ from .langchain_chat_model_base import (
 )
 
 
-info = info_base
+info = deepcopy(info_base)
 info["class_name"] = "LangChainChatModelWithHistory"
 info["description"] = (
     "A chat model based on LangChain that includes keeping per-session history of "

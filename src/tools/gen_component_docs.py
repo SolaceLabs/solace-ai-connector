@@ -23,7 +23,19 @@ def find_python_files(directory):
 def find_info_dicts(directory):
     for file in find_python_files(directory):
         # Dynamically import the module
-        spec = importlib.util.spec_from_file_location("module.name", file)
+        if file.endswith("__init__.py"):
+            continue
+        if "/solace_ai_connector/" in file:
+            module_name = re.sub(
+                r".*/solace_ai_connector/",
+                "solace_ai_connector/",
+                file,
+            )
+            module_name = module_name.replace("/", ".")
+            if module_name.endswith(".py"):
+                module_name = module_name[:-3]
+
+        spec = importlib.util.spec_from_file_location(module_name, file)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         # Check if the module has an info dictionary
@@ -122,7 +134,7 @@ def create_markdown_documentation(directory, output_dir, module_type):
     # Create the component index table
 
     # Capitalize the type
-    type_title = type.capitalize()
+    type_title = module_type.capitalize() if isinstance(module_type, str) else ""
     markdown += f"# Built-in {type_title}s\n\n"
 
     markdown += "| Component | Description |\n"
@@ -356,12 +368,17 @@ def schema_as_human_readable_string(schema):
         return schema["type"]
 
 
-# Call the function
-create_markdown_documentation(
-    "src/solace_ai_connector/flow_components", "docs/components", "component"
-)
-create_markdown_documentation(
-    "src/solace_ai_connector/common/transforms", "docs/transforms", "transform"
-)
+def main():
+    # Call the function
+    create_markdown_documentation(
+        "src/solace_ai_connector/components", "docs/components", "component"
+    )
+    create_markdown_documentation(
+        "src/solace_ai_connector/transforms", "docs/transforms", "transform"
+    )
 
-create_ai_prompt(full_info)
+    create_ai_prompt(full_info)
+
+
+if __name__ == "__main__":
+    main()

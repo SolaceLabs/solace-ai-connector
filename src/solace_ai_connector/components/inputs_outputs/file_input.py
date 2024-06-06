@@ -4,13 +4,11 @@ from copy import deepcopy
 from ..component_base import ComponentBase
 from ...common.message import Message
 
-info = {}
-
 
 class File(ComponentBase):
 
     def __init__(self, **kwargs):
-        super().__init__(info, **kwargs)
+        super().__init__({}, **kwargs)
 
     def get_next_message(self):
         # Get the next message from the file
