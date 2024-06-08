@@ -2,7 +2,7 @@ include .env
 VERSION ?= local
 
 gen-docs:
-	@python3 src/tools/gen_component_docs.py
+	@python3 src/solace_ai_connector/tools/gen_component_docs.py
 
 build-pypi:
 	@python3 -m build

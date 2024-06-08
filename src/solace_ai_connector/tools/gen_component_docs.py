@@ -368,12 +368,10 @@ def schema_as_human_readable_string(schema):
     else:
         return schema["type"]
 
-
 def print_usage():
     # Get the basename of the script (remove dirs)
     name = os.path.basename(sys.argv[0])
     print(f"Usage: {name} [base_directory]")
-
 
 def main():
     # Get a base directory from the command line
@@ -385,7 +383,6 @@ def main():
         else:
             print("You must specify a base directory for the components\n")
             print_usage()
-            sys.exit(1)
     else:
         base_dir = "src/solace_ai_connector"
 

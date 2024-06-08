@@ -10,6 +10,7 @@ from .inputs_outputs import (
     stdin_input,
     slack_input,
 )
+
 from .general import (
     user_processor,
     aggregate,

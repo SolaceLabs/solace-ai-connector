@@ -98,18 +98,35 @@ def import_module(name, base_path=None):
     """Import a module by name"""
 
     if base_path:
-        if not os.path.exists(base_path):
+        if base_path not in sys.path:
             sys.path.append(base_path)
     try:
         module = importlib.import_module(name)
-    except ModuleNotFoundError:
-        try:
-            module = import_from_directories(name, base_path=base_path)
-        except Exception as e:
-            raise ImportError(
-                f"Module load error for {name}, base_path={base_path} ", e
-            ) from e
-    return module
+        return module
+    except ModuleNotFoundError as exc:
+        # If the module does not have a path associated with it, try
+        # importing it from the known prefixes - annoying that this
+        # is necessary. It seems you can't dynamically import a module
+        # that is listed in an __init__.py file :(
+        if "." not in name:
+            for prefix in [
+                "solace_ai_connector.components",
+                "solace_ai_connector.components.general",
+                "solace_ai_connector.components.general.for_testing",
+                "solace_ai_connector.components.general.langchain",
+                "solace_ai_connector.components.inputs_outputs",
+                "solace_ai_connector.transforms",
+                "solace_ai_connector.common",
+            ]:
+                full_name = f"{prefix}.{name}"
+                try:
+                    module = importlib.import_module(full_name)
+                    return module
+                except ModuleNotFoundError:
+                    pass
+                except Exception as e:
+                    raise ImportError(f"Module load error for {full_name}: {e}") from e
+        raise ImportError(f"Module load error for {name}") from exc
 
 
 def invoke_config(config, allow_source_expression=False):

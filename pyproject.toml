@@ -34,6 +34,7 @@ documentation = "https://github.com/SolaceLabs/solace-ai-connector/blob/main/doc
 
 [project.scripts]
 solace-ai-connector = "solace_ai_connector.main:main"
+solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]
