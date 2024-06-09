@@ -32,9 +32,13 @@ def find_info_dicts(directory):
                 "solace_ai_connector/",
                 file,
             )
-            module_name = module_name.replace("/", ".")
-            if module_name.endswith(".py"):
-                module_name = module_name[:-3]
+        else:
+            # This does assume that the plugin is conforming to
+            # the standard directory structure
+            module_name = re.sub(r"src/", "", file)
+
+        module_name = re.sub(r".py$", "", module_name)
+        module_name = re.sub(r"/", ".", module_name)
 
         spec = importlib.util.spec_from_file_location(module_name, file)
         module = importlib.util.module_from_spec(spec)
@@ -247,7 +251,7 @@ def format_json_schema(
                 field_list,
                 level + 1,
                 "",
-                prop_path + f"{prop_name}",
+                prop_path + f".{prop_name}" if prop_path else prop_name,
             )
             # If not the last property, add a comma
             if prop_name != list(schema_dict["properties"].keys())[-1]:
@@ -368,10 +372,12 @@ def schema_as_human_readable_string(schema):
     else:
         return schema["type"]
 
+
 def print_usage():
     # Get the basename of the script (remove dirs)
     name = os.path.basename(sys.argv[0])
     print(f"Usage: {name} [base_directory]")
+
 
 def main():
     # Get a base directory from the command line

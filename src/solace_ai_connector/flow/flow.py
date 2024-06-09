@@ -55,12 +55,13 @@ class Flow:
     def create_component_group(self, component, index):
         component_module = component.get("component_module", "")
         base_path = component.get("component_base_path", None)
+        component_package = component.get("component_package", None)
         num_instances = component.get("num_instances", 1)
         # component_config = component.get("component_config", {})
         # component_name = component.get("component_name", "")
 
         # imported_module = import_from_directories(component_module)
-        imported_module = import_module(component_module, base_path)
+        imported_module = import_module(component_module, base_path, component_package)
 
         try:
             self.module_info = getattr(imported_module, "info")

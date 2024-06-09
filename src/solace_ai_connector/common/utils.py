@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import builtins
+import subprocess
 
 from .log import log
 
@@ -94,8 +95,11 @@ def resolve_config_values(config, allow_source_expression=False):
     return config
 
 
-def import_module(name, base_path=None):
+def import_module(name, base_path=None, component_package=None):
     """Import a module by name"""
+
+    if component_package:
+        install_package(component_package)
 
     if base_path:
         if base_path not in sys.path:
@@ -126,7 +130,7 @@ def import_module(name, base_path=None):
                     pass
                 except Exception as e:
                     raise ImportError(f"Module load error for {full_name}: {e}") from e
-        raise ImportError(f"Module load error for {name}") from exc
+        raise ModuleNotFoundError(f"Module '{name}' not found") from exc
 
 
 def invoke_config(config, allow_source_expression=False):
@@ -228,6 +232,14 @@ def call_function(function, params, allow_source_expression):
     if keyword:
         return function(**keyword)
     return function(**params)
+
+
+def install_package(package_name):
+    """Install a package using pip if it isn't already installed"""
+    try:
+        importlib.import_module(package_name)
+    except ImportError:
+        subprocess.run(["pip", "install", package_name], check=True)
 
 
 def extract_source_expression(se_call):
