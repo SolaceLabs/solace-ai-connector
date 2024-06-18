@@ -131,7 +131,7 @@ class SolaceMessaging(Messaging):
                 "trust_store_path"
             )
             or os.environ.get("TRUST_STORE")
-            or certifi.where()
+            or os.path.dirname(certifi.where())
             or "/usr/share/ca-certificates/mozilla/",
         }
         # print (f"Broker Properties: {self.broker_properties}")
