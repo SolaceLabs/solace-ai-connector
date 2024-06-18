@@ -13,6 +13,7 @@ component_config:
   langchain_component_config: <string>
   llm_response_format: <string>
   history_max_turns: <string>
+  history_max_message_size: <string>
   history_max_tokens: <string>
   history_module: <string>
   history_class: <string>
@@ -29,6 +30,7 @@ component_config:
 | langchain_component_config | True |  | Model specific configuration for the chat model. See documentation for valid parameter names. |
 | llm_response_format | False |  | The response format for this LLM request. This can be 'json', 'yaml', or 'text'. If set to 'json' or 'yaml', the response will be parsed by the appropriate parser and the fields will be available in the response object. If set to 'text', the response will be returned as a string. |
 | history_max_turns | False | 20 | The maximum number of turns to keep in the history. If not set, the history will be limited to 20 turns. |
+| history_max_message_size | False | 1000 | The maximum amount of characters to keep in a single message in the history.  |
 | history_max_tokens | False | 8000 | The maximum number of tokens to keep in the history. If not set, the history will be limited to 8000 tokens. |
 | history_module | False | langchain_community.chat_message_histories | The module that contains the history class. Default: 'langchain_community.chat_message_histories' |
 | history_class | False | ChatMessageHistory | The class to use for the history. Default: 'ChatMessageHistory' |

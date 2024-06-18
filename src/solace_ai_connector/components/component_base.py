@@ -23,6 +23,8 @@ class ComponentBase:
         self.config = kwargs.pop("config", {})
         self.index = kwargs.pop("index", None)
         self.flow_name = kwargs.pop("flow_name", None)
+        self.flow_lock_manager = kwargs.pop("flow_lock_manager", None)
+        self.flow_kv_store = kwargs.pop("flow_kv_store", None)
         self.stop_signal = kwargs.pop("stop_signal", None)
         self.sibling_component = kwargs.pop("sibling_component", None)
         self.component_index = kwargs.pop("component_index", None)
@@ -282,6 +284,15 @@ class ComponentBase:
 
     def get_default_queue_timeout(self):
         return DEFAULT_QUEUE_TIMEOUT_MS
+
+    def get_lock(self, lock_name):
+        return self.flow_lock_manager.get_lock(lock_name)
+
+    def kv_store_get(self, key):
+        return self.flow_kv_store.get(key)
+
+    def kv_store_set(self, key, value):
+        self.flow_kv_store.set(key, value)
 
     def setup_communications(self):
         self.queue_timeout_ms = None  # pylint: disable=assignment-from-none

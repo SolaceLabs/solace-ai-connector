@@ -66,6 +66,6 @@ component_config:
 | --- | --- | --- |
 | results | True |  |
 | results.matches | False |  |
-| resultsmatches[].text | True |  |
-| resultsmatches[].metadata | False |  |
-| resultsmatches[].score | False |  |
+| results.matches[].text | True |  |
+| results.matches[].metadata | False |  |
+| results.matches[].score | False |  |
