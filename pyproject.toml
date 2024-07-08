@@ -23,7 +23,7 @@ dependencies = [
     "langchain~=0.2.3",
     "PyYAML~=6.0.1",
     "Requests~=2.32.3",
-    "solace_pubsubplus~=1.6.0",
+    "solace_pubsubplus>=1.8.0",
 
 ]
 
