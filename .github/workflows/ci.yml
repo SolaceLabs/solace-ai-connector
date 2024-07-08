@@ -1,0 +1,156 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  id-token: write
+  checks: write
+  issues: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      HATCH_CACHE_DIR: ${{ github.workspace }}/.hatch_cache
+      HATCH_DATA_DIR: ${{ github.workspace }}/.hatch_data
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Hatch
+        uses: pypa/hatch@install
+
+      - name: Restore Hatch Directory
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        with:
+          path: |
+            ${{ env.HATCH_CACHE_DIR }}
+            ${{ env.HATCH_DATA_DIR }}
+          key: ${{ runner.os }}-hatch-${{ hashFiles('pyproject.toml','requirements.txt') }}
+
+      - name: Install Dependencies
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          hatch python install 3.8 3.12
+
+      - name: Install Dependencies
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          hatch env create test
+
+      - name: Cache Hatch Directory
+        uses: actions/cache/save@v4
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        id: cache-hatch
+        with:
+          path: |
+            ${{ env.HATCH_CACHE_DIR }}
+            ${{ env.HATCH_DATA_DIR }}
+          key: ${{ runner.os }}-hatch-${{ hashFiles('pyproject.toml','requirements.txt') }}
+
+      - name: Set up Docker Buildx
+        id: builder
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare env file
+        run: |
+          cp .env_template .env
+        shell: bash
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          tags: solace/solace-ai-connector:local
+          platforms: linux/amd64
+          builder: ${{ steps.builder.outputs.name }}
+          load: true
+
+      - name: Run Lint
+        continue-on-error: true
+        run: |
+          hatch run +py=312 lint:ruff check -o lint.json --output-format json ./src ./tests
+        shell: bash
+
+      - name: Run Structured Tests
+        run: |
+          hatch run +py=312 test:make structure-test
+        shell: bash
+
+      - name: Run Unit Tests
+        shell: bash
+        run: |
+          hatch test --cover --all --parallel --junitxml=junit.xml
+
+      - name: Combine Coverage Reports
+        continue-on-error: true
+        run: |
+          hatch run +py=312 test:coverage combine
+        shell: bash
+
+      - name: Report coverage
+        run: |
+          hatch run +py=312 test:coverage xml
+        shell: bash
+
+      - name: SonarQube Scan
+        if: always()
+        uses: sonarsource/sonarqube-scan-action@v2.2.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.tests=tests/
+            -Dsonar.verbose=true
+            -Dsonar.sources=src/
+            -Dsonar.projectKey=${{github.repository_owner}}_${{github.event.repository.name}}
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.python.ruff.reportPaths=lint.json
+
+      - name: SonarQube Quality Gate check
+        id: sonarqube-quality-gate-check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
+
+      # Build and verify packages
+      - name: Build
+        run: hatch build
+
+      - name: Verify Packages
+        run: |
+          ls dist/*.tar.gz | hatch run +py=312 test:xargs -n1 twine check
+          ls dist/*.whl | hatch run +py=312 test:xargs -n1 twine check
+        shell: bash
+
+      - name: Surface failing tests
+        if: always()
+        uses: pmeier/pytest-results-action@main
+        with:
+          # A list of JUnit XML files, directories containing the former, and wildcard
+          # patterns to process.
+          # See @actions/glob for supported patterns.
+          path: junit.xml
+
+          # (Optional) Add a summary of the results at the top of the report
+          summary: true
+
+          # (Optional) Select which results should be included in the report.
+          # Follows the same syntax as `pytest -r`
+          display-options: fEX
+
+          # (Optional) Fail the workflow if no JUnit XML was found.
+          fail-on-empty: true
+
+          # (Optional) Title of the test results section in the workflow summary
+          title: Unit Test results

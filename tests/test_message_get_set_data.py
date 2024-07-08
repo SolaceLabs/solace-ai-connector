@@ -427,6 +427,6 @@ def test_get_set_user_properties():
 def test_get_set_previous():
     """Test getting and setting the previous data of a message"""
     message = Message(payload=payloads["simple"])
-    assert message.get_previous() == None
+    assert message.get_previous() is None
     message.set_previous(payloads["complex"])
     assert message.get_previous() == payloads["complex"]
