@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "solace_ai_connector"
-version = "0.0.1"
+dynamic = ["version"]
 authors = [
   { name="Edward Funnekotter", email="edward.funnekotter@solace.com" },
 ]
@@ -39,3 +39,6 @@ solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:mai
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]
+
+[tool.hatch.version]
+path = "src/solace_ai_connector/__init__.py"
