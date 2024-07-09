@@ -2,6 +2,7 @@
 
 import logging
 import os
+import certifi
 
 from solace.messaging.messaging_service import (
     MessagingService,
@@ -130,6 +131,7 @@ class SolaceMessaging(Messaging):
                 "trust_store_path"
             )
             or os.environ.get("TRUST_STORE")
+            or os.path.dirname(certifi.where())
             or "/usr/share/ca-certificates/mozilla/",
         }
         # print (f"Broker Properties: {self.broker_properties}")

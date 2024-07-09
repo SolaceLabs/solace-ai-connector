@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import builtins
+import subprocess
 
 from .log import log
 
@@ -94,22 +95,42 @@ def resolve_config_values(config, allow_source_expression=False):
     return config
 
 
-def import_module(name, base_path=None):
+def import_module(name, base_path=None, component_package=None):
     """Import a module by name"""
 
+    if component_package:
+        install_package(component_package)
+
     if base_path:
-        if not os.path.exists(base_path):
+        if base_path not in sys.path:
             sys.path.append(base_path)
     try:
         module = importlib.import_module(name)
-    except ModuleNotFoundError:
-        try:
-            module = import_from_directories(name, base_path=base_path)
-        except Exception as e:
-            raise ImportError(
-                f"Module load error for {name}, base_path={base_path} ", e
-            ) from e
-    return module
+        return module
+    except ModuleNotFoundError as exc:
+        # If the module does not have a path associated with it, try
+        # importing it from the known prefixes - annoying that this
+        # is necessary. It seems you can't dynamically import a module
+        # that is listed in an __init__.py file :(
+        if "." not in name:
+            for prefix in [
+                "solace_ai_connector.components",
+                "solace_ai_connector.components.general",
+                "solace_ai_connector.components.general.for_testing",
+                "solace_ai_connector.components.general.langchain",
+                "solace_ai_connector.components.inputs_outputs",
+                "solace_ai_connector.transforms",
+                "solace_ai_connector.common",
+            ]:
+                full_name = f"{prefix}.{name}"
+                try:
+                    module = importlib.import_module(full_name)
+                    return module
+                except ModuleNotFoundError:
+                    pass
+                except Exception as e:
+                    raise ImportError(f"Module load error for {full_name}: {e}") from e
+        raise ModuleNotFoundError(f"Module '{name}' not found") from exc
 
 
 def invoke_config(config, allow_source_expression=False):
@@ -211,6 +232,14 @@ def call_function(function, params, allow_source_expression):
     if keyword:
         return function(**keyword)
     return function(**params)
+
+
+def install_package(package_name):
+    """Install a package using pip if it isn't already installed"""
+    try:
+        importlib.import_module(package_name)
+    except ImportError:
+        subprocess.run(["pip", "install", package_name], check=True)
 
 
 def extract_source_expression(se_call):

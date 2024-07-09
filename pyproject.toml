@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "solace_ai_connector"
-version = "0.0.1"
+dynamic = ["version"]
 authors = [
   { name="Edward Funnekotter", email="edward.funnekotter@solace.com" },
 ]
@@ -18,12 +18,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "boto3>=1.34.93",
-    "langchain_core>=0.2.4",
-    "PyYAML>=6.0.1",
-    "Requests>=2.32.3",
-    "slack_bolt>=1.18.1",
-    "solace_pubsubplus>=1.6.0",
+    "boto3~=1.34.122",
+    "langchain_core~=0.2.5",
+    "langchain~=0.2.3",
+    "PyYAML~=6.0.1",
+    "Requests~=2.32.3",
+    "solace_pubsubplus>=1.8.0",
 ]
 
 [project.urls]
@@ -34,6 +34,30 @@ documentation = "https://github.com/SolaceLabs/solace-ai-connector/blob/main/doc
 
 [project.scripts]
 solace-ai-connector = "solace_ai_connector.main:main"
+solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]
+
+[tool.hatch.version]
+path = "src/solace_ai_connector/__init__.py"
+
+[tool.hatch.envs.test]
+dependencies = [
+  "pytest>=8.2.2",
+  "coverage>=7.5.4",
+  "twine>=5.1.1",
+]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+  "ruff>=0.5.0",
+]
+
+[tool.ruff]
+lint.select = ["E4", "E7", "E9", "F"]
+lint.ignore = ["F401", "E731"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["38", "312"]

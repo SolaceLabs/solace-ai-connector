@@ -115,7 +115,7 @@ class BrokerInput(BrokerBase):
             "Received message from broker: topic=%s, user_properties=%s, payload length=%d",
             topic,
             user_properties,
-            len(payload),
+            len(payload) if payload is not None else 0,
         )
         return Message(payload=payload, topic=topic, user_properties=user_properties)
 

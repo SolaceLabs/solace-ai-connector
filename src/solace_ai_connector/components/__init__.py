@@ -3,13 +3,12 @@
 from .inputs_outputs import (
     error_input,
     timer_input,
-    slack_output,
     broker_input,
     broker_output,
     stdout_output,
     stdin_input,
-    slack_input,
 )
+
 from .general import (
     user_processor,
     aggregate,
@@ -38,12 +37,10 @@ from .general.langchain import (
 # Also import the components from the submodules
 from .inputs_outputs.error_input import ErrorInput
 from .inputs_outputs.timer_input import TimerInput
-from .inputs_outputs.slack_output import SlackOutput
 from .inputs_outputs.broker_input import BrokerInput
 from .inputs_outputs.broker_output import BrokerOutput
 from .inputs_outputs.stdout_output import Stdout
 from .inputs_outputs.stdin_input import Stdin
-from .inputs_outputs.slack_input import SlackInput
 from .general.user_processor import UserProcessor
 from .general.aggregate import Aggregate
 from .general.for_testing.need_ack_input import NeedAckInput

@@ -7,7 +7,9 @@ RUN apt-get update && \
     apt-get clean
 
 #Install main program
-COPY . /app
+COPY /src /app/src
+COPY requirements.txt /app
+
 RUN python3.10 -m pip install -r requirements.txt
 ENV PYTHONUNBUFFERED=1
 

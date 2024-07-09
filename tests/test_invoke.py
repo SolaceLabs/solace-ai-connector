@@ -339,7 +339,7 @@ def test_resolve_config_values(test):
 
 # Test the resolve_config_values function with a missing module
 def test_resolve_config_values_missing_module():
-    with pytest.raises(ImportError, match="Could not import module 'missing_module'"):
+    with pytest.raises(ImportError, match="Module 'missing_module' not found"):
         resolve_config_values(
             {
                 "a": {

@@ -38,6 +38,12 @@ info["config_parameters"].extend(
             "default": 20,
         },
         {
+            "name": "history_max_message_size",
+            "required": False,
+            "description": "The maximum amount of characters to keep in a single message in the history. ",
+            "default": 1000,
+        },
+        {
             "name": "history_max_tokens",
             "required": False,
             "description": "The maximum number of tokens to keep in the history. "
@@ -101,6 +107,9 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.history_max_turns = self.get_config("history_max_turns", 20)
+        self.history_max_message_size = self.get_config(
+            "history_max_message_size", 1000
+        )
         self.history_max_tokens = self.get_config("history_max_tokens", 8000)
         self.stream_to_flow = self.get_config("stream_to_flow", "")
         self.llm_mode = self.get_config("llm_mode", "none")
@@ -176,6 +185,8 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
 
         result = namedtuple("Result", ["content"])(aggregate_result)
 
+        self.prune_large_message_from_history(session_id)
+
         return result
 
     def send_streaming_message(self, input_message, chunk, aggregate_result):
@@ -214,6 +225,21 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
                     -self.history_max_turns :
                 ]
             return self._histories[session_id]
+
+    def prune_large_message_from_history(self, session_id: str):
+        with self._lock:
+            # Loop over the last 2 messages in the history and truncate if needed
+            if (
+                session_id in self._histories
+                and len(self._histories[session_id].messages) > 1
+            ):
+                last_two_messages = self._histories[session_id].messages[-2:]
+                for message in last_two_messages:
+                    if len(message.content) > self.history_max_message_size:
+                        message.content = (
+                            message.content[: self.history_max_message_size]
+                            + " ...truncated..."
+                        )
 
     def clear_history(self, session_id: str):
         with self._lock:

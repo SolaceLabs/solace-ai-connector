@@ -1,10 +1,40 @@
 """Main class for the flow"""
 
+import threading
+
 # from solace_ai_connector.common.log import log
 from ..common.utils import import_module
 
 
+class FlowLockManager:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.locks = {}
+
+    def get_lock(self, lock_name):
+        with self._lock:
+            if lock_name not in self.locks:
+                self.locks[lock_name] = threading.Lock()
+
+            return self.locks[lock_name]
+
+
+class FlowKVStore:
+    def __init__(self):
+        self.store = {}
+
+    def set(self, key, value):
+        self.store[key] = value
+
+    def get(self, key):
+        return self.store.get(key, None)
+
+
 class Flow:
+
+    _lock_manager = FlowLockManager()
+    _kv_store = FlowKVStore()
+
     def __init__(
         self,
         flow_config,
@@ -31,6 +61,8 @@ class Flow:
         self.connector = connector
         self.flow_input_queue = None
         self.threads = []
+        self.flow_lock_manager = Flow._lock_manager
+        self.flow_kv_store = Flow._kv_store
         self.create_components()
 
     def create_components(self):
@@ -55,12 +87,13 @@ class Flow:
     def create_component_group(self, component, index):
         component_module = component.get("component_module", "")
         base_path = component.get("component_base_path", None)
+        component_package = component.get("component_package", None)
         num_instances = component.get("num_instances", 1)
         # component_config = component.get("component_config", {})
         # component_name = component.get("component_name", "")
 
         # imported_module = import_from_directories(component_module)
-        imported_module = import_module(component_module, base_path)
+        imported_module = import_module(component_module, base_path, component_package)
 
         try:
             self.module_info = getattr(imported_module, "info")
@@ -80,6 +113,8 @@ class Flow:
                 index=index,
                 # module_info=self.module_info,
                 flow_name=self.name,
+                flow_lock_manager=self.flow_lock_manager,
+                flow_kv_store=self.flow_kv_store,
                 stop_signal=self.stop_signal,
                 sibling_component=sibling_component,
                 component_index=component_index,
