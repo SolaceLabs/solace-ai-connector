@@ -167,7 +167,6 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
                 "configurable": {"session_id": session_id},
             },
         ):
-            # print(f"Streaming chunk: {chunk.content}")
             aggregate_result += chunk.content
             current_batch += chunk.content
             if len(current_batch.split()) >= self.stream_batch_size:

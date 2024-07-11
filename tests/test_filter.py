@@ -108,6 +108,8 @@ def test_filter_with_multi_stage_data():
 log:
   log_file_level: DEBUG
   log_file: solace_ai_connector.log
+trace:
+  trace_file: solace_ai_connector.trace
 flows:
   - name: test_flow
     components:
@@ -142,7 +144,7 @@ flows:
 
 
 """
-    connector, flows = create_test_flows(config_yaml)
+    connector, flows = create_test_flows(config_yaml, queue_timeout=1)
     flow = flows[0]
 
     # Send 1 message
@@ -150,12 +152,13 @@ flows:
     send_message_to_flow(flow, message)
 
     # Expect a message
-    output_message = get_message_from_flow(flow)
-    assert output_message.get_data("input.payload:my_list") == [1, 2, 3]
-    assert output_message.get_data("user_data.output") == 11
-
-    # Clean up
-    dispose_connector(connector)
+    try:
+        output_message = get_message_from_flow(flow)
+        assert output_message.get_data("input.payload:my_list") == [1, 2, 3]
+        assert output_message.get_data("user_data.output") == 11
+    finally:
+        # Clean up
+        dispose_connector(connector)
 
 
 def test_filter_with_multi_stage_data_with_timer_input():
@@ -166,6 +169,8 @@ def test_filter_with_multi_stage_data_with_timer_input():
 log:
   log_file_level: DEBUG
   log_file: solace_ai_connector.log
+trace:
+  trace_file: solace_ai_connector.trace
 flows:
   - name: test_flow
     components:
@@ -205,7 +210,7 @@ flows:
 
 
 """
-    connector, flows = create_test_flows(config_yaml)
+    connector, flows = create_test_flows(config_yaml, queue_timeout=3)
     flow = flows[0]
 
     try:

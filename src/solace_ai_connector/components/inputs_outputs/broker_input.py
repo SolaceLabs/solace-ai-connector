@@ -137,7 +137,6 @@ class BrokerInput(BrokerBase):
         return payload
 
     def acknowledge_message(self, broker_message):
-        # print("Acknowledging message")
         self.messaging_service.ack_message(broker_message)
 
     def get_acknowledgement_callback(self):

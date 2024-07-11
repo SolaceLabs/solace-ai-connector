@@ -49,9 +49,8 @@ class MessageHandlerImpl(MessageHandler):
         if isinstance(payload, bytearray):
             payload = payload.decode()
 
-        topic = message.get_destination_name()
+        # topic = message.get_destination_name()
         self.receiver.ack(message)
-        # print("\n" + f"Message dump: {message} \n")
 
 
 class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
@@ -69,18 +68,16 @@ class ServiceEventHandler(
     ReconnectionListener, ReconnectionAttemptListener, ServiceInterruptionListener
 ):
     def on_reconnected(self, service_event: ServiceEvent):
-        log.debug("Not reconnected: Error cause: %s", service_event.get_cause())
-        print(f"Message: {service_event.get_message()}")
+        log.debug("Reconnected to broker: %s", service_event.get_cause())
+        log.debug("Message: %s", service_event.get_message())
 
     def on_reconnecting(self, event: "ServiceEvent"):
-        print("\non_reconnecting")
-        print(f"Error cause: {event.get_cause()}")
-        print(f"Message: {event.get_message()}")
+        log.debug("Reconnecting - Error cause: %s", event.get_cause())
+        log.debug("Message: %s", event.get_message())
 
     def on_service_interrupted(self, event: "ServiceEvent"):
-        print("\non_service_interrupted")
-        print(f"Error cause: {event.get_cause()}")
-        print(f"Message: {event.get_message()}")
+        log.debug("Service interrupted - Error cause: %s", event.get_cause())
+        log.debug("Message: %s", event.get_message())
 
 
 def set_python_solace_log_level(level: str):
@@ -108,7 +105,6 @@ class SolaceMessaging(Messaging):
         # set_python_solace_log_level("DEBUG")
 
     def __del__(self):
-        print("DESTRUCTOR: SolaceMessaging")
         self.disconnect()
 
     def connect(self):
@@ -192,7 +188,11 @@ class SolaceMessaging(Messaging):
 
         # Handle API exception
         except PubSubPlusClientError as exception:
-            print(f"\nMake sure queue {queue_name} exists on broker!", exception)
+            log.warning(
+                "Error creating persistent receiver for queue [%s], %s",
+                queue_name,
+                exception,
+            )
 
         # Add to list of receivers
         self.persistent_receivers.append(self.persistent_receiver)
@@ -202,7 +202,7 @@ class SolaceMessaging(Messaging):
             for subscription in subscriptions:
                 sub = TopicSubscription.of(subscription.get("topic"))
                 self.persistent_receiver.add_subscription(sub)
-                print(f"Subscribed to topic: {subscription}")
+                log.debug("Subscribed to topic: %s", subscription)
 
         return self.persistent_receiver
 
@@ -210,7 +210,7 @@ class SolaceMessaging(Messaging):
         try:
             self.messaging_service.disconnect()
         except Exception as exception:  # pylint: disable=broad-except
-            print(f"Error disconnecting: {exception}")
+            log.debug("Error disconnecting: %s", exception)
 
     def is_connected(self):
         return self.messaging_service.is_connected()
