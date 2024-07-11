@@ -40,13 +40,10 @@ jobs:
           pip install --upgrade pip
           pip install hatch
 
-      - name: Bump Version
+      - name: Get Current Version
         run: |
           CURRENT_VERSION=$(hatch version)
           echo "CURRENT_VERSION=${CURRENT_VERSION}" >> $GITHUB_ENV
-          hatch version "${{ github.event.inputs.version }}"
-          NEW_VERSION=$(hatch version)
-          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Fail if the current version doesn't exist
         if: env.CURRENT_VERSION == ''
@@ -65,6 +62,12 @@ jobs:
           makeLatest: true
           generateReleaseNotes: true
           tag: ${{ env.CURRENT_VERSION }}
+      
+      - name: Bump Version
+        run: |
+          hatch version "${{ github.event.inputs.version }}"
+          NEW_VERSION=$(hatch version)
+          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
 
       - name: Commit new version
         run: |
