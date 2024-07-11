@@ -39,4 +39,4 @@ class UserProcessor(ComponentBase):
         component_processing = self.get_config("component_processing")
         if component_processing and callable(component_processing):
             return component_processing(message)
-        return data
+        return component_processing
