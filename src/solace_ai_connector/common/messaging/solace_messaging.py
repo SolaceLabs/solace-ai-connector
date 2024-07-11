@@ -47,12 +47,9 @@ class MessageHandlerImpl(MessageHandler):
             else message.get_payload_as_bytes()
         )
         if isinstance(payload, bytearray):
-            print(f"Received a message of type: {type(payload)}. Decoding to string")
             payload = payload.decode()
 
         topic = message.get_destination_name()
-        print("\n" + f"Received message on: {topic}")
-        print("\n" + f"Message payload: {payload} \n")
         self.receiver.ack(message)
         # print("\n" + f"Message dump: {message} \n")
 
@@ -72,8 +69,7 @@ class ServiceEventHandler(
     ReconnectionListener, ReconnectionAttemptListener, ServiceInterruptionListener
 ):
     def on_reconnected(self, service_event: ServiceEvent):
-        print("\non_reconnected")
-        print(f"Error cause: {service_event.get_cause()}")
+        log.debug("Not reconnected: Error cause: %s", service_event.get_cause())
         print(f"Message: {service_event.get_message()}")
 
     def on_reconnecting(self, event: "ServiceEvent"):
