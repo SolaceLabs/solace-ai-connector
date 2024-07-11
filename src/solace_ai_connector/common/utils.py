@@ -25,7 +25,6 @@ def import_from_directories(module_name, base_path=None):
             if "." in module_name:
                 module_file = module_name.replace(".", os.sep)
             module_path = os.path.join(directory, module_file + ".py")
-            # print(f"module_path: {module_path}")
             if os.path.exists(module_path):
                 try:
                     # if module_path.startswith("src/solace_ai_connector"):

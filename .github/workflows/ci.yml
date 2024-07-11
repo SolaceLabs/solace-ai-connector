@@ -113,7 +113,6 @@ jobs:
             -Dsonar.verbose=true
             -Dsonar.sources=src/
             -Dsonar.projectKey=${{github.repository_owner}}_${{github.event.repository.name}}
-            -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.python.ruff.reportPaths=lint.json
 
       - name: SonarQube Quality Gate check

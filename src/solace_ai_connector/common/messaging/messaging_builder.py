@@ -14,7 +14,6 @@ class MessagingServiceBuilder:
 
     def build(self):
         if self.broker_properties["broker_type"] == "solace":
-            print("Building Solace Messaging Service", self.broker_properties)
             return SolaceMessaging(self.broker_properties)
 
         raise ValueError(
