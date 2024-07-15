@@ -3,6 +3,7 @@
 import threading
 from collections import namedtuple
 from copy import deepcopy
+from uuid import uuid4
 
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -161,6 +162,8 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
 
         aggregate_result = ""
         current_batch = ""
+        response_uuid = str(uuid4())
+        first_chunk = True
         for chunk in runnable.stream(
             {"input": human_message},
             config={
@@ -172,25 +175,50 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             if len(current_batch.split()) >= self.stream_batch_size:
                 if self.stream_to_flow:
                     self.send_streaming_message(
-                        input_message, current_batch, aggregate_result
+                        input_message,
+                        current_batch,
+                        aggregate_result,
+                        response_uuid,
+                        first_chunk,
                     )
                 current_batch = ""
+                first_chunk = False
 
-        if current_batch:
-            if self.stream_to_flow:
-                self.send_streaming_message(
-                    input_message, current_batch, aggregate_result
-                )
+        if self.stream_to_flow:
+            self.send_streaming_message(
+                input_message,
+                current_batch,
+                aggregate_result,
+                response_uuid,
+                first_chunk,
+                True,
+            )
 
-        result = namedtuple("Result", ["content"])(aggregate_result)
+        result = namedtuple("Result", ["content", "uuid"])(
+            aggregate_result, response_uuid
+        )
 
         self.prune_large_message_from_history(session_id)
 
         return result
 
-    def send_streaming_message(self, input_message, chunk, aggregate_result):
+    def send_streaming_message(
+        self,
+        input_message,
+        chunk,
+        aggregate_result,
+        response_uuid,
+        first_chunk=False,
+        last_chunk=False,
+    ):
         message = Message(
-            payload={"chunk": chunk, "aggregate_result": aggregate_result},
+            payload={
+                "chunk": chunk,
+                "aggregate_result": aggregate_result,
+                "response_uuid": response_uuid,
+                "first_chunk": first_chunk,
+                "last_chunk": last_chunk,
+            },
             user_properties=input_message.get_user_properties(),
         )
         self.send_to_flow(self.stream_to_flow, message)
