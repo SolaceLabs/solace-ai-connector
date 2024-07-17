@@ -21,6 +21,7 @@ component_config:
   stream_to_flow: <string>
   llm_mode: <string>
   stream_batch_size: <string>
+  set_response_uuid_in_user_properties: <boolean>
 ```
 
 | Parameter | Required | Default | Description |
@@ -38,6 +39,7 @@ component_config:
 | stream_to_flow | False |  | Name the flow to stream the output to - this must be configured for llm_mode='stream'. |
 | llm_mode | False |  | The mode for streaming results: 'sync' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
 | stream_batch_size | False | 15 | The minimum number of words in a single streaming result. Default: 15. |
+| set_response_uuid_in_user_properties | False | False | Whether to set the response_uuid in the user_properties of the input_message. |
 
 
 ## Component Input Schema

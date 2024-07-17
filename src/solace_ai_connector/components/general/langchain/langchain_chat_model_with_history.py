@@ -87,6 +87,13 @@ info["config_parameters"].extend(
             "description": "The minimum number of words in a single streaming result. Default: 15.",
             "default": 15,
         },
+        {
+            "name": "set_response_uuid_in_user_properties",
+            "required": False,
+            "description": "Whether to set the response_uuid in the user_properties of the input_message. This will allow other components to correlate streaming chunks with the full response.",
+            "default": False,
+            "type": "boolean",
+        },
     ]
 )
 info["input_schema"]["properties"]["session_id"] = {
@@ -115,6 +122,9 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         self.stream_to_flow = self.get_config("stream_to_flow", "")
         self.llm_mode = self.get_config("llm_mode", "none")
         self.stream_batch_size = self.get_config("stream_batch_size", 15)
+        self.set_response_uuid_in_user_properties = self.get_config(
+            "set_response_uuid_in_user_properties", False
+        )
 
     def invoke_model(
         self, input_message, messages, session_id=None, clear_history=False
@@ -198,6 +208,12 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             aggregate_result, response_uuid
         )
 
+        # Put the response_uuid into the input_message user_properties
+        if self.set_response_uuid_in_user_properties:
+            user_properties = input_message.get_user_properties()
+            user_properties["response_uuid"] = response_uuid
+            input_message.set_user_properties(user_properties)
+
         self.prune_large_message_from_history(session_id)
 
         return result
@@ -233,9 +249,6 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         )
         config = self.get_config("history_config", {})
         history = self.create_component(config, history_class)
-        # memory = ConversationTokenBufferMemory(
-        #     chat_memory=history, llm=self.component, max_token_limit=history_max_tokens
-        # )
         return history
 
     def get_history(self, session_id: str) -> BaseChatMessageHistory:
