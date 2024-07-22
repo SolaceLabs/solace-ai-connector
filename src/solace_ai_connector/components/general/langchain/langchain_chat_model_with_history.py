@@ -208,12 +208,6 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             aggregate_result, response_uuid
         )
 
-        # Put the response_uuid into the input_message user_properties
-        if self.set_response_uuid_in_user_properties:
-            user_properties = input_message.get_user_properties()
-            user_properties["response_uuid"] = response_uuid
-            input_message.set_user_properties(user_properties)
-
         self.prune_large_message_from_history(session_id)
 
         return result
