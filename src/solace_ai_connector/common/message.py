@@ -28,6 +28,7 @@ class Message:
     #   <data_type>:<data_name>
     # Where:
     #   <data_type> is one of the following:
+    #     input                   - Object containing the payload, topic, and user_properties
     #     input.payload           - The payload of the message
     #     input.topic             - The topic of the message as a string
     #     input.topic_levels      - The topic of the message as a list of each level of the topic
@@ -99,6 +100,12 @@ class Message:
     ):
         data_type = expression.split(":")[0]
 
+        if data_type == "input":
+            return {
+                "payload": self.payload,
+                "topic": self.topic,
+                "user_properties": self.user_properties,
+            }
         if data_type == "input.payload":
             return self.payload
         if data_type == "input.topic":

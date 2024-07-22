@@ -22,5 +22,5 @@ component_config:
 ## Component Output Schema
 
 ```
-
+<any>
 ```
