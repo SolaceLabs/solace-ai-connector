@@ -7,71 +7,19 @@ on:
         required: true
         description: "Version bump type"
         options:
-        - patch
-        - minor
-        - major
+          - patch
+          - minor
+          - major
+
+permissions:
+  id-token: write
+  checks: write
 
 jobs:
   release:
-    name: Release
-    timeout-minutes: 20
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/solace_ai_connector
-    permissions:
-       id-token: write
-       contents: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ssh-key: ${{ secrets.COMMIT_KEY }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install hatch
-        run: |
-          pip install --upgrade pip
-          pip install hatch
-
-      - name: Get Current Version
-        run: |
-          CURRENT_VERSION=$(hatch version)
-          echo "CURRENT_VERSION=${CURRENT_VERSION}" >> $GITHUB_ENV
-
-      - name: Fail if the current version doesn't exist
-        if: env.CURRENT_VERSION == ''
-        run: exit 1
-
-      - name: Build project for distribution
-        run: hatch build
-
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
-      - name: Create Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "dist/*.whl"
-          makeLatest: true
-          generateReleaseNotes: true
-          tag: ${{ env.CURRENT_VERSION }}
-      
-      - name: Bump Version
-        run: |
-          hatch version "${{ github.event.inputs.version }}"
-          NEW_VERSION=$(hatch version)
-          echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
-
-      - name: Commit new version
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -a -m "[ci skip] Bump version to $NEW_VERSION"
-          git push
+    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_pypi.yml@v1.0.0
+    with:
+      version: ${{ github.event.inputs.version }}
+      pypi-project: solace-ai-connector
+    secrets:
+      COMMIT_KEY: ${{ secrets.COMMIT_KEY }}
