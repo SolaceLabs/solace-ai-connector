@@ -61,8 +61,8 @@ class TimerInput(ComponentBase):
         else:
             # Sleep for the remaining time
             sleep_time = (self.interval_ms - delta_time) / 1000
-            self.last_message_time += sleep_time
             time.sleep(sleep_time)
+            self.last_message_time = self.get_current_time()
 
         return Message(payload={})
 

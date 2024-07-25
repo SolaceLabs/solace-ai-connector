@@ -7,6 +7,7 @@
 | [broker_output](broker_output.md) | Connect to a messaging broker and send messages to it. Note that this component requires that the data is transformed into the input schema. |
 | [delay](delay.md) | A simple component that simply passes the input to the output, but with a configurable delay. |
 | [error_input](error_input.md) | Receive processing errors from the Solace AI Event Connector. Note that the component_input configuration is ignored. This component should be used to create a flow that handles errors from other flows.  |
+| [file_output](file_output.md) | File output component |
 | [iterate](iterate.md) | Take a single message that is a list and output each item in that list as a separate message |
 | [langchain_chat_model](langchain_chat_model.md) | Provide access to all the LangChain chat models via configuration |
 | [langchain_chat_model_with_history](langchain_chat_model_with_history.md) | A chat model based on LangChain that includes keeping per-session history of the conversation. Note that this component will only take the first system message and the first human message in the messages array. |
