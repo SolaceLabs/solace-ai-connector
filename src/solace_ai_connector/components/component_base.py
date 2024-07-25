@@ -46,6 +46,7 @@ class ComponentBase:
         self.need_acknowledgement = False
         self.stop_thread_event = threading.Event()
         self.current_message = None
+        self.current_message_has_been_discarded = False
 
         self.log_identifier = f"[{self.instance_name}.{self.flow_name}.{self.name}] "
 
@@ -159,9 +160,13 @@ class ComponentBase:
             self.trace_data(data)
 
         # Invoke the component
+        self.current_message_has_been_discarded = False
         result = self.invoke(message, data)
 
-        if result is not None:
+        if self.current_message_has_been_discarded:
+            # Call the message acknowledgements
+            message.call_acknowledgements()
+        elif result is not None:
             # Do all the things we need to do after invoking the component
             # Note that there are times where we don't want to
             # send the message to the next component
@@ -192,6 +197,10 @@ class ComponentBase:
         )
         self.current_message = message
         self.send_message(message)
+
+    def discard_current_message(self):
+        # If the message is to be discarded, we need to acknowledge any previous components
+        self.current_message_has_been_discarded = True
 
     def get_acknowledgement_callback(self):
         # This should be overridden by the component if it needs to acknowledge messages

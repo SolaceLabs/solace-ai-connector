@@ -29,7 +29,9 @@ info = {
             "required": False,
         },
     ],
-    "output_schema": {"type": "any"},
+    "output_schema": {
+        "type": "None",
+    },
 }
 
 

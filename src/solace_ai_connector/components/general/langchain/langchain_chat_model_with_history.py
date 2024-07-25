@@ -3,6 +3,7 @@
 import threading
 from collections import namedtuple
 from copy import deepcopy
+from uuid import uuid4
 
 from langchain_core.chat_history import BaseChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -86,6 +87,13 @@ info["config_parameters"].extend(
             "description": "The minimum number of words in a single streaming result. Default: 15.",
             "default": 15,
         },
+        {
+            "name": "set_response_uuid_in_user_properties",
+            "required": False,
+            "description": "Whether to set the response_uuid in the user_properties of the input_message. This will allow other components to correlate streaming chunks with the full response.",
+            "default": False,
+            "type": "boolean",
+        },
     ]
 )
 info["input_schema"]["properties"]["session_id"] = {
@@ -114,6 +122,9 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         self.stream_to_flow = self.get_config("stream_to_flow", "")
         self.llm_mode = self.get_config("llm_mode", "none")
         self.stream_batch_size = self.get_config("stream_batch_size", 15)
+        self.set_response_uuid_in_user_properties = self.get_config(
+            "set_response_uuid_in_user_properties", False
+        )
 
     def invoke_model(
         self, input_message, messages, session_id=None, clear_history=False
@@ -161,6 +172,8 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
 
         aggregate_result = ""
         current_batch = ""
+        response_uuid = str(uuid4())
+        first_chunk = True
         for chunk in runnable.stream(
             {"input": human_message},
             config={
@@ -172,25 +185,50 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             if len(current_batch.split()) >= self.stream_batch_size:
                 if self.stream_to_flow:
                     self.send_streaming_message(
-                        input_message, current_batch, aggregate_result
+                        input_message,
+                        current_batch,
+                        aggregate_result,
+                        response_uuid,
+                        first_chunk,
                     )
                 current_batch = ""
+                first_chunk = False
 
-        if current_batch:
-            if self.stream_to_flow:
-                self.send_streaming_message(
-                    input_message, current_batch, aggregate_result
-                )
+        if self.stream_to_flow:
+            self.send_streaming_message(
+                input_message,
+                current_batch,
+                aggregate_result,
+                response_uuid,
+                first_chunk,
+                True,
+            )
 
-        result = namedtuple("Result", ["content"])(aggregate_result)
+        result = namedtuple("Result", ["content", "uuid"])(
+            aggregate_result, response_uuid
+        )
 
         self.prune_large_message_from_history(session_id)
 
         return result
 
-    def send_streaming_message(self, input_message, chunk, aggregate_result):
+    def send_streaming_message(
+        self,
+        input_message,
+        chunk,
+        aggregate_result,
+        response_uuid,
+        first_chunk=False,
+        last_chunk=False,
+    ):
         message = Message(
-            payload={"chunk": chunk, "aggregate_result": aggregate_result},
+            payload={
+                "chunk": chunk,
+                "aggregate_result": aggregate_result,
+                "response_uuid": response_uuid,
+                "first_chunk": first_chunk,
+                "last_chunk": last_chunk,
+            },
             user_properties=input_message.get_user_properties(),
         )
         self.send_to_flow(self.stream_to_flow, message)
@@ -205,9 +243,6 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         )
         config = self.get_config("history_config", {})
         history = self.create_component(config, history_class)
-        # memory = ConversationTokenBufferMemory(
-        #     chat_memory=history, llm=self.component, max_token_limit=history_max_tokens
-        # )
         return history
 
     def get_history(self, session_id: str) -> BaseChatMessageHistory:
