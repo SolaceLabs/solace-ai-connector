@@ -42,22 +42,6 @@ packages = ["src/solace_ai_connector"]
 [tool.hatch.version]
 path = "src/solace_ai_connector/__init__.py"
 
-[tool.hatch.envs.test]
-dependencies = [
-  "pytest>=8.2.2",
-  "coverage>=7.5.4",
-  "twine>=5.1.1",
-]
-
-[tool.hatch.envs.lint]
-detached = true
-dependencies = [
-  "ruff>=0.5.0",
-]
-
 [tool.ruff]
 lint.select = ["E4", "E7", "E9", "F"]
 lint.ignore = ["F401", "E731"]
-
-[[tool.hatch.envs.test.matrix]]
-python = ["38", "312"]
