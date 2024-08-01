@@ -25,6 +25,7 @@ empty_set = set
 empty_tuple = tuple
 empty_float = lambda: 0.0
 empty_int = lambda: 0
+if_else = lambda x, y, z: y if x else z
 
 
 # A few test functions
