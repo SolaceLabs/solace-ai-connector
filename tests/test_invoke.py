@@ -302,6 +302,24 @@ tests = [
                         },
                     },
                 },
+                "if_else_true": {
+                    "invoke": {
+                        "module": "invoke_functions",
+                        "function": "if_else",
+                        "params": {
+                            "positional": [True, 1, 2],
+                        },
+                    },
+                },
+                "if_else_false": {
+                    "invoke": {
+                        "module": "invoke_functions",
+                        "function": "if_else",
+                        "params": {
+                            "positional": [False, 1, 2],
+                        },
+                    },
+                },
             },
         },
         "expected": {
@@ -325,6 +343,8 @@ tests = [
                 "not_op": False,
                 "in_op": True,
                 "negate": -1,
+                "if_else_true": 1,
+                "if_else_false": 2,
             },
         },
     },
