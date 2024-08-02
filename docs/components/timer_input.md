@@ -22,9 +22,5 @@ component_config:
 ## Component Output Schema
 
 ```
-<<<<<<< HEAD
 <None>
-=======
-<any>
->>>>>>> origin/main
 ```
