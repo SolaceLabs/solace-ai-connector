@@ -70,8 +70,6 @@ class TimerManager:
                         timer.expiration += timer.interval / 1000.0
                         heapq.heappush(self.timers, timer)
 
-            time.sleep(0.01)  # Sleep briefly to avoid busy-waiting
-
     def stop(self):
         # Signal the thread to stop
         print("stopping timer manager")
