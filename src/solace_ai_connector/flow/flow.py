@@ -4,7 +4,6 @@ import threading
 
 # from solace_ai_connector.common.log import log
 from ..common.utils import import_module
-from .timer_manager import TimerManager
 
 
 class FlowLockManager:
@@ -64,7 +63,6 @@ class Flow:
         self.threads = []
         self.flow_lock_manager = Flow._lock_manager
         self.flow_kv_store = Flow._kv_store
-        self.timer_manager = TimerManager(self.stop_signal)
         self.create_components()
 
     def create_components(self):
@@ -124,7 +122,7 @@ class Flow:
                 storage_manager=self.storage_manager,
                 trace_queue=self.trace_queue,
                 connector=self.connector,
-                timer_manager=self.timer_manager,
+                timer_manager=self.connector.timer_manager,
             )
             sibling_component = component_instance
 

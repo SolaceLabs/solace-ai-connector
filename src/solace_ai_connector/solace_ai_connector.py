@@ -7,6 +7,7 @@ from datetime import datetime
 from .common.log import log, setup_log
 from .common.utils import resolve_config_values
 from .flow.flow import Flow
+from .flow.timer_manager import TimerManager
 from .storage.storage_manager import StorageManager
 from .common.event import Event, EventType
 
@@ -30,16 +31,22 @@ class SolaceAiConnector:
         self.validate_config()
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.storage_manager = StorageManager(self.config.get("storage", []))
+        self.timer_manager = TimerManager(self.stop_signal)
 
     def run(self):
         """Run the Solace AI Event Connector"""
         log.debug("Starting Solace AI Event Connector")
-        self.create_flows()
+        try:
+            self.create_flows()
 
-        # Call the on_flow_creation event handler
-        on_flow_creation = self.event_handlers.get("on_flow_creation")
-        if on_flow_creation:
-            on_flow_creation(self.flows)
+            # Call the on_flow_creation event handler
+            on_flow_creation = self.event_handlers.get("on_flow_creation")
+            if on_flow_creation:
+                on_flow_creation(self.flows)
+        except Exception as e:
+            log.error("Error during Solace AI Event Connector startup: %s", str(e))
+            self.stop()
+            raise
 
     def create_flows(self):
         """Loop through the flows and create them"""
@@ -98,6 +105,7 @@ class SolaceAiConnector:
         self.wait_for_flows()
         if self.trace_thread:
             self.trace_thread.join()
+        self.timer_manager.stop()
 
     def setup_logging(self):
         """Setup logging"""
