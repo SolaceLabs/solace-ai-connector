@@ -8,6 +8,8 @@ from .common.log import log, setup_log
 from .common.utils import resolve_config_values
 from .flow.flow import Flow
 from .storage.storage_manager import StorageManager
+from .common.event import Event, EventType
+
 
 
 class SolaceAiConnector:
@@ -71,9 +73,11 @@ class SolaceAiConnector:
         """Send a message to a flow"""
         flow_input_queue = self.flow_input_queues.get(flow_name)
         if flow_input_queue:
-            flow_input_queue.put(message)
+            event = Event(EventType.MESSAGE, message)
+            flow_input_queue.put(event)
         else:
             log.error("Can't send message to flow %s. Not found", flow_name)
+
 
     def wait_for_flows(self):
         """Wait for the flows to finish"""

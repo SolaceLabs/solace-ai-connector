@@ -2,19 +2,14 @@
 
 import time
 
-# import pytest
-
 from utils_for_test_files import (
     create_test_flows,
-    # create_connector,
     dispose_connector,
-    # send_and_receive_message_on_flow,
     send_message_to_flow,
-    get_message_from_flow,
+    get_event_from_flow,
 )
 from solace_ai_connector.common.message import Message
-
-# from solace_ai_connector.common.log import log
+from solace_ai_connector.common.event import EventType
 
 
 def test_aggregate_by_time():
@@ -45,8 +40,8 @@ flows:
 
         start_time = time.time()
 
-        # Get the output message
-        output_message = get_message_from_flow(flow)
+        # Get the output event
+        event = get_event_from_flow(flow)
 
         end_time = time.time()
 
@@ -59,7 +54,8 @@ flows:
             expected.append({"text": f"Hello, World! {i} {j}"})
 
         # Check the output
-        assert output_message.get_data("previous") == expected
+        assert event.event_type == EventType.MESSAGE
+        assert event.payload.get_data("previous") == expected
 
     # Tear down the connector
     dispose_connector(connector)
@@ -91,8 +87,8 @@ flows:
             message = Message(payload={"text": f"Hello, World! {i} {j}"})
             send_message_to_flow(flow, message)
 
-        # Get the output message
-        output_message = get_message_from_flow(flow)
+        # Get the output event
+        event = get_event_from_flow(flow)
 
         end_time = time.time()
 
@@ -105,7 +101,8 @@ flows:
             expected.append({"text": f"Hello, World! {i} {j}"})
 
         # Check the output
-        assert output_message.get_data("previous") == expected
+        assert event.event_type == EventType.MESSAGE
+        assert event.payload.get_data("previous") == expected
 
     # Tear down the connector
     dispose_connector(connector)
@@ -145,16 +142,18 @@ flows:
     for j in range(4):
         if j < 3:
             # Get the next 3 expected messages
-            output_message = get_message_from_flow(flow)
+            event = get_event_from_flow(flow)
             end_time = time.time()
-            assert output_message.get_data("previous") == expected[j * 3 : j * 3 + 3]
+            assert event.event_type == EventType.MESSAGE
+            assert event.payload.get_data("previous") == expected[j * 3 : j * 3 + 3]
             assert (end_time - start_time) < 0.1
         else:
             # Get the last expected message
-            output_message = get_message_from_flow(flow)
+            event = get_event_from_flow(flow)
             end_time = time.time()
             assert abs((end_time - start_time) - (MAX_TIME_MS / 1000)) < 0.1
-            assert output_message.get_data("previous") == expected[j * 3 :]
+            assert event.event_type == EventType.MESSAGE
+            assert event.payload.get_data("previous") == expected[j * 3 :]
 
     # Tear down the connector
     dispose_connector(connector)

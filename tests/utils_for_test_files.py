@@ -7,14 +7,9 @@ import yaml
 
 sys.path.insert(0, os.path.abspath("src"))
 
-
-# from solace_ai_connector.common.message import Message
-from solace_ai_connector.solace_ai_connector import (  # pylint: disable=wrong-import-position
-    SolaceAiConnector,
-)
-from solace_ai_connector.common.log import (  # pylint: disable=wrong-import-position
-    log,
-)
+from solace_ai_connector.solace_ai_connector import SolaceAiConnector
+from solace_ai_connector.common.log import log
+from solace_ai_connector.common.event import Event, EventType
 
 
 class TestOutputComponent:
@@ -26,11 +21,11 @@ class TestOutputComponent:
         self.queue_timeout = queue_timeout
         self.stop = False
 
-    def enqueue(self, message):
+    def enqueue(self, event):
         do_loop = True
         while do_loop and not self.stop:
             try:
-                self.queue.put(message, timeout=1)
+                self.queue.put(event, timeout=1)
                 do_loop = False
             except queue.Full:
                 pass
@@ -40,15 +35,15 @@ class TestOutputComponent:
 
     def get_output(self):
         try:
-            message = self.queue.get(timeout=self.queue_timeout)
-            log.debug("Output test component received message: %s", message)
+            event = self.queue.get(timeout=self.queue_timeout)
+            log.debug("Output test component received event: %s", event)
         except queue.Empty:
-            message = None
-        return message
+            event = None
+        return event
 
 
 class TestInputComponent:
-    """A simple input component that allows for the input of a message.
+    """A simple input component that allows for the input of an event.
     It is used to test the input of a flow."""
 
     def __init__(self, next_component_queue):
@@ -56,7 +51,8 @@ class TestInputComponent:
 
     def enqueue(self, message):
         log.debug("Input test component sending message: %s", message)
-        self.next_component_queue.put(message)
+        event = Event(EventType.MESSAGE, message)
+        self.next_component_queue.put(event)
 
 
 def create_connector(config_yaml, event_handlers=None, error_queue=None):
@@ -150,3 +146,8 @@ def send_and_receive_message_on_flow(flow, message):
     send_message_to_flow(flow, message)
     output_message = get_message_from_flow(flow)
     return output_message
+
+
+def get_event_from_flow(flow_info):
+    output_component = flow_info["output_component"]
+    return output_component.get_output()
