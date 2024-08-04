@@ -35,10 +35,12 @@ class TestOutputComponent:
 
     def get_output(self):
         try:
-            event = self.queue.get(timeout=self.queue_timeout)
-            log.debug("Output test component received event: %s", event)
-            if event and event.event_type == EventType.MESSAGE:
-                return event.payload
+            item = self.queue.get(timeout=self.queue_timeout)
+            log.debug("Output test component received item: %s", item)
+            if isinstance(item, Event) and item.event_type == EventType.MESSAGE:
+                return item.payload
+            elif isinstance(item, Message):
+                return item
         except queue.Empty:
             pass
         return None
