@@ -37,9 +37,11 @@ class TestOutputComponent:
         try:
             event = self.queue.get(timeout=self.queue_timeout)
             log.debug("Output test component received event: %s", event)
+            if event and event.event_type == EventType.MESSAGE:
+                return event.payload
         except queue.Empty:
-            event = None
-        return event
+            pass
+        return None
 
 
 class TestInputComponent:
