@@ -60,18 +60,17 @@ class Aggregate(ComponentBase):
 
         if len(self.current_aggregation["list"]) >= self.max_items:
             self.cancel_timer("aggregate_timeout")
-            return self.send_aggregation()
-
-        return None
+            return self.get_aggregation()
 
     def handle_timer_event(self, timer_data):
         if (
             timer_data["timer_id"] == "aggregate_timeout"
             and self.current_aggregation is not None
         ):
-            aggregated_data = self.send_aggregation()
-            self.process_post_invoke(aggregated_data, self.current_aggregation["message"])
-        return None
+            aggregated_data = self.get_aggregation()
+            message = self.current_aggregation["message"]
+            self.current_aggregation = None
+            self.process_post_invoke(aggregated_data, message)
 
     def start_new_aggregation(self):
         self.add_timer(self.max_time_ms, "aggregate_timeout")
@@ -80,7 +79,6 @@ class Aggregate(ComponentBase):
             "message": Message(),
         }
 
-    def send_aggregation(self):
+    def get_aggregation(self):
         aggregation = self.current_aggregation
-        self.current_aggregation = None
         return aggregation["list"]
