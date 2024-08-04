@@ -335,3 +335,14 @@ class ComponentBase:
     def stop_component(self):
         # This should be overridden by the component if needed
         pass
+
+    def cleanup(self):
+        """Clean up resources used by the component"""
+        log.debug(f"{self.log_identifier}Cleaning up component")
+        self.stop_component()
+        if hasattr(self, 'input_queue'):
+            while not self.input_queue.empty():
+                try:
+                    self.input_queue.get_nowait()
+                except queue.Empty:
+                    break

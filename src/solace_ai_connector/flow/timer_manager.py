@@ -72,8 +72,14 @@ class TimerManager:
 
     def stop(self):
         # Signal the thread to stop
-        print("stopping timer manager")
+        log.debug("Stopping timer manager")
         self.stop_signal.set()
         self.event.set()  # Wake up the timer thread
         self.thread.join()
-        print("timer manager stopped")
+        log.debug("Timer manager stopped")
+
+    def cleanup(self):
+        """Clean up resources used by the TimerManager"""
+        log.debug("Cleaning up TimerManager")
+        with self.lock:
+            self.timers.clear()

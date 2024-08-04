@@ -46,6 +46,7 @@ class SolaceAiConnector:
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
             self.stop()
+            self.cleanup()
             raise
 
     def create_flows(self):
@@ -106,6 +107,18 @@ class SolaceAiConnector:
         self.wait_for_flows()
         if self.trace_thread:
             self.trace_thread.join()
+
+    def cleanup(self):
+        """Clean up resources and ensure all threads are properly joined"""
+        log.info("Cleaning up Solace AI Event Connector")
+        for flow in self.flows:
+            flow.cleanup()
+        self.flows.clear()
+        if hasattr(self, 'trace_queue'):
+            self.trace_queue.put(None)  # Signal the trace thread to stop
+        if self.trace_thread:
+            self.trace_thread.join()
+        self.timer_manager.cleanup()
 
     def setup_logging(self):
         """Setup logging"""

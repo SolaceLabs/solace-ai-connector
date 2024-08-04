@@ -139,3 +139,12 @@ class Flow:
         for thread in self.threads:
             thread.join()
         self.timer_manager.stop()
+
+    def cleanup(self):
+        """Clean up resources and ensure all threads are properly joined"""
+        log.info(f"Cleaning up flow: {self.name}")
+        for component_group in self.component_groups:
+            for component in component_group:
+                component.cleanup()
+        self.component_groups.clear()
+        self.threads.clear()
