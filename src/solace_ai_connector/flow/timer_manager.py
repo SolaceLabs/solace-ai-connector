@@ -2,6 +2,7 @@ import threading
 import time
 import heapq
 from ..common.event import Event, EventType
+from ..common.log import log
 
 
 class Timer:

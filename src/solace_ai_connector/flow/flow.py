@@ -2,7 +2,7 @@
 
 import threading
 
-# from solace_ai_connector.common.log import log
+from ..common.log import log
 from ..common.utils import import_module
 
 
