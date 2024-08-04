@@ -9,7 +9,7 @@ from ..common.utils import get_source_expression
 from ..transforms.transforms import Transforms
 from ..common.message import Message
 from ..common.trace_message import TraceMessage
-from ..common.event import EventType
+from ..common.event import Event, EventType
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -120,6 +120,19 @@ class ComponentBase:
             log.warning(
                 "%sUnknown event type: %s", self.log_identifier, event.event_type
             )
+
+    def send_message(self, message):
+        if self.next_component is None:
+            # This is the last component in the flow
+            log.debug(
+                "%sComponent %s is the last component in the flow, so not sending message",
+                self.log_identifier,
+                self.name,
+            )
+            message.call_acknowledgements()
+            return
+        event = Event(EventType.MESSAGE, message)
+        self.next_component.enqueue(event)
 
     def process_pre_invoke(self, message):
         self.apply_input_transforms(message)
