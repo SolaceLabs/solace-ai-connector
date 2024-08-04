@@ -121,19 +121,6 @@ class ComponentBase:
                 "%sUnknown event type: %s", self.log_identifier, event.event_type
             )
 
-    def send_message(self, message):
-        if self.next_component is None:
-            # This is the last component in the flow
-            log.debug(
-                "%sComponent %s is the last component in the flow, so not sending message",
-                self.log_identifier,
-                self.name,
-            )
-            message.call_acknowledgements()
-            return
-        event = Event(EventType.MESSAGE, message)
-        self.next_component.enqueue(event)
-
     def process_pre_invoke(self, message):
         self.apply_input_transforms(message)
         return self.get_input_data(message)
