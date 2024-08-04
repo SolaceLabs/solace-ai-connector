@@ -102,10 +102,10 @@ class SolaceAiConnector:
         """Stop the Solace AI Event Connector"""
         log.info("Stopping Solace AI Event Connector")
         self.stop_signal.set()
+        self.timer_manager.stop()  # Stop the timer manager first
         self.wait_for_flows()
         if self.trace_thread:
             self.trace_thread.join()
-        self.timer_manager.stop()
 
     def setup_logging(self):
         """Setup logging"""

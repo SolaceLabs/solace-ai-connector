@@ -75,5 +75,7 @@ class TimerManager:
     def stop(self):
         # Signal the thread to stop
         print("stopping timer manager")
+        self.stop_signal.set()
+        self.event.set()  # Wake up the timer thread
         self.thread.join()
         print("timer manager stopped")
