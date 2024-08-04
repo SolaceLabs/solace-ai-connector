@@ -69,7 +69,8 @@ class Aggregate(ComponentBase):
             timer_data["timer_id"] == "aggregate_timeout"
             and self.current_aggregation is not None
         ):
-            return self.send_aggregation()
+            aggregated_data = self.send_aggregation()
+            self.process_post_invoke(aggregated_data, self.current_aggregation["message"])
         return None
 
     def start_new_aggregation(self):
@@ -82,4 +83,4 @@ class Aggregate(ComponentBase):
     def send_aggregation(self):
         aggregation = self.current_aggregation
         self.current_aggregation = None
-        return aggregation["list"]
+        return {"aggregated_data": aggregation["list"]}
