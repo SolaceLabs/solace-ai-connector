@@ -60,7 +60,9 @@ class Aggregate(ComponentBase):
 
         if len(self.current_aggregation["list"]) >= self.max_items:
             self.cancel_timer("aggregate_timeout")
-            return self.get_aggregation()
+            result = self.get_aggregation()
+            self.current_aggregation = None
+            return result
 
     def handle_timer_event(self, timer_data):
         if (
