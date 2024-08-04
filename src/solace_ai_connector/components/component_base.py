@@ -195,7 +195,8 @@ class ComponentBase:
             )
             message.call_acknowledgements()
             return
-        self.next_component.enqueue(message)
+        event = Event(EventType.MESSAGE, message)
+        self.next_component.enqueue(event)
 
     def send_to_flow(self, flow_name, message):
         if self.connector:
