@@ -83,4 +83,4 @@ class Aggregate(ComponentBase):
     def send_aggregation(self):
         aggregation = self.current_aggregation
         self.current_aggregation = None
-        return {"aggregated_data": aggregation["list"]}
+        return aggregation["list"]
