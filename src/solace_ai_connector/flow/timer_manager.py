@@ -21,6 +21,7 @@ class TimerManager:
         self.timers = []
         self.lock = threading.Lock()
         self.stop_signal = stop_signal
+        self.event = threading.Event()
         self.thread = threading.Thread(target=self.run)
         self.thread.start()
 
@@ -29,6 +30,7 @@ class TimerManager:
             expiration = time.time() + (delay_ms / 1000.0)
             timer = Timer(expiration, interval_ms, component, timer_id, payload)
             heapq.heappush(self.timers, timer)
+            self.event.set()
 
     def cancel_timer(self, component, timer_id):
         with self.lock:
@@ -41,6 +43,20 @@ class TimerManager:
 
     def run(self):
         while not self.stop_signal.is_set():
+            with self.lock:
+                if not self.timers:
+                    next_expiration = None
+                else:
+                    next_expiration = self.timers[0].expiration
+
+            if next_expiration is None:
+                self.event.wait()
+            else:
+                wait_time = max(0, next_expiration - time.time())
+                self.event.wait(timeout=wait_time)
+
+            self.event.clear()
+
             with self.lock:
                 now = time.time()
                 while self.timers and self.timers[0].expiration <= now:
