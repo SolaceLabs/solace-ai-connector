@@ -141,7 +141,7 @@ class Flow:
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
-        log.info(f"Cleaning up flow: {self.name}")
+        log.info("Cleaning up flow: %s", self.name)
         for component_group in self.component_groups:
             for component in component_group:
                 component.cleanup()

@@ -2,7 +2,6 @@ import threading
 import queue
 import traceback
 import pprint
-import inspect
 from abc import abstractmethod
 from ..common.log import log
 from ..common.utils import resolve_config_values
@@ -357,7 +356,7 @@ class ComponentBase:
 
     def cleanup(self):
         """Clean up resources used by the component"""
-        log.debug(f"{self.log_identifier}Cleaning up component")
+        log.debug("%sCleaning up component", self.log_identifier)
         self.stop_component()
         if hasattr(self, "input_queue"):
             while not self.input_queue.empty():

@@ -4,7 +4,6 @@ message will be discarded. If the message is discarded, any previous components 
 an acknowledgement will be acknowledged. """
 
 from ..component_base import ComponentBase
-from ...common.message import Message
 
 
 info = {
