@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
 from ..common.event import Event, EventType
 from ..common.log import log
+from threading import Lock
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -27,25 +28,29 @@ class CacheStorageBackend(ABC):
 class InMemoryStorage(CacheStorageBackend):
     def __init__(self):
         self.store: Dict[str, Dict[str, Any]] = {}
+        self.lock = Lock()
 
     def get(self, key: str) -> Any:
-        item = self.store.get(key)
-        if item is None:
-            return None
-        if item["expiry"] and time.time() > item["expiry"]:
-            del self.store[key]
-            return None
-        return item["value"]
+        with self.lock:
+            item = self.store.get(key)
+            if item is None:
+                return None
+            if item["expiry"] and time.time() > item["expiry"]:
+                del self.store[key]
+                return None
+            return item["value"]
 
     def set(self, key: str, value: Any, expiry: Optional[float] = None):
-        self.store[key] = {
-            "value": value,
-            "expiry": time.time() + expiry if expiry else None,
-        }
+        with self.lock:
+            self.store[key] = {
+                "value": value,
+                "expiry": time.time() + expiry if expiry else None,
+            }
 
     def delete(self, key: str):
-        if key in self.store:
-            del self.store[key]
+        with self.lock:
+            if key in self.store:
+                del self.store[key]
 
 
 Base = declarative_base()
@@ -110,6 +115,7 @@ class CacheService:
         self.stop_event = threading.Event()
         self.expiry_thread = threading.Thread(target=self._expiry_check_loop)
         self.expiry_thread.start()
+        self.lock = Lock()
 
     def create_cache(self, name: str):
         # For in-memory storage, we don't need to do anything special
@@ -125,20 +131,22 @@ class CacheService:
         component=None,
     ):
         self.storage.set(key, value, expiry)
-        if expiry and event_data and component:
-            expiry_time = time.time() + expiry
-            self.expiry_callbacks[key] = (expiry_time, event_data, component)
-            if self.next_expiry is None or expiry_time < self.next_expiry:
-                self.next_expiry = expiry_time
-                self.expiry_event.set()
+        with self.lock:
+            if expiry and event_data and component:
+                expiry_time = time.time() + expiry
+                self.expiry_callbacks[key] = (expiry_time, event_data, component)
+                if self.next_expiry is None or expiry_time < self.next_expiry:
+                    self.next_expiry = expiry_time
+                    self.expiry_event.set()
 
     def get_data(self, key: str) -> Any:
         return self.storage.get(key)
 
     def remove_data(self, key: str):
         self.storage.delete(key)
-        if key in self.expiry_callbacks:
-            del self.expiry_callbacks[key]
+        with self.lock:
+            if key in self.expiry_callbacks:
+                del self.expiry_callbacks[key]
 
     def _expiry_check_loop(self):
         while not self.stop_event.is_set():
@@ -158,20 +166,24 @@ class CacheService:
         expired_keys = []
         next_expiry = None
 
-        for key, (expiry_time, event_data, component) in self.expiry_callbacks.items():
-            if current_time > expiry_time:
-                expired_keys.append(key)
-                event = Event(
-                    EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data}
-                )
-                component.enqueue(event)
-            elif next_expiry is None or expiry_time < next_expiry:
-                next_expiry = expiry_time
+        with self.lock:
+            for key, (expiry_time, event_data, component) in self.expiry_callbacks.items():
+                if current_time > expiry_time:
+                    expired_keys.append((key, event_data, component))
+                elif next_expiry is None or expiry_time < next_expiry:
+                    next_expiry = expiry_time
 
-        for key in expired_keys:
-            self.remove_data(key)
+            for key, event_data, component in expired_keys:
+                del self.expiry_callbacks[key]
+                self.storage.delete(key)
 
-        self.next_expiry = next_expiry
+            self.next_expiry = next_expiry
+
+        for key, event_data, component in expired_keys:
+            event = Event(
+                EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data}
+            )
+            component.enqueue(event)
 
     def stop(self):
         self.stop_event.set()
