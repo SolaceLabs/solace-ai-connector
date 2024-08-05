@@ -115,7 +115,7 @@ class ComponentBase:
 
     def process_event(self, event):
         if event.event_type == EventType.MESSAGE:
-            message = event.payload
+            message = event.data
             self.current_message = message
             data = self.process_pre_invoke(message)
 
@@ -131,7 +131,7 @@ class ComponentBase:
                 self.process_post_invoke(result, message)
             self.current_message = None
         elif event.event_type == EventType.TIMER:
-            self.handle_timer_event(event.payload)
+            self.handle_timer_event(event.data)
         else:
             log.warning(
                 "%sUnknown event type: %s", self.log_identifier, event.event_type
@@ -322,7 +322,7 @@ class ComponentBase:
             },
         }
         if event and event.event_type == EventType.MESSAGE:
-            message = event.payload
+            message = event.data
             if message:
                 error_message["message"] = {
                     "payload": message.get_payload(),

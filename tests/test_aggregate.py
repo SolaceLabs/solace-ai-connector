@@ -57,7 +57,7 @@ flows:
 
             # Check the output
             assert event.event_type == EventType.MESSAGE
-            assert event.payload.get_data("previous") == expected
+            assert event.data.get_data("previous") == expected
 
     finally:
         # Tear down the connector
@@ -149,7 +149,7 @@ flows:
                 event = get_event_from_flow(flow)
                 end_time = time.time()
                 assert event.event_type == EventType.MESSAGE
-                assert event.payload.get_data("previous") == expected[j * 3 : j * 3 + 3]
+                assert event.data.get_data("previous") == expected[j * 3 : j * 3 + 3]
                 # assert (end_time - start_time) < 0.1
             else:
                 # Get the last expected message
@@ -157,7 +157,7 @@ flows:
                 end_time = time.time()
                 assert abs((end_time - start_time) - (MAX_TIME_MS / 1000)) < 0.1
                 assert event.event_type == EventType.MESSAGE
-                assert event.payload.get_data("previous") == expected[j * 3 :]
+                assert event.data.get_data("previous") == expected[j * 3 :]
 
     finally:
         # Tear down the connector
