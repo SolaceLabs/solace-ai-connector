@@ -9,9 +9,9 @@ class EventType(Enum):
 
 
 class Event:
-    def __init__(self, event_type: EventType, payload: Any):
+    def __init__(self, event_type: EventType, data: Any):
         self.event_type = event_type
-        self.payload = payload
+        self.data = data
 
     def __str__(self):
-        return f"Event(type={self.event_type}, payload={self.payload})"
+        return f"Event(type={self.event_type}, data={self.data})"
