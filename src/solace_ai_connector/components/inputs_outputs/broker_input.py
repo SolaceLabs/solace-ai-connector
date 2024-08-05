@@ -119,23 +119,6 @@ class BrokerInput(BrokerBase):
         )
         return Message(payload=payload, topic=topic, user_properties=user_properties)
 
-    def decode_payload(self, payload):
-        encoding = self.get_config("payload_encoding")
-        payload_format = self.get_config("payload_format")
-        if encoding == "base64":
-            payload = base64.b64decode(payload)
-        elif encoding == "gzip":
-            payload = gzip.decompress(payload)
-        elif encoding == "utf-8" and (
-            isinstance(payload, bytes) or isinstance(payload, bytearray)
-        ):
-            payload = payload.decode("utf-8")
-        if payload_format == "json":
-            payload = json.loads(payload)
-        elif payload_format == "yaml":
-            payload = yaml.safe_load(payload)
-        return payload
-
     def acknowledge_message(self, broker_message):
         self.messaging_service.ack_message(broker_message)
 
