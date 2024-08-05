@@ -129,14 +129,14 @@ class CacheService:
         key: str,
         value: Any,
         expiry: Optional[float] = None,
-        event_data: Optional[Dict] = None,
+        metadata: Optional[Dict] = None,
         component=None,
     ):
         self.storage.set(key, value, expiry)
         with self.lock:
-            if expiry and event_data and component:
+            if expiry and component:
                 expiry_time = time.time() + expiry
-                self.expiry_callbacks[key] = (expiry_time, event_data, component)
+                self.expiry_callbacks[key] = (expiry_time, metadata, component)
                 if self.next_expiry is None or expiry_time < self.next_expiry:
                     self.next_expiry = expiry_time
                     self.expiry_event.set()
@@ -171,22 +171,22 @@ class CacheService:
         with self.lock:
             for key, (
                 expiry_time,
-                event_data,
+                metadata,
                 component,
             ) in self.expiry_callbacks.items():
                 if current_time > expiry_time:
-                    expired_keys.append((key, event_data, component))
+                    expired_keys.append((key, metadata, component))
                 elif next_expiry is None or expiry_time < next_expiry:
                     next_expiry = expiry_time
 
-            for key, event_data, component in expired_keys:
+            for key, metadata, component in expired_keys:
                 del self.expiry_callbacks[key]
                 self.storage.delete(key)
 
             self.next_expiry = next_expiry
 
-        for key, event_data, component in expired_keys:
-            event = Event(EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data})
+        for key, metadata, component in expired_keys:
+            event = Event(EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata})
             component.enqueue(event)
 
     def stop(self):
