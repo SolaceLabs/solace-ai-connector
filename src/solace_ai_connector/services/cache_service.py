@@ -2,7 +2,7 @@ import time
 import pickle
 import threading
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Tuple
 from threading import Lock
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
