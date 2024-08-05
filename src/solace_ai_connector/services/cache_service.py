@@ -1,5 +1,6 @@
 import time
 import pickle
+import threading
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
 from ..common.event import Event, EventType
@@ -103,6 +104,8 @@ class CacheService:
     def __init__(self, storage_backend: CacheStorageBackend):
         self.storage = storage_backend
         self.expiry_callbacks = {}
+        self.next_expiry = None
+        self.expiry_event = threading.Event()
 
     def create_cache(self, name: str):
         # For in-memory storage, we don't need to do anything special
@@ -119,7 +122,11 @@ class CacheService:
     ):
         self.storage.set(key, value, expiry)
         if expiry and event_data and component:
-            self.expiry_callbacks[key] = (time.time() + expiry, event_data, component)
+            expiry_time = time.time() + expiry
+            self.expiry_callbacks[key] = (expiry_time, event_data, component)
+            if self.next_expiry is None or expiry_time < self.next_expiry:
+                self.next_expiry = expiry_time
+                self.expiry_event.set()
 
     def get_data(self, key: str) -> Any:
         return self.storage.get(key)
@@ -132,6 +139,8 @@ class CacheService:
     def check_expirations(self):
         current_time = time.time()
         expired_keys = []
+        next_expiry = None
+
         for key, (expiry_time, event_data, component) in self.expiry_callbacks.items():
             if current_time > expiry_time:
                 expired_keys.append(key)
@@ -139,9 +148,13 @@ class CacheService:
                     EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data}
                 )
                 component.enqueue(event)
+            elif next_expiry is None or expiry_time < next_expiry:
+                next_expiry = expiry_time
 
         for key in expired_keys:
             self.remove_data(key)
+
+        self.next_expiry = next_expiry
 
 
 # Factory function to create storage backend

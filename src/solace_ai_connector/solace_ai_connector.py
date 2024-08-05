@@ -58,8 +58,16 @@ class SolaceAiConnector:
 
     def cache_check_loop(self):
         while not self.stop_signal.is_set():
+            if self.cache_service.next_expiry is None:
+                self.cache_service.expiry_event.wait()
+                self.cache_service.expiry_event.clear()
+            else:
+                wait_time = max(0, self.cache_service.next_expiry - time.time())
+                if self.cache_service.expiry_event.wait(timeout=wait_time):
+                    self.cache_service.expiry_event.clear()
+                    continue
+            
             self.check_cache_expirations()
-            time.sleep(1)  # Check every second
 
     def create_flows(self):
         """Loop through the flows and create them"""
