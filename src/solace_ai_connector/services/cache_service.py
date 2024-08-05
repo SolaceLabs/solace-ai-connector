@@ -3,12 +3,12 @@ import pickle
 import threading
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
-from ..common.event import Event, EventType
-from ..common.log import log
 from threading import Lock
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from ..common.event import Event, EventType
+from ..common.log import log
 
 
 class CacheStorageBackend(ABC):
@@ -55,12 +55,14 @@ class InMemoryStorage(CacheStorageBackend):
 
 Base = declarative_base()
 
+
 class CacheItem(Base):
-    __tablename__ = 'cache_items'
+    __tablename__ = "cache_items"
 
     key = Column(String, primary_key=True)
     value = Column(LargeBinary)
     expiry = Column(Float, nullable=True)
+
 
 class SQLAlchemyStorage(CacheStorageBackend):
     def __init__(self, connection_string: str):
@@ -158,7 +160,7 @@ class CacheService:
                 if self.expiry_event.wait(timeout=wait_time):
                     self.expiry_event.clear()
                     continue
-            
+
             self._check_expirations()
 
     def _check_expirations(self):
@@ -167,7 +169,11 @@ class CacheService:
         next_expiry = None
 
         with self.lock:
-            for key, (expiry_time, event_data, component) in self.expiry_callbacks.items():
+            for key, (
+                expiry_time,
+                event_data,
+                component,
+            ) in self.expiry_callbacks.items():
                 if current_time > expiry_time:
                     expired_keys.append((key, event_data, component))
                 elif next_expiry is None or expiry_time < next_expiry:
@@ -180,9 +186,7 @@ class CacheService:
             self.next_expiry = next_expiry
 
         for key, event_data, component in expired_keys:
-            event = Event(
-                EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data}
-            )
+            event = Event(EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data})
             component.enqueue(event)
 
     def stop(self):
@@ -193,10 +197,10 @@ class CacheService:
 
 
 # Factory function to create storage backend
-def create_storage_backend(backend_type: str, **kwargs) -> CacheStorageBackend:
-    if backend_type == "memory":
+def create_storage_backend(backend_type: str = None, **kwargs) -> CacheStorageBackend:
+    if not backend_type or backend_type == "memory":
         return InMemoryStorage()
-    elif backend_type == "sqlalchemy":
+    if backend_type == "sqlalchemy":
         connection_string = kwargs.get("connection_string")
         if not connection_string:
             raise ValueError("SQLAlchemy backend requires a connection_string")

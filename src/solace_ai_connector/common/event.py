@@ -5,6 +5,7 @@ from typing import Any
 class EventType(Enum):
     MESSAGE = "message"
     TIMER = "timer"
+    CACHE_EXPIRY = "cache_expiry"
     # Add more event types as needed
 
 
