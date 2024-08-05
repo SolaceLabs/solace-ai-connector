@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
 from ..common.event import Event, EventType
 
+
 class CacheStorageBackend(ABC):
     @abstractmethod
     def get(self, key: str) -> Any:
@@ -16,6 +17,7 @@ class CacheStorageBackend(ABC):
     def delete(self, key: str):
         pass
 
+
 class InMemoryStorage(CacheStorageBackend):
     def __init__(self):
         self.store: Dict[str, Dict[str, Any]] = {}
@@ -24,20 +26,21 @@ class InMemoryStorage(CacheStorageBackend):
         item = self.store.get(key)
         if item is None:
             return None
-        if item['expiry'] and time.time() > item['expiry']:
+        if item["expiry"] and time.time() > item["expiry"]:
             del self.store[key]
             return None
-        return item['value']
+        return item["value"]
 
     def set(self, key: str, value: Any, expiry: Optional[float] = None):
         self.store[key] = {
-            'value': value,
-            'expiry': time.time() + expiry if expiry else None
+            "value": value,
+            "expiry": time.time() + expiry if expiry else None,
         }
 
     def delete(self, key: str):
         if key in self.store:
             del self.store[key]
+
 
 class CacheService:
     def __init__(self, storage_backend: CacheStorageBackend):
@@ -49,8 +52,14 @@ class CacheService:
         # This method is here for future extensibility
         pass
 
-    def add_data(self, key: str, value: Any, expiry: Optional[float] = None, 
-                 event_data: Optional[Dict] = None, component=None):
+    def add_data(
+        self,
+        key: str,
+        value: Any,
+        expiry: Optional[float] = None,
+        event_data: Optional[Dict] = None,
+        component=None,
+    ):
         self.storage.set(key, value, expiry)
         if expiry and event_data and component:
             self.expiry_callbacks[key] = (time.time() + expiry, event_data, component)
@@ -69,18 +78,18 @@ class CacheService:
         for key, (expiry_time, event_data, component) in self.expiry_callbacks.items():
             if current_time > expiry_time:
                 expired_keys.append(key)
-                event = Event(EventType.CACHE_EXPIRY, {
-                    'key': key,
-                    'user_data': event_data
-                })
+                event = Event(
+                    EventType.CACHE_EXPIRY, {"key": key, "user_data": event_data}
+                )
                 component.enqueue(event)
 
         for key in expired_keys:
             self.remove_data(key)
 
+
 # Factory function to create storage backend
 def create_storage_backend(backend_type: str) -> CacheStorageBackend:
-    if backend_type == 'memory':
+    if backend_type == "memory":
         return InMemoryStorage()
     # Add more backend types here as needed
     raise ValueError(f"Unsupported storage backend: {backend_type}")
