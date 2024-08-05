@@ -47,6 +47,12 @@ info = {
             "description": "Queue name for broker",
         },
         {
+            "name": "temporary_queue",
+            "required": False,
+            "description": "Whether to create a temporary queue that will be deleted after disconnection",
+            "default": False,
+        },
+        {
             "name": "broker_subscriptions",
             "required": True,
             "description": "Subscriptions for broker",
@@ -89,7 +95,13 @@ class BrokerInput(BrokerBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.need_acknowledgement = True
+        self.temporary_queue = self.get_config("temporary_queue", False)
         self.connect()
+        self.bind_to_queue(
+            self.broker_properties.get("queue_name"),
+            self.broker_properties.get("subscriptions"),
+            self.temporary_queue
+        )
 
     def invoke(self, message, data):
         return {
