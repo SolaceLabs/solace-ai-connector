@@ -162,28 +162,30 @@ class SolaceMessaging(Messaging):
                 self.broker_properties.get("subscriptions"),
             )
 
-    def bind_to_queue(self, queue_name: str, subscriptions: list = None):
+    def bind_to_queue(self, queue_name: str, subscriptions: list = None, temporary: bool = False):
         if subscriptions is None:
             subscriptions = []
 
-        durable_exclusive_queue = Queue.durable_exclusive_queue(queue_name)
+        if temporary:
+            queue = Queue.non_durable_exclusive_queue(queue_name)
+        else:
+            queue = Queue.durable_exclusive_queue(queue_name)
 
         try:
-            # Build a receiver and bind it to the durable exclusive queue
+            # Build a receiver and bind it to the queue
             self.persistent_receiver: PersistentMessageReceiver = (
                 self.messaging_service.create_persistent_message_receiver_builder()
                 .with_missing_resources_creation_strategy(
                     MissingResourcesCreationStrategy.CREATE_ON_START
                 )
-                .build(durable_exclusive_queue)
+                .build(queue)
             )
             self.persistent_receiver.start()
 
-            # Callback for received messages
-            # self.persistent_receiver.receive_async(MessageHandlerImpl(persistent_receiver))
             log.debug(
-                "Persistent receiver started... Bound to Queue [%s]",
-                durable_exclusive_queue.get_name(),
+                "Persistent receiver started... Bound to Queue [%s] (Temporary: %s)",
+                queue.get_name(),
+                temporary,
             )
 
         # Handle API exception

@@ -1,10 +1,5 @@
 """Input broker component for the Solace AI Event Connector"""
 
-import base64
-import gzip
-import json
-import yaml  # pylint: disable=import-error
-
 from ...common.log import log
 from .broker_base import BrokerBase
 from ...common.message import Message
@@ -45,6 +40,12 @@ info = {
             "name": "broker_queue_name",
             "required": True,
             "description": "Queue name for broker",
+        },
+        {
+            "name": "temporary_queue",
+            "required": False,
+            "description": "Whether to create a temporary queue that will be deleted after disconnection",
+            "default": False,
         },
         {
             "name": "temporary_queue",
@@ -100,7 +101,7 @@ class BrokerInput(BrokerBase):
         self.bind_to_queue(
             self.broker_properties.get("queue_name"),
             self.broker_properties.get("subscriptions"),
-            self.temporary_queue
+            self.temporary_queue,
         )
 
     def invoke(self, message, data):

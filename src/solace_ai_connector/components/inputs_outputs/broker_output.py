@@ -1,11 +1,5 @@
 """Output broker component for sending messages from the Solace AI Event Connector to a broker"""
 
-import base64
-import gzip
-import json
-import yaml
-
-
 from ...common.log import log
 from .broker_base import (
     BrokerBase,
@@ -109,38 +103,6 @@ class BrokerOutput(BrokerBase):
 
     def invoke(self, message, data):
         return data
-
-    def encode_payload(self, payload):
-        encoding = self.get_config("payload_encoding")
-        payload_format = self.get_config("payload_format")
-        if encoding == "utf-8":
-            if payload_format == "json":
-                return json.dumps(payload).encode("utf-8")
-            elif payload_format == "yaml":
-                return yaml.dump(payload).encode("utf-8")
-            else:
-                return str(payload).encode("utf-8")
-        elif encoding == "base64":
-            if payload_format == "json":
-                return base64.b64encode(json.dumps(payload).encode("utf-8"))
-            elif payload_format == "yaml":
-                return base64.b64encode(yaml.dump(payload).encode("utf-8"))
-            else:
-                return base64.b64encode(str(payload).encode("utf-8"))
-        elif encoding == "gzip":
-            if payload_format == "json":
-                return gzip.compress(json.dumps(payload).encode("utf-8"))
-            elif payload_format == "yaml":
-                return gzip.compress(yaml.dump(payload).encode("utf-8"))
-            else:
-                return gzip.compress(str(payload).encode("utf-8"))
-        else:
-            if payload_format == "json":
-                return json.dumps(payload)
-            elif payload_format == "yaml":
-                return yaml.dump(payload)
-            else:
-                return str(payload)
 
     def send_message(self, message: Message):
         egress_data = message.get_data("previous")
