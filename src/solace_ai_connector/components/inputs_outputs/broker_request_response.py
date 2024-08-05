@@ -2,12 +2,14 @@
 
 import threading
 import uuid
-from typing import Dict, Any
+
+# from typing import Dict, Any
 
 from ...common.log import log
 from .broker_base import BrokerBase
 from ...common.message import Message
-from ...common.event import Event, EventType
+
+# from ...common.event import Event, EventType
 
 info = {
     "class_name": "BrokerRequestResponse",
@@ -117,7 +119,9 @@ class BrokerRequestResponse(BrokerBase):
         self.start_response_thread()
 
     def setup_reply_queue(self):
-        self.messaging_service.bind_to_queue(self.reply_queue_name, [self.reply_topic], temporary=True)
+        self.messaging_service.bind_to_queue(
+            self.reply_queue_name, [self.reply_topic], temporary=True
+        )
 
     def start_response_thread(self):
         self.response_thread = threading.Thread(target=self.handle_responses)
@@ -130,7 +134,7 @@ class BrokerRequestResponse(BrokerBase):
                 if broker_message:
                     self.process_response(broker_message)
             except Exception as e:
-                log.error(f"Error handling response: {e}")
+                log.error("Error handling response: %s", e)
 
     def process_response(self, broker_message):
         payload = self.decode_payload(broker_message.get_payload_as_string())
@@ -139,12 +143,12 @@ class BrokerRequestResponse(BrokerBase):
 
         request_id = user_properties.get("request_id")
         if not request_id:
-            log.warning(f"Received response without request_id: {payload}")
+            log.warning("Received response without request_id: %s", payload)
             return
 
         cached_request = self.cache_service.get_data(request_id)
         if not cached_request:
-            log.warning(f"Received response for unknown request_id: {request_id}")
+            log.warning("Received response for unknown request_id: %s", request_id)
             return
 
         response = {
