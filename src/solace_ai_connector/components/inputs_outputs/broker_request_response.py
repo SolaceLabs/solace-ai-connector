@@ -141,9 +141,20 @@ class BrokerRequestResponse(BrokerBase):
         topic = broker_message.get_destination_name()
         user_properties = broker_message.get_properties()
 
-        request_id = user_properties.get("request_id")
+        metadata_json = user_properties.get("__solace_ai_connector_broker_request_reply_metadata__")
+        if not metadata_json:
+            log.warning("Received response without metadata: %s", payload)
+            return
+
+        metadata_stack = json.loads(metadata_json)
+        if not metadata_stack:
+            log.warning("Received response with empty metadata stack: %s", payload)
+            return
+
+        current_metadata = metadata_stack.pop()
+        request_id = current_metadata.get("request_id")
         if not request_id:
-            log.warning("Received response without request_id: %s", payload)
+            log.warning("Received response without request_id in metadata: %s", payload)
             return
 
         cached_request = self.cache_service.get_data(request_id)
@@ -162,6 +173,12 @@ class BrokerRequestResponse(BrokerBase):
             "response": response,
         }
 
+        # Update the metadata in the response
+        if metadata_stack:
+            response["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"] = json.dumps(metadata_stack)
+        else:
+            response["user_properties"].pop("__solace_ai_connector_broker_request_reply_metadata__", None)
+
         self.process_post_invoke(result, Message(payload=result))
         self.cache_service.remove_data(request_id)
 
@@ -171,8 +188,17 @@ class BrokerRequestResponse(BrokerBase):
         if "user_properties" not in data:
             data["user_properties"] = {}
 
-        data["user_properties"]["reply_topic"] = self.reply_topic
-        data["user_properties"]["request_id"] = request_id
+        metadata = {
+            "request_id": request_id,
+            "reply_topic": self.reply_topic
+        }
+        
+        if "__solace_ai_connector_broker_request_reply_metadata__" in data["user_properties"]:
+            existing_metadata = json.loads(data["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"])
+            existing_metadata.append(metadata)
+            metadata = existing_metadata
+        
+        data["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"] = json.dumps(metadata)
 
         encoded_payload = self.encode_payload(data["payload"])
 
