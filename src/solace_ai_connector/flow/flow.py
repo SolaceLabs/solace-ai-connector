@@ -138,7 +138,6 @@ class Flow:
     def wait_for_threads(self):
         for thread in self.threads:
             thread.join()
-        self.timer_manager.stop()
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""

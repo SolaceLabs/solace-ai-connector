@@ -2,6 +2,7 @@ import threading
 import queue
 import traceback
 import pprint
+import inspect
 from abc import abstractmethod
 from ..common.log import log
 from ..common.utils import resolve_config_values
@@ -85,6 +86,14 @@ class ComponentBase:
         self.stop_component()
 
     def get_next_event(self):
+        # Check if there is a get_next_message defined by a
+        # component that inherits from this class - this is
+        # for backwards compatibility with older components
+        sub_method = self.__class__.__dict__.get("get_next_message")
+
+        if sub_method is not None and callable(sub_method):
+            # Call the sub-classes get_next_message method and wrap it in an event
+            return Event(EventType.MESSAGE, self.get_next_message())
         while not self.stop_signal.is_set():
             try:
                 timeout = self.queue_timeout_ms or DEFAULT_QUEUE_TIMEOUT_MS
@@ -99,9 +108,13 @@ class ComponentBase:
                 pass
         return None
 
+    def get_next_message(self):
+        pass
+
     def process_event(self, event):
         if event.event_type == EventType.MESSAGE:
             message = event.payload
+            self.current_message = message
             data = self.process_pre_invoke(message)
 
             if self.trace_queue:
@@ -114,6 +127,7 @@ class ComponentBase:
                 message.call_acknowledgements()
             elif result is not None:
                 self.process_post_invoke(result, message)
+            self.current_message = None
         elif event.event_type == EventType.TIMER:
             self.handle_timer_event(event.payload)
         else:
@@ -138,7 +152,6 @@ class ComponentBase:
         log.debug(
             "%sSending message from %s: %s", self.log_identifier, self.name, message
         )
-        self.current_message = message
         self.send_message(message)
 
     @abstractmethod
@@ -308,19 +321,25 @@ class ComponentBase:
         }
         if event and event.event_type == EventType.MESSAGE:
             message = event.payload
-            error_message["message"] = {
-                "payload": message.get_payload(),
-                "topic": message.get_topic(),
-                "user_properties": message.get_user_properties(),
-                "user_data": message.get_user_data(),
-                "previous": message.get_previous(),
-            }
-            message.call_acknowledgements()
+            if message:
+                error_message["message"] = {
+                    "payload": message.get_payload(),
+                    "topic": message.get_topic(),
+                    "user_properties": message.get_user_properties(),
+                    "user_data": message.get_user_data(),
+                    "previous": message.get_previous(),
+                }
+                message.call_acknowledgements()
+            else:
+                error_message["message"] = "No message available"
 
         self.error_queue.put(
-            Message(
-                payload=error_message,
-                user_properties=message.get_user_properties() if message else {},
+            Event(
+                EventType.MESSAGE,
+                Message(
+                    payload=error_message,
+                    user_properties=message.get_user_properties() if message else {},
+                ),
             )
         )
 
@@ -340,7 +359,7 @@ class ComponentBase:
         """Clean up resources used by the component"""
         log.debug(f"{self.log_identifier}Cleaning up component")
         self.stop_component()
-        if hasattr(self, 'input_queue'):
+        if hasattr(self, "input_queue"):
             while not self.input_queue.empty():
                 try:
                     self.input_queue.get_nowait()

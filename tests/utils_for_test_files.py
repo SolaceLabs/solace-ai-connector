@@ -38,10 +38,7 @@ class TestOutputComponent:
         try:
             item = self.queue.get(timeout=self.queue_timeout)
             log.debug("Output test component received item: %s", item)
-            if isinstance(item, Event) and item.event_type == EventType.MESSAGE:
-                return item.payload
-            elif isinstance(item, Message):
-                return item
+            return item
         except queue.Empty:
             pass
         return None
@@ -124,6 +121,14 @@ def send_message_to_flow(flow_info, message):
 
 def get_message_from_flow(flow_info):
     output_component = flow_info["output_component"]
+    event = output_component.get_output()
+    if event.event_type != EventType.MESSAGE:
+        raise ValueError("Expected a message event")
+    return event.payload
+
+
+def get_event_from_flow(flow_info):
+    output_component = flow_info["output_component"]
     return output_component.get_output()
 
 
@@ -154,8 +159,3 @@ def send_and_receive_message_on_flow(flow, message):
     send_message_to_flow(flow, message)
     output_message = get_message_from_flow(flow)
     return output_message
-
-
-def get_event_from_flow(flow_info):
-    output_component = flow_info["output_component"]
-    return output_component.get_output()

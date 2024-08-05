@@ -12,7 +12,6 @@ from .storage.storage_manager import StorageManager
 from .common.event import Event, EventType
 
 
-
 class SolaceAiConnector:
     """Solace AI Connector"""
 
@@ -86,7 +85,6 @@ class SolaceAiConnector:
         else:
             log.error("Can't send message to flow %s. Not found", flow_name)
 
-
     def wait_for_flows(self):
         """Wait for the flows to finish"""
         while True:
@@ -114,7 +112,7 @@ class SolaceAiConnector:
         for flow in self.flows:
             flow.cleanup()
         self.flows.clear()
-        if hasattr(self, 'trace_queue'):
+        if hasattr(self, "trace_queue") and self.trace_queue:
             self.trace_queue.put(None)  # Signal the trace thread to stop
         if self.trace_thread:
             self.trace_thread.join()

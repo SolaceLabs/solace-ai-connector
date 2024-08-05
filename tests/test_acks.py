@@ -45,7 +45,8 @@ flows:
     send_message_to_flow(flow, message)
 
     try:
-        error_message = error_queue.get(timeout=5)
+        error_event = error_queue.get(timeout=5)
+        error_message = error_event.payload
         payload = error_message.get_data("input.payload")
         assert payload["location"] == {
             "instance": "test_instance",
