@@ -98,11 +98,6 @@ class BrokerInput(BrokerBase):
         self.need_acknowledgement = True
         self.temporary_queue = self.get_config("temporary_queue", False)
         self.connect()
-        self.bind_to_queue(
-            self.broker_properties.get("queue_name"),
-            self.broker_properties.get("subscriptions"),
-            self.temporary_queue,
-        )
 
     def invoke(self, message, data):
         return {
