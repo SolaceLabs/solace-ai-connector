@@ -57,10 +57,11 @@ flows:
     # Get the output message
     output_message = get_message_from_flow(output_flow)
 
-    assert output_message.get_data("previous") == "This is an error message"
-    assert output_message.get_data("input.payload")["error"] == {
-        "exception": "ValueError",
-        "text": "This is an error message",
-    }
-
-    dispose_connector(connector)
+    try:
+        assert output_message.get_data("previous") == "This is an error message"
+        assert output_message.get_data("input.payload")["error"] == {
+            "exception": "ValueError",
+            "text": "This is an error message",
+        }
+    finally:
+        dispose_connector(connector)

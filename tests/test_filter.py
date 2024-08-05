@@ -39,23 +39,24 @@ flows:
     connector, flows = create_test_flows(config_yaml)
     flow = flows[0]
 
-    # Send 3 messages - the first and last should be sent
-    message = Message(payload={"my_list": [1, 2, 3]})
-    send_message_to_flow(flow, message)
-    message = Message(payload={"my_list": [4, 5, 6]})
-    send_message_to_flow(flow, message)
-    message = Message(payload={"my_list": [3, 2, 1]})
-    send_message_to_flow(flow, message)
+    try:
+        # Send 3 messages - the first and last should be sent
+        message = Message(payload={"my_list": [1, 2, 3]})
+        send_message_to_flow(flow, message)
+        message = Message(payload={"my_list": [4, 5, 6]})
+        send_message_to_flow(flow, message)
+        message = Message(payload={"my_list": [3, 2, 1]})
+        send_message_to_flow(flow, message)
 
-    # Expect two messages to be sent
-    output_message = get_message_from_flow(flow)
-    assert output_message.get_data("input.payload:my_list") == [1, 2, 3]
+        # Expect two messages to be sent
+        output_message = get_message_from_flow(flow)
+        assert output_message.get_data("input.payload:my_list") == [1, 2, 3]
 
-    output_message = get_message_from_flow(flow)
-    assert output_message.get_data("input.payload:my_list") == [3, 2, 1]
-
-    # Clean up
-    dispose_connector(connector)
+        output_message = get_message_from_flow(flow)
+        assert output_message.get_data("input.payload:my_list") == [3, 2, 1]
+    finally:
+        # Clean up
+        dispose_connector(connector)
 
 
 def test_missing_item_filter():
@@ -80,25 +81,26 @@ flows:
                   - null
 """
     connector, flows = create_test_flows(config_yaml)
-    flow = flows[0]
+    try:
+        flow = flows[0]
 
-    # Send 2 messages
-    message = Message(payload={"my_list": [1, 2, 3], "my_obj": {"a": 1, "b": 2}})
-    send_message_to_flow(flow, message)
-    message = Message(payload={"my_obj": {"a": 1, "b": 2}})
-    send_message_to_flow(flow, message)
-    message = Message(payload={"my_list": [3, 2, 1], "my_obj": {"a": 1, "b": 2}})
-    send_message_to_flow(flow, message)
+        # Send 2 messages
+        message = Message(payload={"my_list": [1, 2, 3], "my_obj": {"a": 1, "b": 2}})
+        send_message_to_flow(flow, message)
+        message = Message(payload={"my_obj": {"a": 1, "b": 2}})
+        send_message_to_flow(flow, message)
+        message = Message(payload={"my_list": [3, 2, 1], "my_obj": {"a": 1, "b": 2}})
+        send_message_to_flow(flow, message)
 
-    # Expect two messages to be sent
-    output_message = get_message_from_flow(flow)
-    assert output_message.get_data("input.payload:my_list") == [1, 2, 3]
+        # Expect two messages to be sent
+        output_message = get_message_from_flow(flow)
+        assert output_message.get_data("input.payload:my_list") == [1, 2, 3]
 
-    output_message = get_message_from_flow(flow)
-    assert output_message.get_data("input.payload:my_list") == [3, 2, 1]
-
-    # Clean up
-    dispose_connector(connector)
+        output_message = get_message_from_flow(flow)
+        assert output_message.get_data("input.payload:my_list") == [3, 2, 1]
+    finally:
+        # Clean up
+        dispose_connector(connector)
 
 
 def test_filter_with_multi_stage_data():
@@ -219,4 +221,3 @@ flows:
     finally:
         # Clean up
         dispose_connector(connector)
-

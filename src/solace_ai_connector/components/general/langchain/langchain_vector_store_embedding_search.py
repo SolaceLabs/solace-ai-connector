@@ -77,27 +77,11 @@ info = {
         "required": ["text"],
     },
     "output_schema": {
-        "type": "object",
-        "properties": {
-            "results": {
-                "type": "object",
-                "properties": {
-                    "matches": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "text": {"type": "string"},
-                                "metadata": {"type": "object"},
-                                "score": {"type": "float"},
-                            },
-                            "required": ["text"],
-                        },
-                    },
-                },
-            }
+        "type": "array",
+        "description": "The aggregated messages",
+        "items": {
+            "type": "object",
         },
-        "required": ["results"],
     },
 }
 

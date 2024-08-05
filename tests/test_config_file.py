@@ -156,11 +156,14 @@ flows:
       - component_name: delay1
         component_module: not_a_module
 """
-        SolaceAiConnector(
+        sac = SolaceAiConnector(
             yaml.safe_load(config_yaml),
         )
-    except ValueError as e:
-        assert str(e) == "No module named 'not_a_module'"
+        sac.run()
+    except Exception as e:
+        assert str(e) == "Module 'not_a_module' not found"
+    finally:
+        print("Finally")
 
 
 def test_component_missing_info_attribute():

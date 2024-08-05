@@ -1,9 +1,6 @@
 """A flow component that aggregates messages"""
 
-import time
-import math
-
-from ...common.log import log
+# from ...common.log import log
 from ..component_base import ComponentBase
 from ...common.message import Message
 
@@ -58,66 +55,32 @@ class Aggregate(ComponentBase):
         if self.current_aggregation is None:
             self.current_aggregation = self.start_new_aggregation()
 
-        is_expired, remaining_time = self.update_queue_timer()
-
         self.current_aggregation["list"].append(data)
         message.combine_with_message(self.current_aggregation["message"])
 
-        # If the aggregation is full or timed out, send it
-        if is_expired or len(self.current_aggregation["list"]) >= self.max_items:
-            self.set_queue_timeout(None)
-            log.debug("Aggregation done - sending: %s", self.current_aggregation)
-            self.send_aggregation()
-            return None
+        if len(self.current_aggregation["list"]) >= self.max_items:
+            self.cancel_timer("aggregate_timeout")
+            result = self.get_aggregation()
+            self.current_aggregation = None
+            return result
 
-        # Aggregation is not full, so set the timer to the remaining time
-        self.set_queue_timeout(remaining_time)
-
-        # Otherwise, return None to indicate that no message should be sent
-        return None
-
-    def update_queue_timer(self):
-        # Get the epoch time in milliseconds
-        epoch_time_ms = math.floor(time.time() * 1000)
-
-        # How much time is left on the timer
-        remaining_time = (
-            self.current_aggregation["next_aggregation_time"] - epoch_time_ms
-        )
-
-        if remaining_time <= 0:
-            return True, self.max_time_ms
-
-        return False, remaining_time
-
-    def handle_queue_timeout(self):
-        # If we have an aggregation, send it
-        if self.current_aggregation is not None:
-            self.send_aggregation()
-        else:
-            # Otherwise, clear the timer
-            self.set_queue_timeout(None)
-
-    def send_aggregation(self):
-        # Send the aggregation
-        data, message = self.complete_aggregation()
-        self.process_post_invoke(data, message)
+    def handle_timer_event(self, timer_data):
+        if (
+            timer_data["timer_id"] == "aggregate_timeout"
+            and self.current_aggregation is not None
+        ):
+            aggregated_data = self.get_aggregation()
+            message = self.current_aggregation["message"]
+            self.current_aggregation = None
+            self.process_post_invoke(aggregated_data, message)
 
     def start_new_aggregation(self):
-        # Get the epoch time in milliseconds
-        epoch_time_ms = math.floor(time.time() * 1000)
-        next_time_for_timeout = self.max_time_ms + epoch_time_ms
+        self.add_timer(self.max_time_ms, "aggregate_timeout")
         return {
             "list": [],
-            "next_aggregation_time": next_time_for_timeout,
             "message": Message(),
         }
 
-    def complete_aggregation(self):
-        log.debug("Completing aggregation")
+    def get_aggregation(self):
         aggregation = self.current_aggregation
-        self.current_aggregation = None
-        return aggregation["list"], aggregation["message"]
-
-    # def get_default_queue_timeout(self):
-    #     return self.get_config("max_time_ms")
+        return aggregation["list"]

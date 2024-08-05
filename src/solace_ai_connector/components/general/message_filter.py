@@ -4,7 +4,6 @@ message will be discarded. If the message is discarded, any previous components 
 an acknowledgement will be acknowledged. """
 
 from ..component_base import ComponentBase
-from ...common.message import Message
 
 
 info = {
@@ -45,11 +44,8 @@ class MessageFilter(ComponentBase):
         # The filter expression should be configured as a dynamic invoke value
         # which can look at the values within the message. It will be fully
         # evaluated as part of the get_config
-        return self.get_config("filter_expression")
-
-    def send_message(self, message: Message):
-        should_pass = message.get_previous()
-        if should_pass:
-            super().send_message(message)
-        else:
-            message.call_acknowledgements()
+        result = self.get_config("filter_expression")
+        if not result:
+            self.discard_current_message()
+            return None
+        return result
