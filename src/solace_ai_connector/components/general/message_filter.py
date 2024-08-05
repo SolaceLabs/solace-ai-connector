@@ -49,10 +49,3 @@ class MessageFilter(ComponentBase):
             self.discard_current_message()
             return None
         return result
-
-    # def send_message(self, message: Message):
-    #     should_pass = message.get_previous()
-    #     if should_pass:
-    #         super().send_message(message)
-    #     else:
-    #         message.call_acknowledgements()
