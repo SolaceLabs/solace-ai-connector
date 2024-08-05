@@ -17,11 +17,15 @@ class CacheStorageBackend(ABC):
         pass
 
     @abstractmethod
-    def set(self, key: str, value: Any, expiry: Optional[float] = None):
+    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None):
         pass
 
     @abstractmethod
     def delete(self, key: str):
+        pass
+
+    @abstractmethod
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float]]]:
         pass
 
 
@@ -62,6 +66,7 @@ class CacheItem(Base):
     key = Column(String, primary_key=True)
     value = Column(LargeBinary)
     expiry = Column(Float, nullable=True)
+    metadata = Column(LargeBinary, nullable=True)
 
 
 class SQLAlchemyStorage(CacheStorageBackend):
@@ -80,11 +85,11 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.delete(item)
                 session.commit()
                 return None
-            return pickle.loads(item.value)
+            return pickle.loads(item.value), pickle.loads(item.metadata) if item.metadata else None
         finally:
             session.close()
 
-    def set(self, key: str, value: Any, expiry: Optional[float] = None):
+    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None):
         session = self.Session()
         try:
             item = session.query(CacheItem).filter_by(key=key).first()
@@ -93,6 +98,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.add(item)
             item.value = pickle.dumps(value)
             item.expiry = time.time() + expiry if expiry else None
+            item.metadata = pickle.dumps(metadata) if metadata else None
             session.commit()
         finally:
             session.close()
@@ -111,7 +117,6 @@ class SQLAlchemyStorage(CacheStorageBackend):
 class CacheService:
     def __init__(self, storage_backend: CacheStorageBackend):
         self.storage = storage_backend
-        self.expiry_callbacks = {}
         self.next_expiry = None
         self.expiry_event = threading.Event()
         self.stop_event = threading.Event()
@@ -132,23 +137,22 @@ class CacheService:
         metadata: Optional[Dict] = None,
         component=None,
     ):
-        self.storage.set(key, value, expiry)
+        self.storage.set(key, value, expiry, metadata)
         with self.lock:
-            if expiry and component:
+            if expiry:
                 expiry_time = time.time() + expiry
-                self.expiry_callbacks[key] = (expiry_time, metadata, component)
                 if self.next_expiry is None or expiry_time < self.next_expiry:
                     self.next_expiry = expiry_time
                     self.expiry_event.set()
 
     def get_data(self, key: str) -> Any:
-        return self.storage.get(key)
+        result = self.storage.get(key)
+        if result:
+            return result[0]  # Return only the value, not the metadata
+        return None
 
     def remove_data(self, key: str):
         self.storage.delete(key)
-        with self.lock:
-            if key in self.expiry_callbacks:
-                del self.expiry_callbacks[key]
 
     def _expiry_check_loop(self):
         while not self.stop_event.is_set():
@@ -168,26 +172,28 @@ class CacheService:
         expired_keys = []
         next_expiry = None
 
-        with self.lock:
-            for key, (
-                expiry_time,
-                metadata,
-                component,
-            ) in self.expiry_callbacks.items():
-                if current_time > expiry_time:
-                    expired_keys.append((key, metadata, component))
-                elif next_expiry is None or expiry_time < next_expiry:
-                    next_expiry = expiry_time
+        # Use the storage backend to get all items
+        all_items = self.storage.get_all()
 
-            for key, metadata, component in expired_keys:
-                del self.expiry_callbacks[key]
+        for key, (value, metadata, expiry) in all_items.items():
+            if expiry and current_time > expiry:
+                expired_keys.append((key, metadata))
+            elif expiry and (next_expiry is None or expiry < next_expiry):
+                next_expiry = expiry
+
+        with self.lock:
+            for key, metadata in expired_keys:
                 self.storage.delete(key)
 
             self.next_expiry = next_expiry
 
-        for key, metadata, component in expired_keys:
-            event = Event(EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata})
-            component.enqueue(event)
+        for key, metadata in expired_keys:
+            # We need to find the component associated with this key
+            # This information should be stored in the metadata
+            component = metadata.get('component') if metadata else None
+            if component:
+                event = Event(EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata})
+                component.enqueue(event)
 
     def stop(self):
         self.stop_event.set()
