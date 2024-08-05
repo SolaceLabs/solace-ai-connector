@@ -147,12 +147,21 @@ class BrokerRequestResponse(BrokerBase):
             log.warning("Received response without metadata: %s", payload)
             return
 
-        metadata_stack = json.loads(metadata_json)
+        try:
+            metadata_stack = json.loads(metadata_json)
+        except json.JSONDecodeError:
+            log.warning("Received response with invalid metadata JSON: %s", metadata_json)
+            return
+
         if not metadata_stack:
             log.warning("Received response with empty metadata stack: %s", payload)
             return
 
-        current_metadata = metadata_stack.pop()
+        try:
+            current_metadata = metadata_stack.pop()
+        except IndexError:
+            log.warning("Received response with invalid metadata stack: %s", metadata_stack)
+            return
         request_id = current_metadata.get("request_id")
         if not request_id:
             log.warning("Received response without request_id in metadata: %s", payload)
@@ -195,9 +204,15 @@ class BrokerRequestResponse(BrokerBase):
         }
         
         if "__solace_ai_connector_broker_request_reply_metadata__" in data["user_properties"]:
-            existing_metadata = json.loads(data["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"])
-            existing_metadata.append(metadata)
-            metadata = existing_metadata
+            try:
+                existing_metadata = json.loads(data["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"])
+                if isinstance(existing_metadata, list):
+                    existing_metadata.append(metadata)
+                    metadata = existing_metadata
+                else:
+                    log.warning("Invalid existing metadata format: %s", existing_metadata)
+            except json.JSONDecodeError:
+                log.warning("Failed to decode existing metadata JSON: %s", data["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"])
         
         data["user_properties"]["__solace_ai_connector_broker_request_reply_metadata__"] = json.dumps(metadata)
 
