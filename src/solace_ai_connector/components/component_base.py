@@ -92,7 +92,10 @@ class ComponentBase:
 
         if sub_method is not None and callable(sub_method):
             # Call the sub-classes get_next_message method and wrap it in an event
-            return Event(EventType.MESSAGE, self.get_next_message())
+            message = self.get_next_message()  # pylint: disable=assignment-from-none
+            if message is not None:
+                return Event(EventType.MESSAGE, message)
+            return None
         while not self.stop_signal.is_set():
             try:
                 timeout = self.queue_timeout_ms or DEFAULT_QUEUE_TIMEOUT_MS
@@ -108,7 +111,7 @@ class ComponentBase:
         return None
 
     def get_next_message(self):
-        pass
+        return None
 
     def process_event(self, event):
         if event.event_type == EventType.MESSAGE:
