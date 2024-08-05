@@ -125,7 +125,7 @@ def get_message_from_flow(flow_info):
     event = output_component.get_output()
     if event.event_type != EventType.MESSAGE:
         raise ValueError("Expected a message event")
-    return event.payload
+    return event.data
 
 
 def get_event_from_flow(flow_info):
