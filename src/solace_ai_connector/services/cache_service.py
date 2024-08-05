@@ -4,6 +4,7 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
 from ..common.event import Event, EventType
+from ..common.log import log
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -106,6 +107,9 @@ class CacheService:
         self.expiry_callbacks = {}
         self.next_expiry = None
         self.expiry_event = threading.Event()
+        self.stop_event = threading.Event()
+        self.expiry_thread = threading.Thread(target=self._expiry_check_loop)
+        self.expiry_thread.start()
 
     def create_cache(self, name: str):
         # For in-memory storage, we don't need to do anything special
@@ -136,7 +140,20 @@ class CacheService:
         if key in self.expiry_callbacks:
             del self.expiry_callbacks[key]
 
-    def check_expirations(self):
+    def _expiry_check_loop(self):
+        while not self.stop_event.is_set():
+            if self.next_expiry is None:
+                self.expiry_event.wait()
+                self.expiry_event.clear()
+            else:
+                wait_time = max(0, self.next_expiry - time.time())
+                if self.expiry_event.wait(timeout=wait_time):
+                    self.expiry_event.clear()
+                    continue
+            
+            self._check_expirations()
+
+    def _check_expirations(self):
         current_time = time.time()
         expired_keys = []
         next_expiry = None
@@ -155,6 +172,12 @@ class CacheService:
             self.remove_data(key)
 
         self.next_expiry = next_expiry
+
+    def stop(self):
+        self.stop_event.set()
+        self.expiry_event.set()  # Wake up the expiry thread
+        self.expiry_thread.join()
+        log.debug("Cache service stopped")
 
 
 # Factory function to create storage backend

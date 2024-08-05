@@ -46,28 +46,11 @@ class SolaceAiConnector:
             if on_flow_creation:
                 on_flow_creation(self.flows)
 
-            # Start a thread to periodically check for cache expirations
-            self.cache_check_thread = threading.Thread(target=self.cache_check_loop)
-            self.cache_check_thread.start()
-
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
             self.stop()
             self.cleanup()
             raise
-
-    def cache_check_loop(self):
-        while not self.stop_signal.is_set():
-            if self.cache_service.next_expiry is None:
-                self.cache_service.expiry_event.wait()
-                self.cache_service.expiry_event.clear()
-            else:
-                wait_time = max(0, self.cache_service.next_expiry - time.time())
-                if self.cache_service.expiry_event.wait(timeout=wait_time):
-                    self.cache_service.expiry_event.clear()
-                    continue
-            
-            self.check_cache_expirations()
 
     def create_flows(self):
         """Loop through the flows and create them"""
@@ -229,6 +212,12 @@ class SolaceAiConnector:
         backend = create_storage_backend(backend_type)
         return CacheService(backend)
 
-    def check_cache_expirations(self):
-        """Check for cache expirations"""
-        self.cache_service.check_expirations()
+    def stop(self):
+        """Stop the Solace AI Event Connector"""
+        log.info("Stopping Solace AI Event Connector")
+        self.stop_signal.set()
+        self.timer_manager.stop()  # Stop the timer manager first
+        self.cache_service.stop()  # Stop the cache service
+        self.wait_for_flows()
+        if self.trace_thread:
+            self.trace_thread.join()
