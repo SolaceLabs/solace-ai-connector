@@ -117,7 +117,7 @@ class BrokerRequestResponse(BrokerBase):
         self.start_response_thread()
 
     def setup_reply_queue(self):
-        self.messaging_service.bind_to_queue(self.reply_queue_name, [self.reply_topic])
+        self.messaging_service.bind_to_queue(self.reply_queue_name, [self.reply_topic], temporary=True)
 
     def start_response_thread(self):
         self.response_thread = threading.Thread(target=self.handle_responses)
