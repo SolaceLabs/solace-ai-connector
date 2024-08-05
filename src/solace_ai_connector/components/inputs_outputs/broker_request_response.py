@@ -136,8 +136,8 @@ class BrokerRequestResponse(BrokerBase):
         payload = self.decode_payload(broker_message.get_payload_as_string())
         topic = broker_message.get_destination_name()
         user_properties = broker_message.get_properties()
-        
-        request_id = user_properties.get('request_id')
+
+        request_id = user_properties.get("request_id")
         if not request_id:
             log.warning(f"Received response without request_id: {payload}")
             return
@@ -152,7 +152,7 @@ class BrokerRequestResponse(BrokerBase):
             "topic": topic,
             "user_properties": user_properties,
         }
-        
+
         result = {
             "request": cached_request,
             "response": response,
@@ -163,26 +163,26 @@ class BrokerRequestResponse(BrokerBase):
 
     def invoke(self, message, data):
         request_id = str(uuid.uuid4())
-        
-        if 'user_properties' not in data:
-            data['user_properties'] = {}
-        
-        data['user_properties']['reply_topic'] = self.reply_topic
-        data['user_properties']['request_id'] = request_id
 
-        encoded_payload = self.encode_payload(data['payload'])
-        
+        if "user_properties" not in data:
+            data["user_properties"] = {}
+
+        data["user_properties"]["reply_topic"] = self.reply_topic
+        data["user_properties"]["request_id"] = request_id
+
+        encoded_payload = self.encode_payload(data["payload"])
+
         self.messaging_service.send_message(
-            destination_name=data['topic'],
+            destination_name=data["topic"],
             payload=encoded_payload,
-            user_properties=data['user_properties'],
+            user_properties=data["user_properties"],
         )
 
         self.cache_service.add_data(
             key=request_id,
             value=data,
             expiry=self.request_expiry_ms / 1000,  # Convert to seconds
-            component=self
+            component=self,
         )
 
         return None  # The actual result will be processed in handle_responses
