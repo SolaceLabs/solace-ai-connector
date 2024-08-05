@@ -32,6 +32,7 @@ class ComponentBase:
         self.trace_queue = kwargs.pop("trace_queue", False)
         self.connector = kwargs.pop("connector", None)
         self.timer_manager = kwargs.pop("timer_manager", None)
+        self.cache_service = kwargs.pop("cache_service", None)
 
         self.component_config = self.config.get("component_config") or {}
         self.name = self.config.get("component_name", "<unnamed>")
