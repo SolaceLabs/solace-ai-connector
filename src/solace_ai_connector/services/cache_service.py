@@ -2,6 +2,9 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict
 from ..common.event import Event, EventType
+from sqlalchemy import create_engine, Column, String, Float, LargeBinary
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 
 class CacheStorageBackend(ABC):
@@ -40,6 +43,59 @@ class InMemoryStorage(CacheStorageBackend):
     def delete(self, key: str):
         if key in self.store:
             del self.store[key]
+
+
+Base = declarative_base()
+
+class CacheItem(Base):
+    __tablename__ = 'cache_items'
+
+    key = Column(String, primary_key=True)
+    value = Column(LargeBinary)
+    expiry = Column(Float, nullable=True)
+
+class SQLAlchemyStorage(CacheStorageBackend):
+    def __init__(self, connection_string: str):
+        self.engine = create_engine(connection_string)
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
+
+    def get(self, key: str) -> Any:
+        session = self.Session()
+        try:
+            item = session.query(CacheItem).filter_by(key=key).first()
+            if item is None:
+                return None
+            if item.expiry and time.time() > item.expiry:
+                session.delete(item)
+                session.commit()
+                return None
+            return pickle.loads(item.value)
+        finally:
+            session.close()
+
+    def set(self, key: str, value: Any, expiry: Optional[float] = None):
+        session = self.Session()
+        try:
+            item = session.query(CacheItem).filter_by(key=key).first()
+            if item is None:
+                item = CacheItem(key=key)
+                session.add(item)
+            item.value = pickle.dumps(value)
+            item.expiry = time.time() + expiry if expiry else None
+            session.commit()
+        finally:
+            session.close()
+
+    def delete(self, key: str):
+        session = self.Session()
+        try:
+            item = session.query(CacheItem).filter_by(key=key).first()
+            if item:
+                session.delete(item)
+                session.commit()
+        finally:
+            session.close()
 
 
 class CacheService:
@@ -88,8 +144,13 @@ class CacheService:
 
 
 # Factory function to create storage backend
-def create_storage_backend(backend_type: str) -> CacheStorageBackend:
+def create_storage_backend(backend_type: str, **kwargs) -> CacheStorageBackend:
     if backend_type == "memory":
         return InMemoryStorage()
+    elif backend_type == "sqlalchemy":
+        connection_string = kwargs.get("connection_string")
+        if not connection_string:
+            raise ValueError("SQLAlchemy backend requires a connection_string")
+        return SQLAlchemyStorage(connection_string)
     # Add more backend types here as needed
     raise ValueError(f"Unsupported storage backend: {backend_type}")
