@@ -113,6 +113,21 @@ class SQLAlchemyStorage(CacheStorageBackend):
         finally:
             session.close()
 
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float]]]:
+        session = self.Session()
+        try:
+            items = session.query(CacheItem).all()
+            return {
+                item.key: (
+                    pickle.loads(item.value),
+                    pickle.loads(item.metadata) if item.metadata else None,
+                    item.expiry
+                )
+                for item in items
+            }
+        finally:
+            session.close()
+
 
 class CacheService:
     def __init__(self, storage_backend: CacheStorageBackend):
