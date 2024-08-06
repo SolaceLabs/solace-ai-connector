@@ -56,6 +56,13 @@ class InMemoryStorage(CacheStorageBackend):
             if key in self.store:
                 del self.store[key]
 
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float]]]:
+        with self.lock:
+            return {
+                key: (item["value"], None, item["expiry"])
+                for key, item in self.store.items()
+            }
+
 
 Base = declarative_base()
 
