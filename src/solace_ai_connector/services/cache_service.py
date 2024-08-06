@@ -50,7 +50,7 @@ class InMemoryStorage(CacheStorageBackend):
                 "value": value,
                 "expiry": time.time() + expiry if expiry else None,
                 "metadata": metadata,
-                "component": component.__class__.__name__ if component else None,
+                "component": component,
             }
 
     def delete(self, key: str):
@@ -58,7 +58,7 @@ class InMemoryStorage(CacheStorageBackend):
             if key in self.store:
                 del self.store[key]
 
-    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Optional[str]]]:
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Any]]:
         with self.lock:
             return {
                 key: (item["value"], item["metadata"], item["expiry"], item["component"])
@@ -202,22 +202,19 @@ class CacheService:
         # Use the storage backend to get all items
         all_items = self.storage.get_all()
 
-        for key, (value, metadata, expiry) in all_items.items():
+        for key, (value, metadata, expiry, component) in all_items.items():
             if expiry and current_time > expiry:
-                expired_keys.append((key, metadata))
+                expired_keys.append((key, metadata, component))
             elif expiry and (next_expiry is None or expiry < next_expiry):
                 next_expiry = expiry
 
         with self.lock:
-            for key, metadata in expired_keys:
+            for key, _, _ in expired_keys:
                 self.storage.delete(key)
 
             self.next_expiry = next_expiry
 
-        for key, metadata in expired_keys:
-            # We need to find the component associated with this key
-            # This information should be stored in the metadata
-            component = metadata.get('component') if metadata else None
+        for key, metadata, component in expired_keys:
             if component:
                 event = Event(EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata})
                 component.enqueue(event)
