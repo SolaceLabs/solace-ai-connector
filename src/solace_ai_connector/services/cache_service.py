@@ -76,7 +76,7 @@ class CacheItem(Base):
     value = Column(LargeBinary)
     expiry = Column(Float, nullable=True)
     item_metadata = Column(LargeBinary, nullable=True)
-    component = Column(String, nullable=True)
+    component_reference = Column(String, nullable=True)
 
 
 class SQLAlchemyStorage(CacheStorageBackend):
@@ -109,7 +109,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
             item.value = pickle.dumps(value)
             item.expiry = time.time() + expiry if expiry else None
             item.item_metadata = pickle.dumps(metadata) if metadata else None
-            item.component = component.__class__.__name__ if component else None
+            item.component_reference = self._get_component_reference(component) if component else None
             session.commit()
         finally:
             session.close()
@@ -124,7 +124,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
         finally:
             session.close()
 
-    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Optional[str]]]:
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Any]]:
         session = self.Session()
         try:
             items = session.query(CacheItem).all()
@@ -133,12 +133,26 @@ class SQLAlchemyStorage(CacheStorageBackend):
                     pickle.loads(item.value),
                     pickle.loads(item.item_metadata) if item.item_metadata else None,
                     item.expiry,
-                    item.component
+                    self._get_component_from_reference(item.component_reference)
                 )
                 for item in items
             }
         finally:
             session.close()
+
+    def _get_component_reference(self, component):
+        # This method should return a string reference to the component's location
+        # For example: "flow_0.component_group_1.component_2"
+        # The actual implementation will depend on how you can access this information
+        # You might need to modify the component class to include this information
+        return f"{component.__class__.__name__}_{id(component)}"
+
+    def _get_component_from_reference(self, reference):
+        # This method should return the actual component based on the reference
+        # The actual implementation will depend on how you store and retrieve components
+        # You might need to keep a global registry of components or modify the Flow class
+        # to provide access to components by their reference
+        return reference  # For now, we just return the reference string
 
 
 class CacheService:
