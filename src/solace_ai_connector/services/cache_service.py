@@ -66,7 +66,7 @@ class CacheItem(Base):
     key = Column(String, primary_key=True)
     value = Column(LargeBinary)
     expiry = Column(Float, nullable=True)
-    metadata = Column(LargeBinary, nullable=True)
+    item_metadata = Column(LargeBinary, nullable=True)
 
 
 class SQLAlchemyStorage(CacheStorageBackend):
@@ -85,7 +85,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.delete(item)
                 session.commit()
                 return None
-            return pickle.loads(item.value), pickle.loads(item.metadata) if item.metadata else None
+            return pickle.loads(item.value), pickle.loads(item.item_metadata) if item.item_metadata else None
         finally:
             session.close()
 
@@ -98,7 +98,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.add(item)
             item.value = pickle.dumps(value)
             item.expiry = time.time() + expiry if expiry else None
-            item.metadata = pickle.dumps(metadata) if metadata else None
+            item.item_metadata = pickle.dumps(metadata) if metadata else None
             session.commit()
         finally:
             session.close()
@@ -120,7 +120,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
             return {
                 item.key: (
                     pickle.loads(item.value),
-                    pickle.loads(item.metadata) if item.metadata else None,
+                    pickle.loads(item.item_metadata) if item.item_metadata else None,
                     item.expiry
                 )
                 for item in items
