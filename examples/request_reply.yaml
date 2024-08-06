@@ -26,8 +26,6 @@ flows:
         component_module: broker_request_response
         component_config:
           <<: *broker_connection
-          broker_subscriptions:
-            - topic: request/topic
           request_expiry_ms: 30000  # 30 seconds
         input_transforms:
           - type: copy
@@ -73,8 +71,8 @@ flows:
             source_expression: previous
             dest_expression: user_data.output:payload
           - type: copy
-            source_expression: input.user_properties:__solace_ai_connector_broker_request_reply_metadata__
-            dest_expression: user_data.output:user_properties.__solace_ai_connector_broker_request_reply_metadata__
+            source_expression: input.user_properties
+            dest_expression: user_data.output:user_properties
           - type: copy
             source_expression: template:reply/{{input.topic}}
             dest_expression: user_data.output:topic

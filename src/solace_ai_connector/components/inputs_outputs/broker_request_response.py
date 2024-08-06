@@ -115,8 +115,12 @@ class BrokerRequestResponse(BrokerBase):
         self.reply_queue_name = f"reply-queue-{uuid.uuid4()}"
         self.reply_topic = f"reply/{uuid.uuid4()}"
         self.response_thread = None
-        self.connect()
-        self.setup_reply_queue()
+        self.broker_properties["temporary_queue"] = True
+        self.broker_properties["queue_name"] = self.reply_queue_name
+        self.broker_properties["subscriptions"] = [self.reply_topic]
+
+    def start(self):
+        # Will get called after the message service is connected
         self.start_response_thread()
 
     def setup_reply_queue(self):
