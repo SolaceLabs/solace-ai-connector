@@ -57,7 +57,7 @@ flows:
             source_expression: input.payload
             dest_expression: user_data.reply:payload
           - type: copy
-            source_expression: template:Processed: {{input.payload}}
+            source_expression: template:Processed:{{input.payload}}
             dest_expression: user_data.reply:payload
         component_input:
           source_expression: user_data.reply:payload

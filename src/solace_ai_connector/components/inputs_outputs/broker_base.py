@@ -45,6 +45,7 @@ class BrokerBase(ComponentBase):
         self.needs_acknowledgement = True
 
         self.connect()
+        self.start()
 
     @abstractmethod
     def invoke(self, message, data):
@@ -131,8 +132,12 @@ class BrokerBase(ComponentBase):
             "queue_name": self.get_config("broker_queue_name"),
             "subscriptions": self.get_config("broker_subscriptions"),
             "trust_store_path": self.get_config("trust_store_path"),
+            "temporary_queue": self.get_config("temporary_queue"),
         }
         return broker_properties
 
     def get_acknowledgement_callback(self):
+        pass
+
+    def start(self):
         pass

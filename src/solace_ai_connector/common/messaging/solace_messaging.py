@@ -160,9 +160,12 @@ class SolaceMessaging(Messaging):
             self.bind_to_queue(
                 self.broker_properties.get("queue_name"),
                 self.broker_properties.get("subscriptions"),
+                self.broker_properties.get("temporary_queue"),
             )
 
-    def bind_to_queue(self, queue_name: str, subscriptions: list = None, temporary: bool = False):
+    def bind_to_queue(
+        self, queue_name: str, subscriptions: list = None, temporary: bool = False
+    ):
         if subscriptions is None:
             subscriptions = []
 
