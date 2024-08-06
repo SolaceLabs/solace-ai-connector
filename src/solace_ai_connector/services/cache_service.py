@@ -44,11 +44,13 @@ class InMemoryStorage(CacheStorageBackend):
                 return None
             return item["value"]
 
-    def set(self, key: str, value: Any, expiry: Optional[float] = None):
+    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None, component=None):
         with self.lock:
             self.store[key] = {
                 "value": value,
                 "expiry": time.time() + expiry if expiry else None,
+                "metadata": metadata,
+                "component": component.__class__.__name__ if component else None,
             }
 
     def delete(self, key: str):
@@ -56,10 +58,10 @@ class InMemoryStorage(CacheStorageBackend):
             if key in self.store:
                 del self.store[key]
 
-    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float]]]:
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Optional[str]]]:
         with self.lock:
             return {
-                key: (item["value"], None, item["expiry"])
+                key: (item["value"], item["metadata"], item["expiry"], item["component"])
                 for key, item in self.store.items()
             }
 
@@ -74,6 +76,7 @@ class CacheItem(Base):
     value = Column(LargeBinary)
     expiry = Column(Float, nullable=True)
     item_metadata = Column(LargeBinary, nullable=True)
+    component = Column(String, nullable=True)
 
 
 class SQLAlchemyStorage(CacheStorageBackend):
@@ -96,7 +99,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
         finally:
             session.close()
 
-    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None):
+    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None, component=None):
         session = self.Session()
         try:
             item = session.query(CacheItem).filter_by(key=key).first()
@@ -106,6 +109,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
             item.value = pickle.dumps(value)
             item.expiry = time.time() + expiry if expiry else None
             item.item_metadata = pickle.dumps(metadata) if metadata else None
+            item.component = component.__class__.__name__ if component else None
             session.commit()
         finally:
             session.close()
@@ -120,7 +124,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
         finally:
             session.close()
 
-    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float]]]:
+    def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Optional[str]]]:
         session = self.Session()
         try:
             items = session.query(CacheItem).all()
@@ -128,7 +132,8 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 item.key: (
                     pickle.loads(item.value),
                     pickle.loads(item.item_metadata) if item.item_metadata else None,
-                    item.expiry
+                    item.expiry,
+                    item.component
                 )
                 for item in items
             }
@@ -159,7 +164,7 @@ class CacheService:
         metadata: Optional[Dict] = None,
         component=None,
     ):
-        self.storage.set(key, value, expiry, metadata)
+        self.storage.set(key, value, expiry, metadata, component)
         with self.lock:
             if expiry:
                 expiry_time = time.time() + expiry
