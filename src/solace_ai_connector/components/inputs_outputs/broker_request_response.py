@@ -212,7 +212,7 @@ class BrokerRequestResponse(BrokerBase):
         if "user_properties" not in data:
             data["user_properties"] = {}
 
-        metadata = {"request_id": request_id, "reply_topic": self.reply_topic}
+        metadata = {"request_id": request_id}
 
         if (
             "__solace_ai_connector_broker_request_reply_metadata__"
@@ -242,6 +242,9 @@ class BrokerRequestResponse(BrokerBase):
         data["user_properties"][
             "__solace_ai_connector_broker_request_reply_metadata__"
         ] = json.dumps(metadata)
+        data["user_properties"][
+            "__solace_ai_connector_broker_request_reply_topic__"
+        ] = self.reply_topic
 
         encoded_payload = self.encode_payload(data["payload"])
 
