@@ -20,8 +20,8 @@ flows:
   - name: request_flow
     components:
       - component_name: stdin
+        component_base_path: .
         component_module: stdin_input
-
       - component_name: request_handler
         component_module: broker_request_response
         component_config:

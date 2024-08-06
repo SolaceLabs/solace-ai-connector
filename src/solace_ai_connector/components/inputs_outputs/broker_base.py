@@ -44,9 +44,6 @@ class BrokerBase(ComponentBase):
         self.connected = False
         self.needs_acknowledgement = True
 
-        self.connect()
-        self.start()
-
     @abstractmethod
     def invoke(self, message, data):
         pass

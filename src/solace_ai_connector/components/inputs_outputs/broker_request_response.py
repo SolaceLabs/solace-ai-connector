@@ -117,7 +117,14 @@ class BrokerRequestResponse(BrokerBase):
         self.response_thread = None
         self.broker_properties["temporary_queue"] = True
         self.broker_properties["queue_name"] = self.reply_queue_name
-        self.broker_properties["subscriptions"] = [self.reply_topic]
+        self.broker_properties["subscriptions"] = [
+            {
+                "topic": self.reply_topic,
+                "qos": 1,
+            }
+        ]
+        self.connect()
+        self.start()
 
     def start(self):
         # Will get called after the message service is connected
