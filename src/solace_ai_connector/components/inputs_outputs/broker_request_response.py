@@ -149,7 +149,10 @@ class BrokerRequestResponse(BrokerBase):
                 log.error("Error handling response: %s", e)
 
     def process_response(self, broker_message):
-        payload = self.decode_payload(broker_message.get_payload_as_string())
+        payload = broker_message.get_payload_as_string()
+        if payload is None:
+            payload = broker_message.get_payload_as_bytes()
+        payload = self.decode_payload(payload)
         topic = broker_message.get_destination_name()
         user_properties = broker_message.get_properties()
 
@@ -205,9 +208,17 @@ class BrokerRequestResponse(BrokerBase):
             response["user_properties"][
                 "__solace_ai_connector_broker_request_reply_metadata__"
             ] = json.dumps(metadata_stack)
+            # Put the last reply topic back in the user properties
+            response["user_properties"][
+                "__solace_ai_connector_broker_request_reply_topic__"
+            ] = metadata_stack[-1]["reply_topic"]
         else:
+            # Remove the metadata and reply topic from the user properties
             response["user_properties"].pop(
                 "__solace_ai_connector_broker_request_reply_metadata__", None
+            )
+            response["user_properties"].pop(
+                "__solace_ai_connector_broker_request_reply_topic__", None
             )
 
         self.process_post_invoke(result, Message(payload=result))
@@ -219,7 +230,7 @@ class BrokerRequestResponse(BrokerBase):
         if "user_properties" not in data:
             data["user_properties"] = {}
 
-        metadata = {"request_id": request_id}
+        metadata = {"request_id": request_id, "reply_topic": self.reply_topic}
 
         if (
             "__solace_ai_connector_broker_request_reply_metadata__"
@@ -245,6 +256,8 @@ class BrokerRequestResponse(BrokerBase):
                         "__solace_ai_connector_broker_request_reply_metadata__"
                     ],
                 )
+        else:
+            metadata = [metadata]
 
         data["user_properties"][
             "__solace_ai_connector_broker_request_reply_metadata__"

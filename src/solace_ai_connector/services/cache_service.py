@@ -17,7 +17,13 @@ class CacheStorageBackend(ABC):
         pass
 
     @abstractmethod
-    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None):
+    def set(
+        self,
+        key: str,
+        value: Any,
+        expiry: Optional[float] = None,
+        metadata: Optional[Dict] = None,
+    ):
         pass
 
     @abstractmethod
@@ -44,7 +50,14 @@ class InMemoryStorage(CacheStorageBackend):
                 return None
             return item["value"]
 
-    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None, component=None):
+    def set(
+        self,
+        key: str,
+        value: Any,
+        expiry: Optional[float] = None,
+        metadata: Optional[Dict] = None,
+        component=None,
+    ):
         with self.lock:
             self.store[key] = {
                 "value": value,
@@ -61,7 +74,12 @@ class InMemoryStorage(CacheStorageBackend):
     def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float], Any]]:
         with self.lock:
             return {
-                key: (item["value"], item["metadata"], item["expiry"], item["component"])
+                key: (
+                    item["value"],
+                    item["metadata"],
+                    item["expiry"],
+                    item["component"],
+                )
                 for key, item in self.store.items()
             }
 
@@ -95,11 +113,20 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.delete(item)
                 session.commit()
                 return None
-            return pickle.loads(item.value), pickle.loads(item.item_metadata) if item.item_metadata else None
+            return pickle.loads(item.value), (
+                pickle.loads(item.item_metadata) if item.item_metadata else None
+            )
         finally:
             session.close()
 
-    def set(self, key: str, value: Any, expiry: Optional[float] = None, metadata: Optional[Dict] = None, component=None):
+    def set(
+        self,
+        key: str,
+        value: Any,
+        expiry: Optional[float] = None,
+        metadata: Optional[Dict] = None,
+        component=None,
+    ):
         session = self.Session()
         try:
             item = session.query(CacheItem).filter_by(key=key).first()
@@ -109,7 +136,9 @@ class SQLAlchemyStorage(CacheStorageBackend):
             item.value = pickle.dumps(value)
             item.expiry = time.time() + expiry if expiry else None
             item.item_metadata = pickle.dumps(metadata) if metadata else None
-            item.component_reference = self._get_component_reference(component) if component else None
+            item.component_reference = (
+                self._get_component_reference(component) if component else None
+            )
             session.commit()
         finally:
             session.close()
@@ -133,7 +162,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
                     pickle.loads(item.value),
                     pickle.loads(item.item_metadata) if item.item_metadata else None,
                     item.expiry,
-                    self._get_component_from_reference(item.component_reference)
+                    self._get_component_from_reference(item.component_reference),
                 )
                 for item in items
             }
@@ -188,9 +217,7 @@ class CacheService:
 
     def get_data(self, key: str) -> Any:
         result = self.storage.get(key)
-        if result:
-            return result[0]  # Return only the value, not the metadata
-        return None
+        return result
 
     def remove_data(self, key: str):
         self.storage.delete(key)
@@ -230,7 +257,9 @@ class CacheService:
 
         for key, metadata, component in expired_keys:
             if component:
-                event = Event(EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata})
+                event = Event(
+                    EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata}
+                )
                 component.enqueue(event)
 
     def stop(self):
