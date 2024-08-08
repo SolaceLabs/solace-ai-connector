@@ -38,13 +38,12 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
     def invoke(self, message, data):
         session_id = data.get("session_id")
-        clear_history = data.get("clear_history", False)
+        clear_history_but_keep_depth = data.get("clear_history_but_keep_depth")
         messages = data.get("messages", [])
 
-        if clear_history and session_id in self.history:
-            del self.history[session_id]
-
-        if session_id not in self.history:
+        if clear_history_but_keep_depth is not None:
+            self.clear_history_but_keep_depth(session_id, clear_history_but_keep_depth)
+        elif session_id not in self.history:
             self.history[session_id] = []
 
         self.history[session_id].extend(messages)
