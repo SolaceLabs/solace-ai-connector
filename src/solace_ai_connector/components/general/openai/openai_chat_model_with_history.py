@@ -47,18 +47,23 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
             history = self.kv_store_get(self.history_key) or {}
 
             if clear_history_but_keep_depth is not None:
-                self.clear_history_but_keep_depth(session_id, clear_history_but_keep_depth, history)
+                self.clear_history_but_keep_depth(
+                    session_id, clear_history_but_keep_depth, history
+                )
             elif session_id not in history:
                 history[session_id] = []
 
             history[session_id].extend(messages)
-            self.prune_history(session_id, history)
 
             response = super().invoke(message, {"messages": history[session_id]})
 
             # Add the assistant's response to the history with a timestamp
             history[session_id].append(
-                {"role": "assistant", "content": response["content"], "additional_kwargs": {"timestamp": time.time()}}
+                {
+                    "role": "assistant",
+                    "content": response["content"],
+                    "additional_kwargs": {"timestamp": time.time()},
+                }
             )
             self.prune_history(session_id, history)
 
@@ -68,7 +73,7 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
     def prune_history(self, session_id, history):
         if len(history[session_id]) > self.history_max_turns * 2:
-            history[session_id] = history[session_id][-self.history_max_turns * 2:]
+            history[session_id] = history[session_id][-self.history_max_turns * 2 :]
 
     def clear_history_but_keep_depth(self, session_id: str, depth: int, history):
         if session_id in history:
