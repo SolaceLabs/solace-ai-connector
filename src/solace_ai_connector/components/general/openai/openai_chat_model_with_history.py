@@ -54,9 +54,9 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
             response = super().invoke(message, {"messages": history[session_id]})
 
-            # Add the assistant's response to the history
+            # Add the assistant's response to the history with a timestamp
             history[session_id].append(
-                {"role": "assistant", "content": response["content"]}
+                {"role": "assistant", "content": response["content"], "additional_kwargs": {"timestamp": time.time()}}
             )
             self.prune_history(session_id, history)
 
