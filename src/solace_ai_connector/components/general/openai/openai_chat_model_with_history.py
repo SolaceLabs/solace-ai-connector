@@ -1,5 +1,6 @@
 """OpenAI chat model component with conversation history"""
 
+import time
 from .openai_chat_model_base import OpenAIChatModelBase, openai_info_base
 
 info = openai_info_base.copy()
@@ -34,6 +35,7 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.history_max_turns = self.get_config("history_max_turns", 10)
+        self.history_max_time = self.get_config("history_max_time", 3600)
         self.history_key = f"{self.flow_name}_{self.name}_history"
 
     def invoke(self, message, data):
