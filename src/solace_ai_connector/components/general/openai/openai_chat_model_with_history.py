@@ -67,9 +67,8 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
     def clear_history_but_keep_depth(self, session_id: str, depth: int):
         with self._lock:
-            if session_id in self._histories:
-                history = self._histories[session_id]
+            if session_id in self.history:
                 if depth > 0:
-                    history.messages = history.messages[-depth:]
+                    self.history[session_id] = self.history[session_id][-depth:]
                 else:
-                    del self._histories[session_id]
+                    del self.history[session_id]
