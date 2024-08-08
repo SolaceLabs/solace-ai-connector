@@ -1,11 +1,8 @@
 """OpenAI chat model component with conversation history"""
 
-from copy import deepcopy
 from .openai_chat_model_base import OpenAIChatModelBase, openai_info_base
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
-info = deepcopy(openai_info_base)
+info = openai_info_base.copy()
 info["class_name"] = "OpenAIChatModelWithHistory"
 info["description"] = "OpenAI chat model component with conversation history"
 info["config_parameters"].extend([
@@ -15,12 +12,6 @@ info["config_parameters"].extend([
         "description": "Maximum number of conversation turns to keep in history",
         "default": 10,
     },
-    {
-        "name": "history_class",
-        "required": False,
-        "description": "The class to use for conversation history",
-        "default": "ChatMessageHistory",
-    },
 ])
 
 class OpenAIChatModelWithHistory(OpenAIChatModelBase):
@@ -28,44 +19,29 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
         super().__init__(info, **kwargs)
         self.history = {}
         self.history_max_turns = self.get_config("history_max_turns", 10)
-        self.history_class = self.get_config("history_class", "ChatMessageHistory")
 
-    def invoke_model(self, input_message, messages, session_id=None, clear_history=False):
+    def invoke(self, message, data):
+        session_id = data.get("session_id")
+        clear_history = data.get("clear_history", False)
+        messages = data.get("messages", [])
+
         if clear_history and session_id in self.history:
             del self.history[session_id]
 
-        template = ChatPromptTemplate.from_messages([
-            MessagesPlaceholder(variable_name="history"),
-            ("human", "{input}"),
-        ])
+        if session_id not in self.history:
+            self.history[session_id] = []
 
-        chain = RunnableWithMessageHistory(
-            template | self.component,
-            lambda session_id: self.get_history(session_id),
-            input_messages_key="input",
-            history_messages_key="history",
-        )
-
-        result = chain.invoke(
-            {"input": messages[-1].content},
-            config={"configurable": {"session_id": session_id}},
-        )
-
+        self.history[session_id].extend(messages)
         self.prune_history(session_id)
 
-        return result
+        response = super().invoke(message, {"messages": self.history[session_id]})
 
-    def get_history(self, session_id):
-        if session_id not in self.history:
-            self.history[session_id] = self.create_history()
-        return self.history[session_id]
+        # Add the assistant's response to the history
+        self.history[session_id].append({"role": "assistant", "content": response["content"]})
+        self.prune_history(session_id)
 
-    def create_history(self):
-        from langchain_core.chat_history import ChatMessageHistory
-        return ChatMessageHistory()
+        return response
 
     def prune_history(self, session_id):
-        if session_id in self.history:
-            history = self.history[session_id]
-            if len(history.messages) > self.history_max_turns * 2:
-                history.messages = history.messages[-self.history_max_turns * 2:]
+        if len(self.history[session_id]) > self.history_max_turns * 2:
+            self.history[session_id] = self.history[session_id][-self.history_max_turns * 2:]
