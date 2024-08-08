@@ -23,6 +23,12 @@ openai_info_base = {
             "description": "Sampling temperature to use",
             "default": 0.7,
         },
+        {
+            "name": "base_url",
+            "required": False,
+            "description": "Base URL for OpenAI API",
+            "default": None,
+        },
     ],
     "input_schema": {
         "type": "object",
@@ -70,8 +76,8 @@ class OpenAIChatModelBase(ComponentBase):
         messages = data.get("messages", [])
 
         client = OpenAI(
-            # This is the default and can be omitted
-            api_key=self.get_config("api_key")
+            api_key=self.get_config("api_key"),
+            base_url=self.get_config("base_url")
         )
 
         response = client.chat.completions.create(
