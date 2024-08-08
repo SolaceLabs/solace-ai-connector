@@ -39,6 +39,9 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
         self.history_max_turns = self.get_config("history_max_turns", 10)
         self.history_max_time = self.get_config("history_max_time", 3600)
         self.history_key = f"{self.flow_name}_{self.name}_history"
+        
+        # Set up hourly timer for history cleanup
+        self.add_timer(3600000, "history_cleanup", interval_ms=3600000)
 
     def invoke(self, message, data):
         session_id = data.get("session_id")
@@ -88,3 +91,16 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
             else:
                 history[session_id]["messages"] = []
             history[session_id]["last_accessed"] = time.time()
+
+    def handle_timer_event(self, timer_data):
+        if timer_data["timer_id"] == "history_cleanup":
+            self.history_age_out()
+
+    def history_age_out(self):
+        with self.get_lock(self.history_key):
+            history = self.kv_store_get(self.history_key) or {}
+            current_time = time.time()
+            for session_id in list(history.keys()):
+                if current_time - history[session_id]["last_accessed"] > self.history_max_time:
+                    del history[session_id]
+            self.kv_store_set(self.history_key, history)
