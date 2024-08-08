@@ -39,7 +39,7 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
         self.history_max_turns = self.get_config("history_max_turns", 10)
         self.history_max_time = self.get_config("history_max_time", 3600)
         self.history_key = f"{self.flow_name}_{self.name}_history"
-        
+
         # Set up hourly timer for history cleanup
         self.add_timer(3600000, "history_cleanup", interval_ms=3600000)
 
@@ -63,7 +63,9 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
             self.prune_history(session_id, history)
 
-            response = super().invoke(message, {"messages": history[session_id]["messages"]})
+            response = super().invoke(
+                message, {"messages": history[session_id]["messages"]}
+            )
 
             # Add the assistant's response to the history
             history[session_id]["messages"].append(
@@ -82,12 +84,16 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
         if current_time - history[session_id]["last_accessed"] > self.history_max_time:
             history[session_id]["messages"] = []
         elif len(history[session_id]["messages"]) > self.history_max_turns * 2:
-            history[session_id]["messages"] = history[session_id]["messages"][-self.history_max_turns * 2:]
+            history[session_id]["messages"] = history[session_id]["messages"][
+                -self.history_max_turns * 2 :
+            ]
 
     def clear_history_but_keep_depth(self, session_id: str, depth: int, history):
         if session_id in history:
             if depth > 0:
-                history[session_id]["messages"] = history[session_id]["messages"][-depth:]
+                history[session_id]["messages"] = history[session_id]["messages"][
+                    -depth:
+                ]
             else:
                 history[session_id]["messages"] = []
             history[session_id]["last_accessed"] = time.time()
@@ -101,6 +107,9 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
             history = self.kv_store_get(self.history_key) or {}
             current_time = time.time()
             for session_id in list(history.keys()):
-                if current_time - history[session_id]["last_accessed"] > self.history_max_time:
+                if (
+                    current_time - history[session_id]["last_accessed"]
+                    > self.history_max_time
+                ):
                     del history[session_id]
             self.kv_store_set(self.history_key, history)
