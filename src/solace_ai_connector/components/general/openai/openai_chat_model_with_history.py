@@ -1,6 +1,8 @@
 """OpenAI chat model component with conversation history"""
 
 import time
+
+import time
 from .openai_chat_model_base import OpenAIChatModelBase, openai_info_base
 
 info = openai_info_base.copy()
@@ -72,8 +74,13 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
         return response
 
     def prune_history(self, session_id, history):
+        current_time = time.time()
+        history[session_id] = [
+            msg for msg in history[session_id]
+            if current_time - msg.get("timestamp", 0) <= self.history_max_time
+        ]
         if len(history[session_id]) > self.history_max_turns * 2:
-            history[session_id] = history[session_id][-self.history_max_turns * 2 :]
+            history[session_id] = history[session_id][-self.history_max_turns * 2:]
 
     def clear_history_but_keep_depth(self, session_id: str, depth: int, history):
         if session_id in history:
