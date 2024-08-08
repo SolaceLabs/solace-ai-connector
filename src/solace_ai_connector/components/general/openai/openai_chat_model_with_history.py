@@ -53,21 +53,22 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
                     session_id, clear_history_but_keep_depth, history
                 )
             elif session_id not in history:
-                history[session_id] = []
+                history[session_id] = {"messages": [], "last_accessed": time.time()}
 
-            history[session_id].extend(messages)
+            history[session_id]["messages"].extend(messages)
+            history[session_id]["last_accessed"] = time.time()
 
-            response = super().invoke(message, {"messages": history[session_id]})
+            self.prune_history(session_id, history)
 
-            # Add the assistant's response to the history with a timestamp
-            history[session_id].append(
+            response = super().invoke(message, {"messages": history[session_id]["messages"]})
+
+            # Add the assistant's response to the history
+            history[session_id]["messages"].append(
                 {
                     "role": "assistant",
                     "content": response["content"],
-                    "additional_kwargs": {"timestamp": time.time()},
                 }
             )
-            self.prune_history(session_id, history)
 
             self.kv_store_set(self.history_key, history)
 
@@ -75,16 +76,15 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
     def prune_history(self, session_id, history):
         current_time = time.time()
-        history[session_id] = [
-            msg for msg in history[session_id]
-            if current_time - msg.get("timestamp", 0) <= self.history_max_time
-        ]
-        if len(history[session_id]) > self.history_max_turns * 2:
-            history[session_id] = history[session_id][-self.history_max_turns * 2:]
+        if current_time - history[session_id]["last_accessed"] > self.history_max_time:
+            history[session_id]["messages"] = []
+        elif len(history[session_id]["messages"]) > self.history_max_turns * 2:
+            history[session_id]["messages"] = history[session_id]["messages"][-self.history_max_turns * 2:]
 
     def clear_history_but_keep_depth(self, session_id: str, depth: int, history):
         if session_id in history:
             if depth > 0:
-                history[session_id] = history[session_id][-depth:]
+                history[session_id]["messages"] = history[session_id]["messages"][-depth:]
             else:
-                del history[session_id]
+                history[session_id]["messages"] = []
+            history[session_id]["last_accessed"] = time.time()
