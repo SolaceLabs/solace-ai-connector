@@ -111,11 +111,11 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
                 kept_messages = []
                 user_message_count = 0
                 for message in reversed(messages):
+                    kept_messages.append(message)
                     if message["role"] == "user":
                         user_message_count += 1
-                    kept_messages.append(message)
-                    if user_message_count == depth:
-                        break
+                        if user_message_count == depth:
+                            break
                 history[session_id]["messages"] = list(reversed(kept_messages))
             else:
                 history[session_id]["messages"] = []
