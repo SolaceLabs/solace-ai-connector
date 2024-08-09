@@ -51,14 +51,30 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
         with self.get_lock(self.history_key):
             history = self.kv_store_get(self.history_key) or {}
 
+            if session_id not in history:
+                history[session_id] = {"messages": [], "last_accessed": time.time()}
+
             if clear_history_but_keep_depth is not None:
                 self.clear_history_but_keep_depth(
                     session_id, clear_history_but_keep_depth, history
                 )
-            elif session_id not in history:
-                history[session_id] = {"messages": [], "last_accessed": time.time()}
 
-            history[session_id]["messages"].extend(messages)
+            session_history = history[session_id]["messages"]
+
+            # If the passed in messages have a system message and the history's
+            # first message is a system message, then replace the history's first
+            # message with the passed in messages' system message
+            if (
+                len(messages)
+                and messages[0]["role"] == "system"
+                and len(session_history)
+                and session_history[0]["role"] == "system"
+            ):
+                session_history[0] = messages[0]
+                session_history.extend(messages[1:])
+            else:
+                session_history.extend(messages)
+
             history[session_id]["last_accessed"] = time.time()
 
             self.prune_history(session_id, history)
