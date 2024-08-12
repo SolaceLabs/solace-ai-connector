@@ -115,19 +115,15 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
 
     config.yaml
 
-2. Create a .env file. You can use the example file as a template:
+2. Set up the environment variables that you need for the config.yaml file. The default one requires the following variables:
 
-    ```sh
-    cp .env_template .env
-    ```
-    
-3. Edit the .env file to set the environment variables or just define them in your terminal.
-
-Depending on your terminal, you may have to source the .env file
-
-```sh
-. .env
+3. ```sh
+export SOLACE_BROKER_URL=tcp://<hostname>:<port>
+export SOLACE_BROKER_USERNAME=<username>
+export SOLACE_BROKER_PASSWORD=<password>
+export SOLACE_BROKER_VPN=<vpn>
 ```
+
 
 ## Running the AI Event Connector
 
