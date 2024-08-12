@@ -1,0 +1,92 @@
+# This will create a flow like this:
+#    Solace -> OpenAI -> Solace
+#
+# It will subscribe to `demo/joke/subject` and expect an event with the payload:
+#
+# {
+#   "joke": {
+#     "subject": "<subject for the joke>"
+#   }
+# }
+#
+# It will then send an event back to Solace with the topic: `demo/joke/subject/response`
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Take from Slack and publish to Solace
+flows:
+
+
+  # Slack chat input processing
+  - name: Simple template to LLM
+    components:
+
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config: 
+          <<: *broker_connection
+          broker_queue_name: ed_demo_joke
+          broker_subscriptions:
+            - topic: demo/joke/subject
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Go to the LLM and keep history
+      - component_name: chat_request_llm
+        component_module: langchain_chat_model_with_history
+        component_config:
+          langchain_module: langchain_openai
+          langchain_class:  ChatOpenAI
+          langchain_component_config:
+            openai_api_key: ${OPENAI_API_KEY}
+            openai_api_base: ${OPENAI_API_ENDPOINT}
+            model: ${MODEL_NAME}
+            temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 20
+          history_max_length: 6000
+        input_transforms:
+          - type: copy
+            source_expression: template:Write a joke about {{text://input.payload:joke.subject}}
+            dest_expression: user_data.input:messages.0.content
+          - type: copy
+            source_value: user
+            dest_expression: user_data.input:messages.0.role
+        component_input:
+          source_expression: user_data.input
+
+
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        component_input:
+          source_expression: user_data.output
+
+          
