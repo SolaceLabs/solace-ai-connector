@@ -117,6 +117,7 @@ def import_module(name, base_path=None, component_package=None):
                 "solace_ai_connector.components.general",
                 "solace_ai_connector.components.general.for_testing",
                 "solace_ai_connector.components.general.langchain",
+                "solace_ai_connector.components.general.openai",
                 "solace_ai_connector.components.inputs_outputs",
                 "solace_ai_connector.transforms",
                 "solace_ai_connector.common",
