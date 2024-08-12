@@ -21,7 +21,7 @@ pip install solace-ai-connector
 Download an example configuration file:
 
 ```sh
-curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/config.yaml
+curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/config.yaml > config.yaml
 ```
 
 Set the environment variables that the config file needs. In this example:
@@ -48,7 +48,7 @@ broker on the topic `response/my/topic1`.
 Download the OpenAI connector example configuration file:
 
 ```sh
-curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/examples/llm/openai_chat.yaml
+curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/examples/llm/openai_chat.yaml > openai_chat.yaml
 ```
 
 For this one, you need to also define the following environment variables:
