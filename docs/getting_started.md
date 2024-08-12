@@ -117,12 +117,12 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
 
 2. Set up the environment variables that you need for the config.yaml file. The default one requires the following variables:
 
-3. ```sh
-export SOLACE_BROKER_URL=tcp://<hostname>:<port>
-export SOLACE_BROKER_USERNAME=<username>
-export SOLACE_BROKER_PASSWORD=<password>
-export SOLACE_BROKER_VPN=<vpn>
-```
+    ```sh
+    export SOLACE_BROKER_URL=tcp://<hostname>:<port>
+    export SOLACE_BROKER_USERNAME=<username>
+    export SOLACE_BROKER_PASSWORD=<password>
+    export SOLACE_BROKER_VPN=<vpn>
+    ```
 
 
 ## Running the AI Event Connector
