@@ -43,6 +43,10 @@ This very basic connector simply creates a queue on the broker called `my_queue`
 Any events published to the broker with a topic `my/topic1` will be delivered to the connector and then sent back to the 
 broker on the topic `response/my/topic1`.
 
+To test this, connect to the Solace Broker's browser management UI and select the "Try Me!". Subscribe to "my/>" and "response/>".
+Publish a message with the topic `my/topic1` and you should see both the request and the reply message in the received messages
+area in the Subscriber side of the "Try me!" page.
+
 ### Run an OpenAI example
 
 Download the OpenAI connector example configuration file:
@@ -67,7 +71,7 @@ Run the connector:
 solace-ai-connector openai_chat.yaml
 ```
 
-Use the "Try Me" function on the broker's browser UI (or some other means) to publish an event like this:
+Use the "Try Me!" function on the broker's browser UI (or some other means) to publish an event like this:
 
 Topic: `demo/joke/subject`
 Payload: 
@@ -79,7 +83,7 @@ Payload:
 }
 ```
 
-In the "Try Me" also subscribe to `demo/joke/subject/response` to see the response
+In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the response
 
 
 ## Installation
