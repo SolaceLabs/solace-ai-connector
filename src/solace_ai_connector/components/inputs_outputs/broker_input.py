@@ -48,12 +48,6 @@ info = {
             "default": False,
         },
         {
-            "name": "temporary_queue",
-            "required": False,
-            "description": "Whether to create a temporary queue that will be deleted after disconnection",
-            "default": False,
-        },
-        {
             "name": "broker_subscriptions",
             "required": True,
             "description": "Subscriptions for broker",
