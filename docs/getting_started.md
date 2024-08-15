@@ -4,11 +4,90 @@ This guide will help you get started with the Solace AI Event Connector.
 
 ## Prerequisites
 
-- Python 3.6 or later
+- Python 3.10 or later
 - A Solace PubSub+ event broker
 - A chat model to connect to (optional)
 
+## Running With PyPi
+
+### Install the connector
+
+```sh
+pip install solace-ai-connector
+```
+
+### Run a 'pass-through' example
+
+Download an example configuration file:
+
+```sh
+curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/config.yaml > config.yaml
+```
+
+Set the environment variables that the config file needs. In this example:
+
+```sh
+export SOLACE_BROKER_URL=tcp://<hostname>:<port>
+export SOLACE_BROKER_USERNAME=<username>
+export SOLACE_BROKER_PASSWORD=<password>
+export SOLACE_BROKER_VPN=<vpn>
+```
+
+Run the connector:
+
+```sh
+solace-ai-connector config.yaml
+```
+
+This very basic connector simply creates a queue on the broker called `my_queue` and adds the subscription `my/topic1` to it. 
+Any events published to the broker with a topic `my/topic1` will be delivered to the connector and then sent back to the 
+broker on the topic `response/my/topic1`.
+
+To test this, connect to the Solace Broker's browser management UI and select the "Try Me!". Subscribe to "my/>" and "response/>".
+Publish a message with the topic `my/topic1` and you should see both the request and the reply message in the received messages
+area in the Subscriber side of the "Try me!" page.
+
+### Run an OpenAI example
+
+Download the OpenAI connector example configuration file:
+
+```sh
+curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/examples/llm/openai_chat.yaml > openai_chat.yaml
+```
+
+For this one, you need to also define the following environment variables:
+
+```sh
+export OPENAI_API_KEY=<your OpenAI key>
+export OPENAI_API_ENDPOINT=<base url of your OpenAI endpoint>
+export MODEL_NAME=<model name>
+```
+
+Note that if you want to use the default OpenAI endpoint, just delete that line from the openai_chat.yaml file.
+
+Run the connector:
+
+```sh
+solace-ai-connector openai_chat.yaml
+```
+
+Use the "Try Me!" function on the broker's browser UI (or some other means) to publish an event like this:
+
+Topic: `demo/joke/subject`
+Payload: 
+```json
+{
+  "joke": {
+    "subject": "<subject for the joke>"
+  }
+}
+```
+
+In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the response
+
+
 ## Installation
+
 
 1. Clone the repository and enter its directory:
 
@@ -36,20 +115,23 @@ This guide will help you get started with the Solace AI Event Connector.
 
     config.yaml
 
-2. Create a .env file. You can use the example file as a template:
+2. Set up the environment variables that you need for the config.yaml file. The default one requires the following variables:
 
     ```sh
-    cp .env_template .env
+    export SOLACE_BROKER_URL=tcp://<hostname>:<port>
+    export SOLACE_BROKER_USERNAME=<username>
+    export SOLACE_BROKER_PASSWORD=<password>
+    export SOLACE_BROKER_VPN=<vpn>
     ```
-    
-3. Edit the .env file to set the environment variables.
+
 
 ## Running the AI Event Connector
 
 1. Start the AI Event Connector:
 
     ```sh
-    python ai_event_connector.py config.yaml
+    cd src
+    python3 -m solace_ai_connector.main ../config.yaml
     ```
 
 2. Use the Solace PubSub+ event broker "Try Me" function to send a message to the AI Event Connector. Make sure that the topic matches the subscription in the configuration file.
