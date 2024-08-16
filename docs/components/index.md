@@ -5,6 +5,7 @@
 | [aggregate](aggregate.md) | Aggregate messages into one message. |
 | [broker_input](broker_input.md) | Connect to a messaging broker and receive messages from it. The component will output the payload, topic, and user properties of the message. |
 | [broker_output](broker_output.md) | Connect to a messaging broker and send messages to it. Note that this component requires that the data is transformed into the input schema. |
+| [broker_request_response](broker_request_response.md) | Connect to a messaging broker, send request messages, and receive responses. This component combines the functionality of broker_input and broker_output with additional request-response handling. |
 | [delay](delay.md) | A simple component that simply passes the input to the output, but with a configurable delay. |
 | [error_input](error_input.md) | Receive processing errors from the Solace AI Event Connector. Note that the component_input configuration is ignored. This component should be used to create a flow that handles errors from other flows.  |
 | [file_output](file_output.md) | File output component |

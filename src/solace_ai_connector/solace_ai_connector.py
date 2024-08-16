@@ -2,6 +2,7 @@
 
 import threading
 import queue
+import time
 
 from datetime import datetime
 from .common.log import log, setup_log
@@ -10,6 +11,7 @@ from .flow.flow import Flow
 from .flow.timer_manager import TimerManager
 from .storage.storage_manager import StorageManager
 from .common.event import Event, EventType
+from .services.cache_service import CacheService, create_storage_backend
 
 
 class SolaceAiConnector:
@@ -31,6 +33,7 @@ class SolaceAiConnector:
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.storage_manager = StorageManager(self.config.get("storage", []))
         self.timer_manager = TimerManager(self.stop_signal)
+        self.cache_service = self.setup_cache_service()
 
     def run(self):
         """Run the Solace AI Event Connector"""
@@ -42,6 +45,7 @@ class SolaceAiConnector:
             on_flow_creation = self.event_handlers.get("on_flow_creation")
             if on_flow_creation:
                 on_flow_creation(self.flows)
+
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
             self.stop()
@@ -116,6 +120,8 @@ class SolaceAiConnector:
             self.trace_queue.put(None)  # Signal the trace thread to stop
         if self.trace_thread:
             self.trace_thread.join()
+        if hasattr(self, "cache_check_thread"):
+            self.cache_check_thread.join()
         self.timer_manager.cleanup()
 
     def setup_logging(self):
@@ -198,3 +204,20 @@ class SolaceAiConnector:
     def get_flows(self):
         """Return the flows"""
         return self.flows
+
+    def setup_cache_service(self):
+        """Setup the cache service"""
+        cache_config = self.config.get("cache", {})
+        backend_type = cache_config.get("backend", "memory")
+        backend = create_storage_backend(backend_type)
+        return CacheService(backend)
+
+    def stop(self):
+        """Stop the Solace AI Event Connector"""
+        log.info("Stopping Solace AI Event Connector")
+        self.stop_signal.set()
+        self.timer_manager.stop()  # Stop the timer manager first
+        self.cache_service.stop()  # Stop the cache service
+        self.wait_for_flows()
+        if self.trace_thread:
+            self.trace_thread.join()

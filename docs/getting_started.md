@@ -123,14 +123,7 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
     export SOLACE_BROKER_PASSWORD=<password>
     export SOLACE_BROKER_VPN=<vpn>
     ```
-    
-3. Edit the .env file to set the environment variables or just define them in your terminal.
 
-Depending on your terminal, you may have to source the .env file
-
-```sh
-. .env
-```
 
 ## Running the AI Event Connector
 

@@ -1,5 +1,10 @@
 """Base class for broker input/output components for the Solace AI Event Connector"""
 
+import base64
+import gzip
+import json
+import yaml
+
 from abc import abstractmethod
 
 # from solace_ai_connector.common.log import log
@@ -39,8 +44,6 @@ class BrokerBase(ComponentBase):
         self.connected = False
         self.needs_acknowledgement = True
 
-        self.connect()
-
     @abstractmethod
     def invoke(self, message, data):
         pass
@@ -56,7 +59,53 @@ class BrokerBase(ComponentBase):
             self.connected = False
 
     def decode_payload(self, payload):
-        pass
+        encoding = self.get_config("payload_encoding")
+        payload_format = self.get_config("payload_format")
+        if encoding == "base64":
+            payload = base64.b64decode(payload)
+        elif encoding == "gzip":
+            payload = gzip.decompress(payload)
+        elif encoding == "utf-8" and (
+            isinstance(payload, bytes) or isinstance(payload, bytearray)
+        ):
+            payload = payload.decode("utf-8")
+        if payload_format == "json":
+            payload = json.loads(payload)
+        elif payload_format == "yaml":
+            payload = yaml.safe_load(payload)
+        return payload
+
+    def encode_payload(self, payload):
+        encoding = self.get_config("payload_encoding")
+        payload_format = self.get_config("payload_format")
+        if encoding == "utf-8":
+            if payload_format == "json":
+                return json.dumps(payload).encode("utf-8")
+            elif payload_format == "yaml":
+                return yaml.dump(payload).encode("utf-8")
+            else:
+                return str(payload).encode("utf-8")
+        elif encoding == "base64":
+            if payload_format == "json":
+                return base64.b64encode(json.dumps(payload).encode("utf-8"))
+            elif payload_format == "yaml":
+                return base64.b64encode(yaml.dump(payload).encode("utf-8"))
+            else:
+                return base64.b64encode(str(payload).encode("utf-8"))
+        elif encoding == "gzip":
+            if payload_format == "json":
+                return gzip.compress(json.dumps(payload).encode("utf-8"))
+            elif payload_format == "yaml":
+                return gzip.compress(yaml.dump(payload).encode("utf-8"))
+            else:
+                return gzip.compress(str(payload).encode("utf-8"))
+        else:
+            if payload_format == "json":
+                return json.dumps(payload)
+            elif payload_format == "yaml":
+                return yaml.dump(payload)
+            else:
+                return str(payload)
 
     def get_egress_topic(self, message: Message):
         pass
@@ -80,8 +129,12 @@ class BrokerBase(ComponentBase):
             "queue_name": self.get_config("broker_queue_name"),
             "subscriptions": self.get_config("broker_subscriptions"),
             "trust_store_path": self.get_config("trust_store_path"),
+            "temporary_queue": self.get_config("temporary_queue"),
         }
         return broker_properties
 
     def get_acknowledgement_callback(self):
+        pass
+
+    def start(self):
         pass
