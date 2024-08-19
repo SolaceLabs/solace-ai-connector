@@ -258,22 +258,27 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         with self._lock:
             if session_id not in self._histories:
                 self._histories[session_id] = self.create_history()
-            
+
             # Get all the messages from the history
             messages = self._histories[session_id].messages
-            
+
             # Prune messages based on max turns
             if len(messages) > self.history_max_turns:
-                messages = messages[-self.history_max_turns:]
-            
+                messages = messages[-self.history_max_turns :]
+
             # Prune messages based on max time
             if self.history_max_time is not None:
                 current_time = time.time()
-                messages = [msg for msg in messages if (current_time - msg.additional_kwargs.get('timestamp', 0)) <= self.history_max_time]
-            
+                messages = [
+                    msg
+                    for msg in messages
+                    if (current_time - msg.additional_kwargs.get("timestamp", 0))
+                    <= self.history_max_time
+                ]
+
             # Update the history with pruned messages
             self._histories[session_id].messages = messages
-            
+
             return self._histories[session_id]
 
     def prune_large_message_from_history(self, session_id: str):
