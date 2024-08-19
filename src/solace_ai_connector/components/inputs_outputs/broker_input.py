@@ -1,10 +1,5 @@
 """Input broker component for the Solace AI Event Connector"""
 
-import base64
-import gzip
-import json
-import yaml  # pylint: disable=import-error
-
 from ...common.log import log
 from .broker_base import BrokerBase
 from ...common.message import Message
@@ -45,6 +40,12 @@ info = {
             "name": "broker_queue_name",
             "required": True,
             "description": "Queue name for broker",
+        },
+        {
+            "name": "temporary_queue",
+            "required": False,
+            "description": "Whether to create a temporary queue that will be deleted after disconnection",
+            "default": False,
         },
         {
             "name": "broker_subscriptions",
@@ -89,6 +90,8 @@ class BrokerInput(BrokerBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.need_acknowledgement = True
+        self.temporary_queue = self.get_config("temporary_queue", False)
+        self.broker_properties["temporary_queue"] = self.temporary_queue
         self.connect()
 
     def invoke(self, message, data):
@@ -118,23 +121,6 @@ class BrokerInput(BrokerBase):
             len(payload) if payload is not None else 0,
         )
         return Message(payload=payload, topic=topic, user_properties=user_properties)
-
-    def decode_payload(self, payload):
-        encoding = self.get_config("payload_encoding")
-        payload_format = self.get_config("payload_format")
-        if encoding == "base64":
-            payload = base64.b64decode(payload)
-        elif encoding == "gzip":
-            payload = gzip.decompress(payload)
-        elif encoding == "utf-8" and (
-            isinstance(payload, bytes) or isinstance(payload, bytearray)
-        ):
-            payload = payload.decode("utf-8")
-        if payload_format == "json":
-            payload = json.loads(payload)
-        elif payload_format == "yaml":
-            payload = yaml.safe_load(payload)
-        return payload
 
     def acknowledge_message(self, broker_message):
         self.messaging_service.ack_message(broker_message)

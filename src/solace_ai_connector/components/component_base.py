@@ -32,6 +32,7 @@ class ComponentBase:
         self.trace_queue = kwargs.pop("trace_queue", False)
         self.connector = kwargs.pop("connector", None)
         self.timer_manager = kwargs.pop("timer_manager", None)
+        self.cache_service = kwargs.pop("cache_service", None)
 
         self.component_config = self.config.get("component_config") or {}
         self.name = self.config.get("component_name", "<unnamed>")
@@ -48,12 +49,6 @@ class ComponentBase:
 
         self.log_identifier = f"[{self.instance_name}.{self.flow_name}.{self.name}] "
 
-        log.debug(
-            "%sCreating component %s with config %s",
-            self.log_identifier,
-            self.name,
-            self.config,
-        )
         self.validate_config()
         self.setup_transforms()
         self.setup_communications()
@@ -190,11 +185,6 @@ class ComponentBase:
     def send_message(self, message):
         if self.next_component is None:
             # This is the last component in the flow
-            log.debug(
-                "%sComponent %s is the last component in the flow, so not sending message",
-                self.log_identifier,
-                self.name,
-            )
             message.call_acknowledgements()
             return
         event = Event(EventType.MESSAGE, message)

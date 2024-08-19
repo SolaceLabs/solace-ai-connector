@@ -112,24 +112,31 @@ def import_module(name, base_path=None, component_package=None):
         # is necessary. It seems you can't dynamically import a module
         # that is listed in an __init__.py file :(
         if "." not in name:
-            for prefix in [
-                "solace_ai_connector.components",
-                "solace_ai_connector.components.general",
-                "solace_ai_connector.components.general.for_testing",
-                "solace_ai_connector.components.general.langchain",
-                "solace_ai_connector.components.general.openai",
-                "solace_ai_connector.components.inputs_outputs",
-                "solace_ai_connector.transforms",
-                "solace_ai_connector.common",
-            ]:
-                full_name = f"{prefix}.{name}"
-                try:
-                    module = importlib.import_module(full_name)
-                    return module
-                except ModuleNotFoundError:
-                    pass
-                except Exception as e:
-                    raise ImportError(f"Module load error for {full_name}: {e}") from e
+            for prefix_prefix in ["solace_ai_connector", "."]:
+                for prefix in [
+                    ".components",
+                    ".components.general",
+                    ".components.general.for_testing",
+                    ".components.general.langchain",
+                    ".components.inputs_outputs",
+                    ".transforms",
+                    ".common",
+                ]:
+                    full_name = f"{prefix_prefix}{prefix}.{name}"
+                    try:
+                        if full_name.startswith("."):
+                            module = importlib.import_module(
+                                full_name, package=__package__
+                            )
+                        else:
+                            module = importlib.import_module(full_name)
+                        return module
+                    except ModuleNotFoundError:
+                        pass
+                    except Exception as e:
+                        raise ImportError(
+                            f"Module load error for {full_name}: {e}"
+                        ) from e
         raise ModuleNotFoundError(f"Module '{name}' not found") from exc
 
 

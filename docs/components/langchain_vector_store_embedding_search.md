@@ -47,25 +47,10 @@ component_config:
 ## Component Output Schema
 
 ```
-{
-  results:   {
-    matches: [
-      {
-        text:         <string>,
-        metadata:         {
-          <freeform-object>
-        },
-        score:         <float>
-      },
-      ...
-    ]
-  }
-}
+[
+  {
+    <freeform-object>
+  },
+  ...
+]
 ```
-| Field | Required | Description |
-| --- | --- | --- |
-| results | True |  |
-| results.matches | False |  |
-| results.matches[].text | True |  |
-| results.matches[].metadata | False |  |
-| results.matches[].score | False |  |
