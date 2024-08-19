@@ -107,18 +107,31 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
     def clear_history_but_keep_depth(self, session_id: str, depth: int, history):
         if session_id in history:
             messages = history[session_id]["messages"]
-            # Check if the history is already shorter than the depth
-            if depth == 0 or len(messages) <= depth:
+            # If the depth is 0, then clear all history
+            if depth == 0:
                 history[session_id]["messages"] = []
+                history[session_id]["last_accessed"] = time.time()
+                return
+
+            # Check if the history is already shorter than the depth
+            if len(messages) <= depth:
+                # Do nothing, since the history is already shorter than the depth
+                return
 
             # If the message at depth is not a user message, then
             # increment the depth until a user message is found
-            else:
-                while depth < len(messages) and messages[-depth]["role"] != "user":
-                    depth += 1
-                history[session_id]["messages"] = messages[-depth:]
-
+            while depth < len(messages) and messages[-depth]["role"] != "user":
+                depth += 1
+            history[session_id]["messages"] = messages[-depth:]
             history[session_id]["last_accessed"] = time.time()
+
+            # In the unlikely case that the history starts with a non-user message,
+            # remove it
+            while (
+                history[session_id]["messages"]
+                and history[session_id]["messages"][0]["role"] != "user"
+            ):
+                history[session_id]["messages"].pop(0)
 
     def handle_timer_event(self, timer_data):
         if timer_data["timer_id"] == "history_cleanup":
