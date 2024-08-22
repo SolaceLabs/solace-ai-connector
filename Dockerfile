@@ -6,12 +6,14 @@ RUN apt-get update && \
     apt-get install -y git && \
     apt-get clean
 
-#Install main program
-COPY /src /app/src
+# Installing dependencies 
 COPY requirements.txt /app
 
 RUN python3.10 -m pip install -r requirements.txt
 ENV PYTHONUNBUFFERED=1
+
+#Install main program
+COPY /src /app/src
 
 LABEL org.opencontainers.image.source https://github.com/SolaceLabs/solace-ai-connector
 

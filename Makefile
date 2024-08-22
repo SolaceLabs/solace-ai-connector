@@ -1,3 +1,4 @@
+.PHONY: gen-docs, build-pypi, build, run-local, test, structure-test, pytest, pytest-docker
 include .env
 VERSION ?= local
 
