@@ -1,10 +1,7 @@
-# All components should inherit from this class
-
 import threading
 import queue
 import traceback
 import pprint
-
 from abc import abstractmethod
 from ..common.log import log
 from ..common.utils import resolve_config_values
@@ -12,6 +9,7 @@ from ..common.utils import get_source_expression
 from ..transforms.transforms import Transforms
 from ..common.message import Message
 from ..common.trace_message import TraceMessage
+from ..common.event import Event, EventType
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -33,11 +31,12 @@ class ComponentBase:
         self.storage_manager = kwargs.pop("storage_manager", None)
         self.trace_queue = kwargs.pop("trace_queue", False)
         self.connector = kwargs.pop("connector", None)
+        self.timer_manager = kwargs.pop("timer_manager", None)
+        self.cache_service = kwargs.pop("cache_service", None)
 
         self.component_config = self.config.get("component_config") or {}
         self.name = self.config.get("component_name", "<unnamed>")
 
-        # Resolve any config items that are config modules
         resolve_config_values(self.component_config)
 
         self.next_component = None
@@ -50,35 +49,25 @@ class ComponentBase:
 
         self.log_identifier = f"[{self.instance_name}.{self.flow_name}.{self.name}] "
 
-        log.debug(
-            "%sCreating component %s with config %s",
-            self.log_identifier,
-            self.name,
-            self.config,
-        )
         self.validate_config()
         self.setup_transforms()
         self.setup_communications()
 
     def create_thread_and_run(self):
-        # Create a python thread for this component
         self.thread = threading.Thread(target=self.run)
         self.thread.start()
         return self.thread
 
-    # This may be overridden by the component
     def run(self):
         while not self.stop_signal.is_set():
-            message = None
+            event = None
             try:
-                message = self.get_next_message()
-                if message is not None:
+                event = self.get_next_event()
+                if event is not None:
                     if self.trace_queue:
-                        message.trace(
-                            self.trace_queue, self.log_identifier, "Received message"
-                        )
-                    self.process_message(message)
-            except Exception as e:  # pylint: disable=broad-except
+                        self.trace_event(event)
+                    self.process_event(event)
+            except Exception as e:
                 log.error(
                     "%sComponent has crashed: %s\n%s",
                     self.log_identifier,
@@ -86,104 +75,69 @@ class ComponentBase:
                     traceback.format_exc(),
                 )
                 if self.error_queue:
-                    user_properties = message.get_user_properties() if message else {}
-                    error_message = {
-                        "error": {
-                            "text": str(e),
-                            "exception": type(e).__name__,
-                        },
-                        "location": {
-                            "instance": self.instance_name,
-                            "flow": self.flow_name,
-                            "component": self.name,
-                            "component_index": self.component_index,
-                        },
-                    }
-                    if message:
-                        error_message["message"] = {
-                            "payload": message.get_payload(),
-                            "topic": message.get_topic(),
-                            "user_properties": user_properties,
-                            "user_data": message.get_user_data(),
-                            "previous": message.get_previous(),
-                        }
-                        # Call the acknowledgements
-                        message.call_acknowledgements()
-
-                    self.error_queue.put(
-                        Message(
-                            payload=error_message,
-                            user_properties=user_properties,
-                        )
-                    )
+                    self.handle_error(e, event)
 
         self.stop_component()
 
-    def get_next_message(self):
-        # Get the next message from the input queue
+    def get_next_event(self):
+        # Check if there is a get_next_message defined by a
+        # component that inherits from this class - this is
+        # for backwards compatibility with older components
+        sub_method = self.__class__.__dict__.get("get_next_message")
+
+        if sub_method is not None and callable(sub_method):
+            # Call the sub-classes get_next_message method and wrap it in an event
+            message = self.get_next_message()  # pylint: disable=assignment-from-none
+            if message is not None:
+                return Event(EventType.MESSAGE, message)
+            return None
         while not self.stop_signal.is_set():
-            used_default_timeout = False
             try:
-                # If the timeout is not set, then we need to use the default timeout so that
-                # we can check the stop signal
-                timeout = self.queue_timeout_ms
-                if timeout is None:
-                    timeout = self.get_default_queue_timeout()
-                    used_default_timeout = True
-                else:
-                    log.debug(
-                        "%sWaiting for message from input queue. timeout: %s, stop: %s",
-                        self.log_identifier,
-                        timeout,
-                        self.stop_signal.is_set(),
-                    )
-                message = self.input_queue.get(timeout=timeout / 1000)
+                timeout = self.queue_timeout_ms or DEFAULT_QUEUE_TIMEOUT_MS
+                event = self.input_queue.get(timeout=timeout / 1000)
                 log.debug(
-                    "%sComponent received message %s from input queue",
+                    "%sComponent received event %s from input queue",
                     self.log_identifier,
-                    message,
+                    event,
                 )
-                self.current_message = message
-                return message
+                return event
             except queue.Empty:
-                if not used_default_timeout:
-                    self.handle_queue_timeout()
+                pass
         return None
 
-    def process_message(self, message):
-        # log.debug("%sProcessing message: %s", self.log_identifier, message)
+    def get_next_message(self):
+        return None
 
-        # Do all the things we need to do before invoking the component
-        data = self.process_pre_invoke(message)
+    def process_event(self, event):
+        if event.event_type == EventType.MESSAGE:
+            message = event.data
+            self.current_message = message
+            data = self.process_pre_invoke(message)
 
-        if self.trace_queue:
-            self.trace_data(data)
+            if self.trace_queue:
+                self.trace_data(data)
 
-        # Invoke the component
-        self.current_message_has_been_discarded = False
-        result = self.invoke(message, data)
+            self.current_message_has_been_discarded = False
+            result = self.invoke(message, data)
 
-        if self.current_message_has_been_discarded:
-            # Call the message acknowledgements
-            message.call_acknowledgements()
-        elif result is not None:
-            # Do all the things we need to do after invoking the component
-            # Note that there are times where we don't want to
-            # send the message to the next component
-            self.process_post_invoke(result, message)
+            if self.current_message_has_been_discarded:
+                message.call_acknowledgements()
+            elif result is not None:
+                self.process_post_invoke(result, message)
+            self.current_message = None
+        elif event.event_type == EventType.TIMER:
+            self.handle_timer_event(event.data)
+        else:
+            log.warning(
+                "%sUnknown event type: %s", self.log_identifier, event.event_type
+            )
 
     def process_pre_invoke(self, message):
-        # First apply any input transforms
         self.apply_input_transforms(message)
-
-        # Get the data that should be fed into the component
         return self.get_input_data(message)
 
     def process_post_invoke(self, result, message):
-        # Set the previous result on the message
         message.set_previous(result)
-
-        # If this component wants acknowledgement, add its callback
         callback = (  # pylint: disable=assignment-from-none
             self.get_acknowledgement_callback()
         )
@@ -195,8 +149,15 @@ class ComponentBase:
         log.debug(
             "%sSending message from %s: %s", self.log_identifier, self.name, message
         )
-        self.current_message = message
         self.send_message(message)
+
+    @abstractmethod
+    def invoke(self, message, data):
+        pass
+
+    def handle_timer_event(self, timer_data):
+        # This method can be overridden by components that need to handle timer events
+        pass
 
     def discard_current_message(self):
         # If the message is to be discarded, we need to acknowledge any previous components
@@ -221,33 +182,23 @@ class ComponentBase:
     def apply_input_transforms(self, message):
         self.transforms.transform(message, calling_object=self)
 
-    @abstractmethod
-    def invoke(self, message, data):
-        pass
-
     def send_message(self, message):
         if self.next_component is None:
             # This is the last component in the flow
-            log.debug(
-                "%sComponent %s is the last component in the flow, so not sending message",
-                self.log_identifier,
-                self.name,
-            )
-            # If there are any acknowledgements, call them
             message.call_acknowledgements()
             return
-        self.next_component.enqueue(message)
+        event = Event(EventType.MESSAGE, message)
+        self.next_component.enqueue(event)
 
     def send_to_flow(self, flow_name, message):
         if self.connector:
             self.connector.send_message_to_flow(flow_name, message)
 
-    def enqueue(self, message):
-        # Add the message to the input queue
+    def enqueue(self, event):
         do_loop = True
         while not self.stop_signal.is_set() and do_loop:
             try:
-                self.input_queue.put(message, timeout=1)
+                self.input_queue.put(event, timeout=1)
                 do_loop = False
             except queue.Full:
                 pass
@@ -256,7 +207,6 @@ class ComponentBase:
         val = self.component_config.get(key, None)
         if val is None:
             val = self.config.get(key, default)
-        # If the value is callable, call it with the current message
         if callable(val):
             if self.current_message is None:
                 raise ValueError(
@@ -278,21 +228,11 @@ class ComponentBase:
             config = config(message)
         return config
 
-    def handle_queue_timeout(self):
-        pass
-
     def set_next_component(self, next_component):
         self.next_component = next_component
 
     def get_next_component(self):
         return self.next_component
-
-    def set_queue_timeout(self, timeout_ms):
-        # Set the timeout on the input queue
-        self.queue_timeout_ms = timeout_ms
-
-    def get_default_queue_timeout(self):
-        return DEFAULT_QUEUE_TIMEOUT_MS
 
     def get_lock(self, lock_name):
         return self.flow_lock_manager.get_lock(lock_name)
@@ -304,16 +244,13 @@ class ComponentBase:
         self.flow_kv_store.set(key, value)
 
     def setup_communications(self):
-        self.queue_timeout_ms = None  # pylint: disable=assignment-from-none
         self.queue_max_depth = self.config.get(
             "component_queue_max_depth", DEFAULT_QUEUE_MAX_DEPTH
         )
         self.need_acknowledgement = False
         self.next_component = None
 
-        # Creat an input queue for the component
         if self.sibling_component:
-            # All components in the same group share the same input queue
             self.input_queue = self.sibling_component.get_input_queue()
         else:
             self.input_queue = queue.Queue(maxsize=self.queue_max_depth)
@@ -343,8 +280,15 @@ class ComponentBase:
             if default is not None and name not in self.component_config:
                 self.component_config[name] = default
 
+    def trace_event(self, event):
+        trace_message = TraceMessage(
+            location=self.log_identifier,
+            message=f"Received event: {event}",
+            trace_type="Event Received",
+        )
+        self.trace_queue.put(trace_message)
+
     def trace_data(self, data):
-        # Generate a Trace object with a detailed pprint dump of the data dict
         trace_string = pprint.pformat(data, indent=4)
         self.trace_queue.put(
             TraceMessage(
@@ -354,6 +298,62 @@ class ComponentBase:
             )
         )
 
+    def handle_error(self, exception, event):
+        error_message = {
+            "error": {
+                "text": str(exception),
+                "exception": type(exception).__name__,
+            },
+            "location": {
+                "instance": self.instance_name,
+                "flow": self.flow_name,
+                "component": self.name,
+                "component_index": self.component_index,
+            },
+        }
+        if event and event.event_type == EventType.MESSAGE:
+            message = event.data
+            if message:
+                error_message["message"] = {
+                    "payload": message.get_payload(),
+                    "topic": message.get_topic(),
+                    "user_properties": message.get_user_properties(),
+                    "user_data": message.get_user_data(),
+                    "previous": message.get_previous(),
+                }
+                message.call_acknowledgements()
+            else:
+                error_message["message"] = "No message available"
+
+        self.error_queue.put(
+            Event(
+                EventType.MESSAGE,
+                Message(
+                    payload=error_message,
+                    user_properties=message.get_user_properties() if message else {},
+                ),
+            )
+        )
+
+    def add_timer(self, delay_ms, timer_id, interval_ms=None, payload=None):
+        if self.timer_manager:
+            self.timer_manager.add_timer(delay_ms, self, timer_id, interval_ms, payload)
+
+    def cancel_timer(self, timer_id):
+        if self.timer_manager:
+            self.timer_manager.cancel_timer(self, timer_id)
+
     def stop_component(self):
-        # This should be overridden by the component
+        # This should be overridden by the component if needed
         pass
+
+    def cleanup(self):
+        """Clean up resources used by the component"""
+        log.debug("%sCleaning up component", self.log_identifier)
+        self.stop_component()
+        if hasattr(self, "input_queue"):
+            while not self.input_queue.empty():
+                try:
+                    self.input_queue.get_nowait()
+                except queue.Empty:
+                    break

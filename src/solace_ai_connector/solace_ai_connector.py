@@ -2,12 +2,16 @@
 
 import threading
 import queue
+import time
 
 from datetime import datetime
 from .common.log import log, setup_log
 from .common.utils import resolve_config_values
 from .flow.flow import Flow
+from .flow.timer_manager import TimerManager
 from .storage.storage_manager import StorageManager
+from .common.event import Event, EventType
+from .services.cache_service import CacheService, create_storage_backend
 
 
 class SolaceAiConnector:
@@ -28,16 +32,25 @@ class SolaceAiConnector:
         self.validate_config()
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.storage_manager = StorageManager(self.config.get("storage", []))
+        self.timer_manager = TimerManager(self.stop_signal)
+        self.cache_service = self.setup_cache_service()
 
     def run(self):
         """Run the Solace AI Event Connector"""
         log.debug("Starting Solace AI Event Connector")
-        self.create_flows()
+        try:
+            self.create_flows()
 
-        # Call the on_flow_creation event handler
-        on_flow_creation = self.event_handlers.get("on_flow_creation")
-        if on_flow_creation:
-            on_flow_creation(self.flows)
+            # Call the on_flow_creation event handler
+            on_flow_creation = self.event_handlers.get("on_flow_creation")
+            if on_flow_creation:
+                on_flow_creation(self.flows)
+
+        except Exception as e:
+            log.error("Error during Solace AI Event Connector startup: %s", str(e))
+            self.stop()
+            self.cleanup()
+            raise
 
     def create_flows(self):
         """Loop through the flows and create them"""
@@ -71,7 +84,8 @@ class SolaceAiConnector:
         """Send a message to a flow"""
         flow_input_queue = self.flow_input_queues.get(flow_name)
         if flow_input_queue:
-            flow_input_queue.put(message)
+            event = Event(EventType.MESSAGE, message)
+            flow_input_queue.put(event)
         else:
             log.error("Can't send message to flow %s. Not found", flow_name)
 
@@ -91,9 +105,24 @@ class SolaceAiConnector:
         """Stop the Solace AI Event Connector"""
         log.info("Stopping Solace AI Event Connector")
         self.stop_signal.set()
+        self.timer_manager.stop()  # Stop the timer manager first
         self.wait_for_flows()
         if self.trace_thread:
             self.trace_thread.join()
+
+    def cleanup(self):
+        """Clean up resources and ensure all threads are properly joined"""
+        log.info("Cleaning up Solace AI Event Connector")
+        for flow in self.flows:
+            flow.cleanup()
+        self.flows.clear()
+        if hasattr(self, "trace_queue") and self.trace_queue:
+            self.trace_queue.put(None)  # Signal the trace thread to stop
+        if self.trace_thread:
+            self.trace_thread.join()
+        if hasattr(self, "cache_check_thread"):
+            self.cache_check_thread.join()
+        self.timer_manager.cleanup()
 
     def setup_logging(self):
         """Setup logging"""
@@ -175,3 +204,20 @@ class SolaceAiConnector:
     def get_flows(self):
         """Return the flows"""
         return self.flows
+
+    def setup_cache_service(self):
+        """Setup the cache service"""
+        cache_config = self.config.get("cache", {})
+        backend_type = cache_config.get("backend", "memory")
+        backend = create_storage_backend(backend_type)
+        return CacheService(backend)
+
+    def stop(self):
+        """Stop the Solace AI Event Connector"""
+        log.info("Stopping Solace AI Event Connector")
+        self.stop_signal.set()
+        self.timer_manager.stop()  # Stop the timer manager first
+        self.cache_service.stop()  # Stop the cache service
+        self.wait_for_flows()
+        if self.trace_thread:
+            self.trace_thread.join()

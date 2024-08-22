@@ -1,6 +1,7 @@
 """A chat model based on LangChain that includes keeping per-session history of the conversation."""
 
 import threading
+import time
 from collections import namedtuple
 from copy import deepcopy
 from uuid import uuid4
@@ -50,6 +51,13 @@ info["config_parameters"].extend(
             "description": "The maximum number of tokens to keep in the history. "
             "If not set, the history will be limited to 8000 tokens.",
             "default": 8000,
+        },
+        {
+            "name": "history_max_time",
+            "required": False,
+            "description": "The maximum time (in seconds) to keep messages in the history. "
+            "If not set, messages will not expire based on time.",
+            "default": None,
         },
         {
             "name": "history_module",
@@ -119,6 +127,7 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             "history_max_message_size", 1000
         )
         self.history_max_tokens = self.get_config("history_max_tokens", 8000)
+        self.history_max_time = self.get_config("history_max_time", None)
         self.stream_to_flow = self.get_config("stream_to_flow", "")
         self.llm_mode = self.get_config("llm_mode", "none")
         self.stream_batch_size = self.get_config("stream_batch_size", 15)
@@ -247,17 +256,29 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
 
     def get_history(self, session_id: str) -> BaseChatMessageHistory:
         with self._lock:
-            # TBD - we could do some history pruning here if we can't beat langchain into submission
-            #       for now just implement the turns limit - later can look at tokens
             if session_id not in self._histories:
                 self._histories[session_id] = self.create_history()
+
             # Get all the messages from the history
             messages = self._histories[session_id].messages
+
+            # Prune messages based on max turns
             if len(messages) > self.history_max_turns:
-                # Set the history to the last max_turns messages
-                self._histories[session_id].messages = messages[
-                    -self.history_max_turns :
+                messages = messages[-self.history_max_turns :]
+
+            # Prune messages based on max time
+            if self.history_max_time is not None:
+                current_time = time.time()
+                messages = [
+                    msg
+                    for msg in messages
+                    if (current_time - msg.additional_kwargs.get("timestamp", 0))
+                    <= self.history_max_time
                 ]
+
+            # Update the history with pruned messages
+            self._histories[session_id].messages = messages
+
             return self._histories[session_id]
 
     def prune_large_message_from_history(self, session_id: str):

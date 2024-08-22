@@ -2,7 +2,7 @@
 
 import threading
 
-# from solace_ai_connector.common.log import log
+from ..common.log import log
 from ..common.utils import import_module
 
 
@@ -63,6 +63,7 @@ class Flow:
         self.threads = []
         self.flow_lock_manager = Flow._lock_manager
         self.flow_kv_store = Flow._kv_store
+        self.cache_service = connector.cache_service if connector else None
         self.create_components()
 
     def create_components(self):
@@ -111,7 +112,6 @@ class Flow:
             component_instance = component_class(
                 config=component,
                 index=index,
-                # module_info=self.module_info,
                 flow_name=self.name,
                 flow_lock_manager=self.flow_lock_manager,
                 flow_kv_store=self.flow_kv_store,
@@ -123,6 +123,8 @@ class Flow:
                 storage_manager=self.storage_manager,
                 trace_queue=self.trace_queue,
                 connector=self.connector,
+                timer_manager=self.connector.timer_manager,
+                cache_service=self.cache_service,
             )
             sibling_component = component_instance
 
@@ -138,3 +140,12 @@ class Flow:
     def wait_for_threads(self):
         for thread in self.threads:
             thread.join()
+
+    def cleanup(self):
+        """Clean up resources and ensure all threads are properly joined"""
+        log.info("Cleaning up flow: %s", self.name)
+        for component_group in self.component_groups:
+            for component in component_group:
+                component.cleanup()
+        self.component_groups.clear()
+        self.threads.clear()
