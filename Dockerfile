@@ -15,7 +15,7 @@ ENV PYTHONUNBUFFERED=1
 #Install main program
 COPY /src /app/src
 
-LABEL org.opencontainers.image.source https://github.com/SolaceLabs/solace-ai-connector
+LABEL org.opencontainers.image.source=https://github.com/SolaceLabs/solace-ai-connector
 
 # Run app.py when the container launches
 ENTRYPOINT ["python", "src/main.py"]
