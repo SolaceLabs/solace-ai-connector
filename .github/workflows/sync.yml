@@ -1,0 +1,17 @@
+name: sync-fork
+on:
+  push:
+    branches:
+      - main
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.repository == 'SolaceLabs/${{ github.repository.name }}'
+    steps:
+      - run: gh repo sync SolaceDev/${{ github.repository.name }} --source SolaceLabs/${{ github.repository.name }} --branch $BRANCH_NAME
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH_NAME: ${{ github.ref_name }}
