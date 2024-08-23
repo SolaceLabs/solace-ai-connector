@@ -16,13 +16,11 @@ permissions:
   checks: write
   contents: write
 
-env:
-  name: pypi
-
 jobs:
   release:
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_pypi.yml@v1.0.1
     with:
+      ENVIRONMENT: pypi
       version: ${{ github.event.inputs.version }}
       pypi-project: solace-ai-connector
     secrets:
