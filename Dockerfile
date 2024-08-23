@@ -6,14 +6,16 @@ RUN apt-get update && \
     apt-get install -y git && \
     apt-get clean
 
-#Install main program
-COPY /src /app/src
+# Installing dependencies 
 COPY requirements.txt /app
 
 RUN python3.10 -m pip install -r requirements.txt
 ENV PYTHONUNBUFFERED=1
 
-LABEL org.opencontainers.image.source https://github.com/SolaceLabs/solace-ai-connector
+#Install main program
+COPY /src /app/src
+
+LABEL org.opencontainers.image.source=https://github.com/SolaceLabs/solace-ai-connector
 
 # Run app.py when the container launches
 ENTRYPOINT ["python", "src/main.py"]

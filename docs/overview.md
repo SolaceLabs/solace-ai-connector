@@ -57,8 +57,7 @@ The AI Event Connector is designed to be extensible. You can create custom compo
 
 ## Resilience and Fault Tolerance
 
-The AI Event Connector is designed to be resilient and fault-tolerant. It uses queues to buffer events, which allows it to handle temporary spikes in load. It also uses acknowledgements to ensure that events are not lost if the connector fails. If the input component receives messages from an event broker with persistent messaging, the messages
-are only acknowledged after the event has been fully processed by the flow. 
+The AI Event Connector is designed to be resilient and fault-tolerant. It uses queues to buffer events, which allows it to handle temporary spikes in load. It also uses acknowledgements to ensure that events are not lost if the connector fails. If the input component receives messages from an event broker with persistent messaging, the messages are only acknowledged after the event has been fully processed by the flow. Errors thrown while processing a flow, can be handled using the [ErrorInput component](components/error_input.md).
 
 ## Scalability
 

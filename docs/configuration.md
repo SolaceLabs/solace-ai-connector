@@ -31,7 +31,8 @@ os_type:
 
 An `invoke` block works by specifying an 'object' to act on with one (and only one) of the following keys:
 - `module`: The name of the module to import in normal Python import syntax  (e.g. `os.path`)
-- `object`: An object to call a function on or get an attribute from. Note that this must have an `invoke` block itself to create the object. 
+- `object`: An object to call a function on or get an attribute from. Note that this must have an `invoke` block itself to create the object. Objects can be nested to build up complex objects. An object is the returned value from a function call or attribute get from a module or a nested object.
+
 It is also acceptable to specify neither `module` nor `object` if you are calling a function that is in the global namespace.
 
 In addition to the object specifier, you can specify one (and only one) of the following keys:
@@ -116,6 +117,7 @@ There is a module named `invoke_functions` that has a list of functions that can
 - `empty_float`: Return 0.0
 - `empty_int`: Return 0
 
+Use positional parameters to pass values to the functions that expect arguments.
 Here is an example of using the `invoke_functions` module to do some simple operations:
 
 ```yaml
@@ -163,6 +165,8 @@ Example:
 
 In the above example, the `source_expression()` function is used to get the value of `input.payload:my_obj.val1`,
 convert it to an `int` and add 2 to it.
+
+**Note:** In places where the yaml keys `source_expression` and `dest_expressions` are used, you can use the same type of expression to access a value. Check [Expression Syntax](#expression-syntax) for more details.
 
 ##### user_processor component and invoke
 
@@ -263,8 +267,7 @@ The `input_transforms` is a list of transforms to apply to the input message bef
 - `source_expression|source_value`: <string> - The source expression or value to use as the input to the transform
 - `dest_expression`: <string> - The destination expression for where to store the transformation output
 
-The following transform modules are available:
-- `copy`: Copy the source value to the destination
+For a list of all available transform functions check [Transforms](transforms/index.md) page.
 
 Here is an example of a component configuration with input transforms:
 
@@ -332,9 +335,9 @@ Where:
     - `topic`: The topic of the input message
     - `topic_levels`: A list of the levels of the topic of the input message
     - `user_properties`: The user properties of the input message
-  - `user_data`: The user data object. The qualifier is required to specify the name of the user data object
+  - `user_data`: The user data object. The qualifier is required to specify the name of the user data object. `user_data` is an object that is passed through the flows, where the user can read and write values to it to be accessed at the different places.
   - `static`: A static value (e.g. `static:my_value`)
-  - `template`: A template (see more below)
+  - `template`: A template ([see more below](#templates))
   - `previous`: The output from the previous component in the flow. This could be of any type depending on the previous component
 
 - `qualifier`: <string> - The qualifier to use to reference the data. This is specific to the `data_type` and is optional. If not specified, the entire data type will be used.
@@ -354,17 +357,18 @@ When using expressions for destination expressions, lists and objects will be cr
 
 The `template` data type is a special data type that allows you to use a template to create a value. The template is a string that can contain expressions to reference values in the input message. The format of the template is:
 
-`text text text {{template_expression}} text text text`
+`template:text text text {{template_expression}} text text text`
 
 Where:
 
+- `template:` is the template data type indicator.
 - `{{template_expression}}` - An expression to reference values in the input message. It has the format:
 
   `<encoding>://<source_expression>`
 
   Where:
 
-  - `encoding`: <string> - The encoding/formatting to use to print out the value. This can be one of the following:
+  - `encoding`: <string> - The encoding/formatting to use to print out the value. This can be one of the following (Optional, defaulted to `text`):
     - `base64`: Use base64 encoding
     - `json`: Use json format
     - `yaml`: Use yaml format

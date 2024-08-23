@@ -1,13 +1,11 @@
-
-
-### Selecting Data
+## Selecting Data
 
 Within the configuration, it is necessary to select data for processing. For example, this happens
 in the `component_input` section of the configuration or for the source data for input transforms.
 The selection of data uses a simple expression language that allows you to select data from the
 input message. 
 
-The details of the expression language can be found in the [Configuration](configuration.md) page in the Expression Syntax section. The expression language allows for the detailed selection of data from the input message or for the
+The details of the expression language can be found in the [Configuration](configuration.md#expression-syntax) page in the Expression Syntax section. The expression language allows for the detailed selection of data from the input message or for the
 creation of new data. It even supports filling a template with data from the input message as described in detail in the next section.
 
 ### Selecting Data by Filling Templates
@@ -38,11 +36,7 @@ Those results in addition to the original question are used to fill in the templ
 Since this application usings `pyyaml`, it is possible to use the `!include` directive to include the template from 
 a file. This can be useful for very large templates or for templates that are shared across multiple components.
 
-
-
-
-
-
+## Built-in Components
 
 ### Aggregating Messages
 
@@ -85,3 +79,7 @@ Example Configuration:
        # Take the list field from the message and use it as the input to the iterator
        source_expression: input.payload:embeddings
 ```
+
+**Note: For a list of all built-in components, see the [Components](components/index.md) documentation.**
+
+In addition to these, you also can create your own custom components.

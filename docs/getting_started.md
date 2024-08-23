@@ -8,9 +8,20 @@ This guide will help you get started with the Solace AI Event Connector.
 - A Solace PubSub+ event broker
 - A chat model to connect to (optional)
 
+## Setting up a Solace PubSub+ Event Broker
+
+To get started with creating a solace PubSub+ event broker follow the instructions on [Try PubSub+ Event Brokers](https://docs.solace.com/Get-Started/Getting-Started-Try-Broker.htm) page.
+
 ## Running With PyPi
 
 ### Install the connector
+
+Optionally create a virtual environment:
+
+```sh
+python3 -m venv env
+source env/bin/activate
+```
 
 ```sh
 pip install solace-ai-connector
@@ -31,6 +42,15 @@ export SOLACE_BROKER_URL=tcp://<hostname>:<port>
 export SOLACE_BROKER_USERNAME=<username>
 export SOLACE_BROKER_PASSWORD=<password>
 export SOLACE_BROKER_VPN=<vpn>
+```
+
+If running the local version of the broker with default values, the environment variables would be:
+
+```sh
+export SOLACE_BROKER_URL=ws://localhost:8008
+export SOLACE_BROKER_USERNAME=default
+export SOLACE_BROKER_PASSWORD=default
+export SOLACE_BROKER_VPN=default
 ```
 
 Run the connector:
@@ -65,6 +85,12 @@ export MODEL_NAME=<model name>
 
 Note that if you want to use the default OpenAI endpoint, just delete that line from the openai_chat.yaml file.
 
+Install the langchain openai dependencies:
+
+```sh
+pip install langchain_openai openai 
+```
+
 Run the connector:
 
 ```sh
@@ -74,6 +100,7 @@ solace-ai-connector openai_chat.yaml
 Use the "Try Me!" function on the broker's browser UI (or some other means) to publish an event like this:
 
 Topic: `demo/joke/subject`
+
 Payload: 
 ```json
 {
