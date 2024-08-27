@@ -118,6 +118,7 @@ def import_module(name, base_path=None, component_package=None):
                     ".components.general",
                     ".components.general.for_testing",
                     ".components.general.langchain",
+                    ".components.general.openai",
                     ".components.inputs_outputs",
                     ".transforms",
                     ".common",

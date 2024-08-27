@@ -1,21 +1,22 @@
 # This will create a flow like this:
 #    Solace -> OpenAI -> Solace
 #
-# It will subscribe to `demo/question` and expect an event with the payload:
+# It will subscribe to `demo/joke/subject` and expect an event with the payload:
 #
-# The input message has the following schema:
 # {
-#   "text": "<question or request as text>"
+#   "joke": {
+#     "subject": "<subject for the joke>"
+#   }
 # }
 #
-# It will then send an event back to Solace with the topic: `demo/question/response`
+# It will then send an event back to Solace with the topic: `demo/joke/subject/response`
 #
 # Dependencies:
 # pip install -U langchain_openai openai
 #
 # required ENV variables:
 # - OPENAI_API_KEY
-# - OPENAI_API_ENDPOINT
+# - OPENAI_API_ENDPOINT - optional
 # - MODEL_NAME
 # - SOLACE_BROKER_URL
 # - SOLACE_BROKER_USERNAME
@@ -46,36 +47,37 @@ flows:
         component_module: broker_input
         component_config:
           <<: *broker_connection
-          broker_queue_name: demo_question
+          broker_queue_name: ed_demo_joke
           broker_subscriptions:
-            - topic: demo/question
+            - topic: demo/joke/subject
               qos: 1
           payload_encoding: utf-8
           payload_format: json
 
-      #
-      # Do an LLM request
-      #
-      - component_name: llm_request
-        component_module: openai_chat_model
+      # Go to the LLM and keep history
+      - component_name: chat_request_llm
+        component_module: langchain_chat_model_with_history
         component_config:
-          api_key: ${OPENAI_API_KEY}
-          base_url: ${OPENAI_API_ENDPOINT}
-          model: ${MODEL_NAME}
-          temperature: 0.01
+          langchain_module: langchain_openai
+          langchain_class: ChatOpenAI
+          langchain_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${MODEL_NAME}
+            temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 20
+          history_max_length: 6000
         input_transforms:
           - type: copy
-            source_expression: |
-              template:You are a helpful AI assistant. Please help with the user's request below:
-              <user-question>
-              {{text://input.payload:text}}
-              </user-question>
-            dest_expression: user_data.llm_input:messages.0.content
+            source_expression: template:Write a joke about {{text://input.payload:joke.subject}}
+            dest_expression: user_data.input:messages.0.content
           - type: copy
-            source_expression: static:user
-            dest_expression: user_data.llm_input:messages.0.role
+            source_value: user
+            dest_expression: user_data.input:messages.0.role
         component_input:
-          source_expression: user_data.llm_input
+          source_expression: user_data.input
 
       # Send response back to broker
       - component_name: send_response

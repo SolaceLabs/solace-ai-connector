@@ -1,6 +1,13 @@
 ---
 # Simple loopback flow
 # Solace -> Pass Through -> Solace
+# 
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
 log:
   stdout_log_level: DEBUG
   log_file_level: DEBUG

@@ -7,8 +7,16 @@
 #
 # The input message has the following schema:
 # {
-#   "text": "<question or request as text>",
+#   "text": "<question or request as text>"
 # }
+# 
+# Dependencies:
+# pip install langchain_aws
+# 
+# required ENV variables:
+# - AWS_BEDROCK_ANTHROPIC_CLAUDE_MODEL_ID
+# - AWS_BEDROCK_ANTHROPIC_CLAUDE_REGION
+
 ---
 log:
   stdout_log_level: DEBUG
@@ -35,8 +43,8 @@ flows:
       - component_name: llm_request
         component_module: langchain_chat_model
         component_config:
-          langchain_module: langchain_community.chat_models
-          langchain_class: BedrockChat
+          langchain_module: langchain_aws
+          langchain_class: ChatBedrock
           langchain_component_config:
             model_id: ${AWS_BEDROCK_ANTHROPIC_CLAUDE_MODEL_ID}
             region_name: ${AWS_BEDROCK_ANTHROPIC_CLAUDE_REGION}

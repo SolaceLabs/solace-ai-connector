@@ -2,6 +2,13 @@
 # Example for a request-reply flow
 # Flow 1: stdin -> broker_request_reply -> stdout
 # Flow 2: broker_input -> pass_through -> broker_output
+# 
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
 log:
   stdout_log_level: INFO
   log_file_level: INFO

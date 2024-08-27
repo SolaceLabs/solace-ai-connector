@@ -1,5 +1,12 @@
 ---
-# Example uses goes from STDIN to STDOUT with a chat model with history
+# Example uses goes from STDIN to STDOUT with a chat model with history hosted on AWS Bedrock
+
+# Dependencies:
+# pip install langchain_aws
+
+# required ENV variables:
+# - AWS_DEFAULT_REGION
+
 log:
   stdout_log_level: INFO
   log_file_level: DEBUG

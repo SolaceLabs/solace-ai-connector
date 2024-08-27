@@ -9,7 +9,6 @@ from .common.log import log, setup_log
 from .common.utils import resolve_config_values
 from .flow.flow import Flow
 from .flow.timer_manager import TimerManager
-from .storage.storage_manager import StorageManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 
@@ -31,7 +30,6 @@ class SolaceAiConnector:
         resolve_config_values(self.config)
         self.validate_config()
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
-        self.storage_manager = StorageManager(self.config.get("storage", []))
         self.timer_manager = TimerManager(self.stop_signal)
         self.cache_service = self.setup_cache_service()
 
@@ -75,7 +73,6 @@ class SolaceAiConnector:
             stop_signal=self.stop_signal,
             error_queue=self.error_queue,
             instance_name=self.instance_name,
-            storage_manager=self.storage_manager,
             trace_queue=self.trace_queue,
             connector=self,
         )
