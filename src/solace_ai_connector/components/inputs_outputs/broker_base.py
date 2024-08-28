@@ -11,6 +11,7 @@ from abc import abstractmethod
 from ..component_base import ComponentBase
 from ...common.message import Message
 from ...common.messaging.messaging_builder import MessagingServiceBuilder
+import uuid
 
 # TBD - at the moment, there is no connection sharing supported. It should be possible
 # to share a connection between multiple components and even flows. The changes
@@ -138,3 +139,6 @@ class BrokerBase(ComponentBase):
 
     def start(self):
         pass
+
+    def generate_uuid(self):
+        return str(uuid.uuid4())
