@@ -37,9 +37,9 @@ shared_config:
       broker_password: ${SOLACE_BROKER_PASSWORD}
       broker_vpn: ${SOLACE_BROKER_VPN}
 
-# Take from Slack and publish to Solace
+# Take from input broker and publish back to Solace
 flows:
-  # Slack chat input processing
+  # broker input processing
   - name: Simple template to LLM
     components:
       # Input from a Solace broker

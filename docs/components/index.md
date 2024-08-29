@@ -3,6 +3,7 @@
 | Component | Description |
 | --- | --- |
 | [aggregate](aggregate.md) | Aggregate messages into one message. |
+| [assembly](assembly.md) | Assembles messages till criteria is met, the output will be the assembled message |
 | [broker_input](broker_input.md) | Connect to a messaging broker and receive messages from it. The component will output the payload, topic, and user properties of the message. |
 | [broker_output](broker_output.md) | Connect to a messaging broker and send messages to it. Note that this component requires that the data is transformed into the input schema. |
 | [broker_request_response](broker_request_response.md) | Connect to a messaging broker, send request messages, and receive responses. This component combines the functionality of broker_input and broker_output with additional request-response handling. |
@@ -17,6 +18,8 @@
 | [langchain_vector_store_embedding_index](langchain_vector_store_embedding_index.md) | Use LangChain Vector Stores to index text for later semantic searches. This will take text, run it through an embedding model and then store it in a vector database. |
 | [langchain_vector_store_embedding_search](langchain_vector_store_embedding_search.md) | Use LangChain Vector Stores to search a vector store with a semantic search. This will take text, run it through an embedding model with a query embedding and then find the closest matches in the store. |
 | [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
+| [openai_chat_model](openai_chat_model.md) | OpenAI chat model component |
+| [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
 | [pass_through](pass_through.md) | What goes in comes out |
 | [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. |
 | [stdout_output](stdout_output.md) | STDOUT output component |

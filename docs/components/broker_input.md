@@ -27,8 +27,8 @@ component_config:
 | broker_username | True |  | Client username for broker |
 | broker_password | True |  | Client password for broker |
 | broker_vpn | True |  | Client VPN for broker |
-| broker_queue_name | True |  | Queue name for broker |
-| temporary_queue | False | False | Whether to create a temporary queue that will be deleted after disconnection |
+| broker_queue_name | False |  | Queue name for broker, if not provided it will use a temporary queue |
+| temporary_queue | False | False | Whether to create a temporary queue that will be deleted after disconnection, defaulted to True if broker_queue_name is not provided |
 | broker_subscriptions | True |  | Subscriptions for broker |
 | payload_encoding | False | utf-8 | Encoding for the payload (utf-8, base64, gzip, none) |
 | payload_format | False | json | Format for the payload (json, yaml, text) |

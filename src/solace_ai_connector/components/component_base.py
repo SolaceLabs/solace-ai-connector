@@ -126,6 +126,8 @@ class ComponentBase:
             self.current_message = None
         elif event.event_type == EventType.TIMER:
             self.handle_timer_event(event.data)
+        elif event.event_type == EventType.CACHE_EXPIRY:
+            self.handle_cache_expiry_event(event.data)
         else:
             log.warning(
                 "%sUnknown event type: %s", self.log_identifier, event.event_type
@@ -156,6 +158,10 @@ class ComponentBase:
 
     def handle_timer_event(self, timer_data):
         # This method can be overridden by components that need to handle timer events
+        pass
+
+    def handle_cache_expiry_event(self, timer_data):
+        # This method can be overridden by components that need to handle cache expiry events
         pass
 
     def discard_current_message(self):
