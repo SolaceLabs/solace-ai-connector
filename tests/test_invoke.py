@@ -1076,3 +1076,23 @@ flows:
     assert output_message.get_data("user_data.temp") == {
         "new_list": [{"my_val": 3}, {"my_val": 4}]
     }
+
+
+def test_invoke_with_uuid_generator():
+    """Verify that the uuid invoke_function returns an ID"""
+    response = resolve_config_values(
+        {
+            "a": {
+                "invoke": {
+                    "module": "invoke_functions",
+                    "function": "uuid"
+                },
+            },
+        }
+    ) 
+    
+    # Check if the output is of type string
+    assert type(response["a"]) == str
+
+    # Check if the output is a valid UUID
+    assert len(response["a"]) == 36

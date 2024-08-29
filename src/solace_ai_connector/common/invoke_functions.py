@@ -1,5 +1,7 @@
 """Set of simple functions to take the place of operators in the config file"""
 
+import uuid as uuid_module
+
 add = lambda x, y: x + y
 append = lambda x, y: x + [y]
 subtract = lambda x, y: x - y
@@ -26,7 +28,7 @@ empty_tuple = tuple
 empty_float = lambda: 0.0
 empty_int = lambda: 0
 if_else = lambda x, y, z: y if x else z
-
+uuid = lambda: str(uuid_module.uuid4())
 
 # A few test functions
 def _test_positional_and_keyword_args(*args, **kwargs):

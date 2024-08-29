@@ -116,6 +116,8 @@ There is a module named `invoke_functions` that has a list of functions that can
 - `empty_tuple`: Return an empty tuple
 - `empty_float`: Return 0.0
 - `empty_int`: Return 0
+- `if_else`: If the first value is true, return the second value, otherwise return the third value
+- `uuid`: returns a universally unique identifier (UUID)
 
 Use positional parameters to pass values to the functions that expect arguments.
 Here is an example of using the `invoke_functions` module to do some simple operations:
