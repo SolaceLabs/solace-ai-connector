@@ -59,6 +59,9 @@ class BrokerBase(ComponentBase):
             self.messaging_service.disconnect()
             self.connected = False
 
+    def stop_component(self):
+        self.disconnect()
+
     def decode_payload(self, payload):
         encoding = self.get_config("payload_encoding")
         payload_format = self.get_config("payload_format")

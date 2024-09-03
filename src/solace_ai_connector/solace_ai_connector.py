@@ -2,9 +2,9 @@
 
 import threading
 import queue
-import time
 
 from datetime import datetime
+from typing import List
 from .common.log import log, setup_log
 from .common.utils import resolve_config_values
 from .flow.flow import Flow
@@ -18,7 +18,7 @@ class SolaceAiConnector:
 
     def __init__(self, config, event_handlers=None, error_queue=None):
         self.config = config or {}
-        self.flows = []
+        self.flows: List[Flow] = []
         self.trace_queue = None
         self.trace_thread = None
         self.flow_input_queues = {}
@@ -95,8 +95,8 @@ class SolaceAiConnector:
                 break
             except KeyboardInterrupt:
                 log.info("Received keyboard interrupt - stopping")
-                self.stop_signal.set()
-        # sys.exit(0)
+                self.stop()
+                self.cleanup()
 
     def stop(self):
         """Stop the Solace AI Event Connector"""

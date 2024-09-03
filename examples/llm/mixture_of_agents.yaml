@@ -193,6 +193,7 @@ flows:
       # Vertex AI LLM Request
       - component_name: llm_request
         component_module: langchain_chat_model
+        num_instances: 3
         component_config:
           langchain_module: langchain_google_vertexai
           langchain_class: ChatVertexAI
@@ -228,6 +229,7 @@ flows:
       # OpenAI LLM Request
       - component_name: llm_request
         component_module: openai_chat_model
+        num_instances: 3
         component_config:
           api_key: ${OPENAI_API_KEY}
           base_url: ${OPENAI_API_ENDPOINT}
@@ -260,6 +262,7 @@ flows:
       # Anthropic LLM Request
       - component_name: llm_request
         component_module: langchain_chat_model
+        num_instances: 3
         component_config:
           langchain_module: langchain_anthropic
           langchain_class: ChatAnthropic
