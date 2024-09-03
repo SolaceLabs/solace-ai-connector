@@ -108,7 +108,7 @@ flows:
             model_id: ${AWS_BEDROCK_COHERE_EMBED_MODEL_ID}
             region_name: ${AWS_BEDROCK_COHERE_EMBED_REGION}
           max_results: 7
-        component_input:
+        input_selection:
           source_expression: input.payload
 
       - component_name: stdout

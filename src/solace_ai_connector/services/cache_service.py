@@ -5,8 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict, Tuple
 from threading import Lock
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from ..common.event import Event, EventType
 from ..common.log import log
 

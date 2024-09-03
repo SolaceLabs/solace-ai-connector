@@ -33,7 +33,7 @@ flows:
               function: equal
               params:
                 positional:
-                  - source_expression(input.payload:my_list.1)
+                  - evaluate_expression(input.payload:my_list.1)
                   - 2
 """
     connector, flows = create_test_flows(config_yaml)
@@ -77,7 +77,7 @@ flows:
               function: not_equal
               params:
                 positional:
-                  - source_expression(input.payload:my_list)
+                  - evaluate_expression(input.payload:my_list)
                   - null
 """
     connector, flows = create_test_flows(config_yaml)

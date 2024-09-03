@@ -15,7 +15,7 @@ info = {
     "class_name": "ErrorInput",
     "description": (
         "Receive processing errors from the Solace AI Event Connector. Note that "
-        "the component_input configuration is ignored. "
+        "the input_selection configuration is ignored. "
         "This component should be used to create a flow that handles errors from other flows. "
     ),
     "config_parameters": [

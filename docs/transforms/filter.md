@@ -8,7 +8,7 @@ In the filter function, you have access to the following keyword arguments:
  * current_value: The value of the current item in the source list
  * source_list: The source list
 
-These should be accessed using `source_expression(keyword_args:<value name>)`. For example, `source_expression(keyword_args:current_value)`. See the example below for more detail.
+These should be accessed using `evaluate_expression(keyword_args:<value name>)`. For example, `evaluate_expression(keyword_args:current_value)`. See the example below for more detail.
 
 ## Configuration Parameters
 
@@ -46,7 +46,7 @@ input_transforms:
             function: greater_than
               params:
                 positional:
-                  - source_expression(keyword_args:current_value.my_val)
+                  - evaluate_expression(keyword_args:current_value.my_val)
                   - 2
         dest_expression: user_data.output:new_list
 ```

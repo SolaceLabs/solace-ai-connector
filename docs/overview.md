@@ -1,5 +1,14 @@
 # AI Event Connector for Solace event brokers - Overview
 
+- [AI Event Connector for Solace event brokers - Overview](#ai-event-connector-for-solace-event-brokers---overview)
+  - [Architecture](#architecture)
+    - [Components](#components)
+    - [Built-in Components](#built-in-components)
+  - [Configuration](#configuration)
+  - [Extensibility](#extensibility)
+  - [Resilience and Fault Tolerance](#resilience-and-fault-tolerance)
+  - [Scalability](#scalability)
+
 The AI Event Connector makes it easy to connect your AI/ML models to Solace event brokers. It provides a simple way to build pipelines that consume events from Solace, process them with your models, and then publish the results back to Solace. By doing this, you can greatly enhance the value of your event-driven architecture by adding AI capabilities to your event-driven applications.
 
 This connector is built using Python and the Solace Python API. It also heavily leverages LangChain, a Python library for abstracting the interface to many AI models. This allows you to easily swap out different AI models and model providers without having to change your pipeline.
@@ -25,25 +34,20 @@ As shown in the flow diagram above, each flow is comprised of a sequence of comp
 ![Component](images/parts_of_a_component.png)
 
 The component is made up of the following parts:
- - **Input Queue**: This is the queue that the component reads from. It is where the events are buffered as they flow through the system. Note that if there are multiple instances of the same component, they will all read from the same queue.
 
- - **Input Transforms**: This is an optional step that allows you to transform the event before it is processed. This can be useful for normalizing the data or for adding additional context to the event.
+- **Input Queue**: This is a python built queue that the component reads from. It is where the events are buffered as they flow through the system. Note that if there are multiple instances of the same component, they will all read from the same queue.
 
- - **Input Selection**: This selects what data should be processed by the component. The data selected should conform to the input schema of the component. It is normal to use Input Transforms and Input Selection together to ensure that the data is in the correct format for the component. If the Input Selection configuration is omitted, the component will select "previous" as the default, which will take the exact output of the previous component in the flow as the input to this component.
+- **Input Transforms**: This is an optional step that allows you to transform the event before it is processed. This can be useful for normalizing the data or for adding additional context to the event. In the yaml config file this is indicated by the **`input_transforms`** key.
 
- - **Processing**: This is where the actual processing of the event happens, such as where the AI model would be called to process the event. This is the only required part of the component.
+- **Input Selection**: This selects what data should be processed by the component. The data selected should conform to the input schema of the component. It is normal to use Input Transforms and Input Selection together to ensure that the data is in the correct format for the component. If the Input Selection configuration is omitted, the component will select **"previous" as the default**, which will take the exact output of the previous component in the flow as the input to this component. In the yaml config file this is indicated by the **`input_selection`** key.
 
- After these steps, the component will write the result to the next component's queue. The data written should conform to the output schema of the component. Some components are output components and will send the data to a Solace broker or other data sink.
+- **Processing**: This is where the actual processing of the event happens, such as where the AI model would be called to process the event. This is the only required part of the component. In the yaml config file this is controlled by the **`component_module`** and **`component_config`** keys.
 
+After these steps, the component will write the result to the next component's queue. The data written should conform to the output schema of the component. Some components are output components and will send the data to a Solace broker or other data sink.
 
-### Iterate and Aggregate Components
+### Built-in Components
 
-In addition to the standard components, there are two special components that can be used to iterate over a list of events and to aggregate a list of events. These components can be used to process multiple events in a single component. This can be useful for batch processing or for aggregating events together before processing them.
-
-The Iterate component will take a list of events and enqueue each one individually to the next component. The Aggregate component will take a sequence of events and combine them into a single event before enqueuing it to the next component in the flow so that it can perform batch processing.
-
-Example usage of the Iterate and Aggregate components can be found in the [Usage](usage.md) section.
-
+In addition to the standard components, there are a series of other built-in components that can be used to help process events. You can find a list of all built-in components in the [Components](components/index.md) section.
 
 ## Configuration
 
@@ -63,3 +67,7 @@ The AI Event Connector is designed to be resilient and fault-tolerant. It uses q
 
 The AI Event Connector is designed to be scalable. You can increase the number of instances of a component to handle more load. This allows you to scale your pipelines to handle more events and process them faster. Additionally, you can run multiple flows or even multiple connectors that connect to the same broker queue to handle more events in parallel. Note that for Solace broker queues, they must be configured to be non-exclusive to have multiple flows receive messages.
 
+
+---
+
+Checkout [Getting Started](getting_started.md) next.

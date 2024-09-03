@@ -13,8 +13,8 @@ info = {
         " * index: The index of the current item in the source list\n"
         " * current_value: The value of the current item in the source list\n"
         " * source_list: The source list\n\n"
-        "These should be accessed using `source_expression(keyword_args:<value name>)`. "
-        "For example, `source_expression(keyword_args:current_value)`. "
+        "These should be accessed using `evaluate_expression(keyword_args:<value name>)`. "
+        "For example, `evaluate_expression(keyword_args:current_value)`. "
         "See the example below for more detail."
     ),
     "short_description": "Filter a list based on a filter function",
@@ -62,7 +62,7 @@ info = {
             function: greater_than
               params:
                 positional:
-                  - source_expression(keyword_args:current_value.my_val)
+                  - evaluate_expression(keyword_args:current_value.my_val)
                   - 2
         dest_expression: user_data.output:new_list
 ```

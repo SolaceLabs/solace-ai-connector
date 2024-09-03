@@ -26,7 +26,7 @@ flows:
     components:
       - component_name: iterate
         component_module: iterate
-        component_input:
+        input_selection:
           source_expression: input.payload:my_list
 """
     connector, flows = create_test_flows(config_yaml)
@@ -56,7 +56,7 @@ flows:
     components:
       - component_name: iterate
         component_module: iterate
-        component_input:
+        input_selection:
           source_expression: input.payload:my_list
 """
     connector, flows = create_test_flows(config_yaml)

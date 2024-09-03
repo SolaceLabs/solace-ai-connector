@@ -28,7 +28,7 @@ flows:
         component_config:
           max_items: 10
           max_time_ms: {TIMEOUT_MS}
-        component_input:
+        input_selection:
           source_expression: input.payload
 """
     connector, flows = create_test_flows(config_yaml)
@@ -78,7 +78,7 @@ flows:
         component_config:
           max_items: 3
           max_time_ms: 1000
-        component_input:
+        input_selection:
           source_expression: input.payload
 """
     connector, flows = create_test_flows(config_yaml)
@@ -126,7 +126,7 @@ flows:
         component_config:
           max_items: 3
           max_time_ms: {MAX_TIME_MS}
-        component_input:
+        input_selection:
           source_expression: input.payload
 """
     connector, flows = create_test_flows(config_yaml)

@@ -1,6 +1,6 @@
 # ErrorInput
 
-Receive processing errors from the Solace AI Event Connector. Note that the component_input configuration is ignored. This component should be used to create a flow that handles errors from other flows. 
+Receive processing errors from the Solace AI Event Connector. Note that the input_selection configuration is ignored. This component should be used to create a flow that handles errors from other flows. 
 
 ## Configuration Parameters
 

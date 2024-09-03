@@ -75,7 +75,7 @@ Download the OpenAI connector example configuration file:
 curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/examples/llm/openai_chat.yaml > openai_chat.yaml
 ```
 
-For this one, you need to also define the following environment variables:
+For this one, you need to also define the following additional environment variables:
 
 ```sh
 export OPENAI_API_KEY=<your OpenAI key>
@@ -174,4 +174,6 @@ To build a Docker image, run the following command:
 make build
 ```
 
-Please now visit the [Documentation Page](index.md) for more information
+---
+
+Checkout [configuration.md](configuration.md) or [overview.md](overview.md) next

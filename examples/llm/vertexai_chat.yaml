@@ -78,7 +78,7 @@ flows:
           - type: copy
             source_expression: static:user
             dest_expression: user_data.llm_input:messages.0.role
-        component_input:
+        input_selection:
           source_expression: user_data.llm_input
 
       # Send response back to broker
@@ -96,5 +96,5 @@ flows:
           - type: copy
             source_expression: template:{{text://input.topic}}/response
             dest_expression: user_data.output:topic
-        component_input:
+        input_selection:
           source_expression: user_data.output

@@ -58,7 +58,7 @@ flows:
           - type: copy
             source_expression: input.payload:text
             dest_expression: user_data.vector_input:texts
-        component_input:
+        input_selection:
           source_expression: user_data.vector_input
 
       - component_name: milvus_cohere_embed_search
@@ -78,7 +78,7 @@ flows:
             region_name: ${AWS_BEDROCK_COHERE_EMBED_REGION}
             credentials_profile_name: default # Profile name in ~/.aws/credentials
           max_results: 5
-        component_input:
+        input_selection:
           source_expression: input.payload
 
       - component_name: stdout

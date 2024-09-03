@@ -82,7 +82,7 @@ def resolve_config_values(config, allow_source_expression=False):
         log.debug("Resolved config value to %s", config)
         return config
     for key, value in config.items():
-        # If the key is source_expression, we sub config to use the 'source_expression()' value in
+        # If the key is source_expression, we sub config to use the 'evaluate_expression()' value in
         # invoke parameters
         config[key] = resolve_config_values(
             value,
@@ -202,12 +202,13 @@ def call_function(function, params, allow_source_expression):
     have_lambda = False
     if positional:
         for index, value in enumerate(positional):
-            if isinstance(value, str) and value.startswith("source_expression("):
+            # source_expression check for backwards compatibility
+            if isinstance(value, str) and (value.startswith("evaluate_expression(") or value.startswith("source_expression(")): 
                 # if not allow_source_expression:
                 #     raise ValueError(
-                #         "source_expression() is not allowed in this context"
+                #         "evaluate_expression() is not allowed in this context"
                 #     )
-                (expression, data_type) = extract_source_expression(value)
+                (expression, data_type) = extract_evaluate_expression(value)
                 positional[index] = create_lambda_function_for_source_expression(
                     expression, data_type=data_type
                 )
@@ -216,12 +217,13 @@ def call_function(function, params, allow_source_expression):
                 have_lambda = True
     if keyword:
         for key, value in keyword.items():
-            if isinstance(value, str) and value.startswith("source_expression("):
+            # source_expression check for backwards compatibility
+            if isinstance(value, str) and (value.startswith("evaluate_expression(") or value.startswith("source_expression(")): 
                 if not allow_source_expression:
                     raise ValueError(
-                        "source_expression() is not allowed in this context"
+                        "evaluate_expression() is not allowed in this context"
                     )
-                (expression, data_type) = extract_source_expression(value)
+                (expression, data_type) = extract_evaluate_expression(value)
                 keyword[key] = create_lambda_function_for_source_expression(
                     expression, data_type=data_type
                 )
@@ -250,16 +252,20 @@ def install_package(package_name):
         subprocess.run(["pip", "install", package_name], check=True)
 
 
-def extract_source_expression(se_call):
-    # First remove the source_expression( and the trailing )
+def extract_evaluate_expression(se_call):
+    # First remove the evaluate_expression( and the trailing )
     # Account for possible whitespace
-    expression = se_call.split("source_expression(")[1].split(")")[0].strip()
+    if (se_call.startswith("evaluate_expression(")):
+        expression = se_call.split("evaluate_expression(")[1].split(")")[0].strip()
+    else:
+        # For backwards compatibility
+        expression = se_call.split("source_expression(")[1].split(")")[0].strip()
     data_type = None
     if "," in expression:
         (expression, data_type) = re.split(r"\s*,\s*", expression)
 
     if not expression:
-        raise ValueError("source_expression() must contain an expression")
+        raise ValueError("evaluate_expression() must contain an expression")
     return (expression, data_type)
 
 

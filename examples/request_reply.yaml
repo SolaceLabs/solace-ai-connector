@@ -41,7 +41,7 @@ flows:
           - type: copy
             source_value: request/topic
             dest_expression: user_data.request:topic
-        component_input:
+        input_selection:
           source_expression: user_data.request
 
       - component_name: stdout
@@ -63,7 +63,7 @@ flows:
           - type: copy
             source_expression: input.payload
             dest_expression: user_data.reply:payload.wrapper
-        component_input:
+        input_selection:
           source_expression: user_data.reply:payload
 
       - component_name: broker_output
@@ -80,6 +80,6 @@ flows:
           - type: copy
             source_expression: input.user_properties:__solace_ai_connector_broker_request_reply_topic__
             dest_expression: user_data.output:topic
-        component_input:
+        input_selection:
           source_expression: user_data.output
 

@@ -52,7 +52,7 @@ flows:
           assemble_key: id
           max_items: 3
           max_time_ms: 10000
-        component_input:
+        input_selection:
           source_expression: input.payload
 
       # Send assembled messages back to broker
@@ -70,5 +70,5 @@ flows:
           - type: copy
             source_expression: template:{{text://input.topic}}/assembled
             dest_expression: user_data.output:topic
-        component_input:
+        input_selection:
           source_expression: user_data.output

@@ -8,7 +8,11 @@ info = {
     "class_name": "Aggregate",
     "description": "Take multiple messages and aggregate them into one. "
     "The output of this component is a list of the exact structure "
-    "of the input data.",
+    "of the input data.\n"
+    "This can be useful for batch processing or for aggregating events "
+    "together before processing them. The Aggregate component will take a "
+    "sequence of events and combine them into a single event before enqueuing "
+    "it to the next component in the flow so that it can perform batch processing.",
     "short_description": "Aggregate messages into one message.",
     "config_parameters": [
         {
@@ -38,6 +42,21 @@ info = {
             "type": "object",
         },
     },
+    "example_config": """
+```yaml
+   - component_name: aggretator_example
+     component_module: aggregate
+     component_config: 
+       # The maximum number of items to aggregate before sending the data to the next component
+       max_items: 3
+        # The maximum time to wait before sending the data to the next component
+       max_time_ms: 1000
+     input_selection:
+       # Take the text field from the message and use it as the input to the aggregator
+       source_expression: input.payload:text
+```
+
+""",
 }
 
 
@@ -50,7 +69,7 @@ class Aggregate(ComponentBase):
         self.max_items = self.get_config("max_items")
 
     def invoke(self, message, data):
-        # The passed in data is the date specified by component_input
+        # The passed in data is the date specified by input_selection
         # from the config file
         if self.current_aggregation is None:
             self.current_aggregation = self.start_new_aggregation()

@@ -173,10 +173,12 @@ class ComponentBase:
         return None
 
     def get_input_data(self, message):
-        component_input = self.config.get("component_input") or {
-            "source_expression": "previous"
-        }
-        source_expression = get_source_expression(component_input)
+        input_selection = (
+            self.config.get("input_selection")
+            or self.config.get("component_input")
+            or {"source_expression": "previous"}
+        )
+        source_expression = get_source_expression(input_selection)
 
         # This should be overridden by the component if it needs to extract data from the message
         return message.get_data(source_expression, self)
@@ -216,7 +218,7 @@ class ComponentBase:
             if self.current_message is None:
                 raise ValueError(
                     f"Component {self.log_identifier} is trying to use an `invoke` config "
-                    "that contains a 'source_expression()' in a context that does not "
+                    "that contains a 'evaluate_expression()' in a context that does not "
                     "have a message available. This is likely a bug in the "
                     "component's configuration."
                 )
