@@ -51,10 +51,10 @@ flows:
               invoke:
                 module: platform
                 function: system
-            dest_expression: user_data.vector_input:metadata.system
+            dest_expression: user_data.vector_input:metadatas.system
           - type: copy
             source_value: username
-            dest_expression: user_data.vector_input:metadata.user
+            dest_expression: user_data.vector_input:metadatas.user
           - type: copy
             source_expression: input.payload:text
             dest_expression: user_data.vector_input:texts

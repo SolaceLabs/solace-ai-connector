@@ -78,8 +78,10 @@ class LangChainVectorStoreEmbeddingsBase(
                 self.vector_store_info["config"], vector_store_class
             )
         except Exception:  # pylint: disable=broad-except
-            del self.vector_store_info["config"]["embeddings"]
-            del self.vector_store_info["config"]["embedding_function"]
+            if "embeddings" in self.vector_store_info["config"]:
+                del self.vector_store_info["config"]["embeddings"]
+            if "embedding_function" in self.vector_store_info["config"]:
+                del self.vector_store_info["config"]["embedding_function"]
             self.vector_store = vector_store_class.from_texts(
                 [], self.embedding, **self.vector_store_info["config"]
             )

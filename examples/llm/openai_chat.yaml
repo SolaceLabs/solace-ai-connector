@@ -16,7 +16,7 @@
 # required ENV variables:
 # - OPENAI_API_KEY
 # - OPENAI_API_ENDPOINT
-# - MODEL_NAME
+# - OPENAI_MODEL_NAME
 # - SOLACE_BROKER_URL
 # - SOLACE_BROKER_USERNAME
 # - SOLACE_BROKER_PASSWORD
@@ -61,7 +61,7 @@ flows:
         component_config:
           api_key: ${OPENAI_API_KEY}
           base_url: ${OPENAI_API_ENDPOINT}
-          model: ${MODEL_NAME}
+          model: ${OPENAI_MODEL_NAME}
           temperature: 0.01
         input_transforms:
           - type: copy

@@ -41,13 +41,20 @@ component_config:
       <freeform-object>
     },
     ...
-  ]
+  ],
+  ids: [
+    <string>,
+    ...
+  ],
+  action:   <string>
 }
 ```
 | Field | Required | Description |
 | --- | --- | --- |
 | texts | True |  |
 | metadatas | False |  |
+| ids | False | The ID of the text to add to the index. required for 'delete' action |
+| action | False | The action to perform on the index from one of 'add', 'delete' |
 
 
 ## Component Output Schema
