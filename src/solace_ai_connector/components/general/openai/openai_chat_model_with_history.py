@@ -132,11 +132,20 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase):
 
     def make_history_start_with_user_message(self, session_id, history):
         if session_id in history:
-            while (
-                history[session_id]["messages"]
-                and history[session_id]["messages"][0]["role"] != "user"
-            ):
-                history[session_id]["messages"].pop(0)
+            messages = history[session_id]["messages"]
+            if messages:
+                if messages[0]["role"] == "system":
+                    # Start from the second message if the first is "system"
+                    start_index = 1
+                else:
+                    # Start from the first message otherwise
+                    start_index = 0
+
+                while (
+                    start_index < len(messages)
+                    and messages[start_index]["role"] != "user"
+                ):
+                    messages.pop(start_index)
 
     def handle_timer_event(self, timer_data):
         if timer_data["timer_id"] == "history_cleanup":
