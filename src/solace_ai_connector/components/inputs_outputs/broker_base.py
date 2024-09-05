@@ -4,6 +4,7 @@ import base64
 import gzip
 import json
 import yaml
+import uuid
 
 from abc import abstractmethod
 
@@ -57,6 +58,9 @@ class BrokerBase(ComponentBase):
         if self.connected:
             self.messaging_service.disconnect()
             self.connected = False
+
+    def stop_component(self):
+        self.disconnect()
 
     def decode_payload(self, payload):
         encoding = self.get_config("payload_encoding")
@@ -138,3 +142,6 @@ class BrokerBase(ComponentBase):
 
     def start(self):
         pass
+
+    def generate_uuid(self):
+        return str(uuid.uuid4())

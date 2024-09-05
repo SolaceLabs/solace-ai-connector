@@ -1,7 +1,9 @@
 """Main class for the flow"""
 
 import threading
+from typing import List
 
+from ..components.component_base import ComponentBase
 from ..common.log import log
 from ..common.utils import import_module
 
@@ -42,20 +44,18 @@ class Flow:
         stop_signal,
         error_queue=None,
         instance_name=None,
-        storage_manager=None,
         trace_queue=None,
         flow_instance_index=0,
         connector=None,
     ):
         self.flow_config = flow_config
         self.flow_index = flow_index
-        self.component_groups = []
+        self.component_groups: List[List[ComponentBase]] = []
         self.name = flow_config.get("name")
         self.module_info = None
         self.stop_signal = stop_signal
         self.error_queue = error_queue
         self.instance_name = instance_name
-        self.storage_manager = storage_manager
         self.trace_queue = trace_queue
         self.flow_instance_index = flow_instance_index
         self.connector = connector
@@ -120,7 +120,6 @@ class Flow:
                 component_index=component_index,
                 error_queue=self.error_queue,
                 instance_name=self.instance_name,
-                storage_manager=self.storage_manager,
                 trace_queue=self.trace_queue,
                 connector=self.connector,
                 timer_manager=self.connector.timer_manager,

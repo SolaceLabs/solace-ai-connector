@@ -1,5 +1,5 @@
 # This will create a flow like this:
-#    Solace -> OpenAI -> Solace
+#    Solace -> Google Vertex AI -> Solace
 #
 # It will subscribe to `demo/question` and expect an event with the payload:
 #
@@ -11,12 +11,13 @@
 # It will then send an event back to Solace with the topic: `demo/question/response`
 #
 # Dependencies:
-# pip install -U langchain_openai openai
+# pip install -U langchain-google-vertexai
 #
 # required ENV variables:
-# - OPENAI_API_KEY
-# - OPENAI_API_ENDPOINT
-# - OPENAI_MODEL_NAME
+# - GOOGLE_APPLICATION_CREDENTIALS: the path to a service account JSON file
+# - VERTEX_REGION
+# - VERTEX_API_ENDPOINT - optional
+# - MODEL_NAME
 # - SOLACE_BROKER_URL
 # - SOLACE_BROKER_USERNAME
 # - SOLACE_BROKER_PASSWORD
@@ -36,9 +37,9 @@ shared_config:
       broker_password: ${SOLACE_BROKER_PASSWORD}
       broker_vpn: ${SOLACE_BROKER_VPN}
 
-# Take from input broker and publish back to Solace
+# Take from Slack and publish to Solace
 flows:
-  # broker input processing
+  # Slack chat input processing
   - name: Simple template to LLM
     components:
       # Input from a Solace broker
@@ -57,12 +58,15 @@ flows:
       # Do an LLM request
       #
       - component_name: llm_request
-        component_module: openai_chat_model
+        component_module: langchain_chat_model
         component_config:
-          api_key: ${OPENAI_API_KEY}
-          base_url: ${OPENAI_API_ENDPOINT}
-          model: ${OPENAI_MODEL_NAME}
-          temperature: 0.01
+          langchain_module: langchain_google_vertexai
+          langchain_class: ChatVertexAI
+          langchain_component_config:
+            base_url: ${VERTEX_API_ENDPOINT}
+            location: ${VERTEX_REGION}
+            model: ${MODEL_NAME}
+            temperature: 0.01
         input_transforms:
           - type: copy
             source_expression: |

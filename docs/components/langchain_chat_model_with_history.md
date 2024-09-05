@@ -15,6 +15,7 @@ component_config:
   history_max_turns: <string>
   history_max_message_size: <string>
   history_max_tokens: <string>
+  history_max_time: <string>
   history_module: <string>
   history_class: <string>
   history_config: <object>
@@ -33,6 +34,7 @@ component_config:
 | history_max_turns | False | 20 | The maximum number of turns to keep in the history. If not set, the history will be limited to 20 turns. |
 | history_max_message_size | False | 1000 | The maximum amount of characters to keep in a single message in the history.  |
 | history_max_tokens | False | 8000 | The maximum number of tokens to keep in the history. If not set, the history will be limited to 8000 tokens. |
+| history_max_time | False | None | The maximum time (in seconds) to keep messages in the history. If not set, messages will not expire based on time. |
 | history_module | False | langchain_community.chat_message_histories | The module that contains the history class. Default: 'langchain_community.chat_message_histories' |
 | history_class | False | ChatMessageHistory | The class to use for the history. Default: 'ChatMessageHistory' |
 | history_config | False |  | The configuration for the history class. |

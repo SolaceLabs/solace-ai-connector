@@ -1,8 +1,21 @@
 ---
 # This is an example configuration file that contains an 
 # error handler flow and a test flow. The error handler flow
-# will log any error messages locally and will also
-# send them to a Solace broker. 
+# will log any error messages locally to a file and will also
+# send them to a Solace broker.
+#
+# It will subscribe to `my/topic1` and expect an event with the payload:
+# {
+#   "value": <number>
+# }
+# If value is not a number, the error will be caught, logged to file and send back to the Solace broker.
+# 
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
 instance:
   name: solace_ai_connector1
 log:
@@ -27,12 +40,19 @@ flows:
         component_module: error_input
         component_config:
       - component_name: error_logger
-        component_module: logger
-        component_config:
-          log_level: ERROR
-          max_log_line_size: 1000
-        component_input:
-          source_expression: input.payload
+        component_module: file_output
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.log:content
+          - type: copy
+            source_value: a
+            dest_expression: user_data.log:mode
+          - type: copy
+            source_value: error_log.log
+            dest_expression: user_data.log:file_path
+        input_selection:
+          source_expression: user_data.log
       - component_name: solace_sw_broker
         component_module: broker_output
         component_config: 
@@ -48,7 +68,7 @@ flows:
           - type: copy
             source_expression: input.user_properties
             dest_expression: user_data.output:user_properties
-        component_input:
+        input_selection:
           source_expression: user_data.output
 
 
@@ -66,7 +86,7 @@ flows:
             - topic: my/topic1
               qos: 1
           payload_encoding: utf-8
-          payload_format: text
+          payload_format: json
 
       - component_name: pass_through
         component_module: pass_through
@@ -75,7 +95,7 @@ flows:
           - type: copy
             source_expression: input.payload
             dest_expression: user_data.temp:text
-        component_input:
+        input_selection:
           source_expression: user_data.temp:text
 
       - component_name: solace_sw_broker
@@ -83,12 +103,20 @@ flows:
         component_config: 
           <<: *broker_connection
           payload_format: json
-        component_input:
-          source_expression: user_data.output
         input_transforms:
           - type: copy
             source_expression: input.payload
             dest_expression: user_data.output:payload.original_payload
+          - type: copy
+            source_expression: 
+              invoke:
+                module: invoke_functions
+                function: power
+                params:
+                  positional:
+                    - evaluate_expression(input.payload:value) # This will throw an error if value is not a number
+                    - 2
+            dest_expression: user_data.output:payload.valueSquared
           - type: copy
             source_expression: input.user_properties
             dest_expression: user_data.output:payload.user_properties
@@ -101,5 +129,5 @@ flows:
           - type: copy
             source_expression: user_data.temp
             dest_expression: user_data.output:user_properties
-        component_input:
+        input_selection:
           source_expression: user_data.output

@@ -2,6 +2,13 @@
 # Example for a request-reply flow
 # Flow 1: stdin -> broker_request_reply -> stdout
 # Flow 2: broker_input -> pass_through -> broker_output
+# 
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
 log:
   stdout_log_level: INFO
   log_file_level: INFO
@@ -34,7 +41,7 @@ flows:
           - type: copy
             source_value: request/topic
             dest_expression: user_data.request:topic
-        component_input:
+        input_selection:
           source_expression: user_data.request
 
       - component_name: stdout
@@ -56,7 +63,7 @@ flows:
           - type: copy
             source_expression: input.payload
             dest_expression: user_data.reply:payload.wrapper
-        component_input:
+        input_selection:
           source_expression: user_data.reply:payload
 
       - component_name: broker_output
@@ -73,6 +80,6 @@ flows:
           - type: copy
             source_expression: input.user_properties:__solace_ai_connector_broker_request_reply_topic__
             dest_expression: user_data.output:topic
-        component_input:
+        input_selection:
           source_expression: user_data.output
 

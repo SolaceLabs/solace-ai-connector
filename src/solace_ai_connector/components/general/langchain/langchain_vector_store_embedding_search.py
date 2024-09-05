@@ -59,6 +59,7 @@ info = {
             "name": "max_results",
             "required": True,
             "description": "The maximum number of results to return",
+            "default": 3,
         },
         {
             "name": "combine_context_from_same_source",
@@ -92,7 +93,7 @@ class LangChainVectorStoreEmbeddingsSearch(LangChainVectorStoreEmbeddingsBase):
 
     def invoke(self, message, data):
         text = data["text"]
-        k = self.get_config("max_results")
+        k = self.get_config("max_results", 3)
         combine_context_from_same_source = self.get_config(
             "combine_context_from_same_source"
         )

@@ -43,7 +43,7 @@ flows:
         component_module: error_input
       - component_name: pass_through
         component_module: pass_through
-        component_input:
+        input_selection:
           source_expression: previous:error.text
 """
     connector, flows = create_test_flows(config_yaml)

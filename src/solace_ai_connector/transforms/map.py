@@ -17,8 +17,8 @@ info = {
         " * index: The index of the current item in the source list\n"
         " * current_value: The value of the current item in the source list\n"
         " * source_list: The source list\n\n"
-        "These should be accessed using `source_expression(keyword_args:<value name>)`. "
-        "For example, `source_expression(keyword_args:current_value)`. "
+        "These should be accessed using `evaluate_expression(keyword_args:<value name>)`. "
+        "For example, `evaluate_expression(keyword_args:current_value)`. "
         "See the example below for more detail."
     ),
     "short_description": (
@@ -69,9 +69,9 @@ info = {
             function: add
               params:
                 positional:
-                  - source_expression(keyword_args:current_value)
+                  - evaluate_expression(keyword_args:current_value)
                   - 2
-        dest_expression: user_data.output:new_list
+        dest_list_expression: user_data.output:new_list
 ```
 This transform would take a payload like this:
 

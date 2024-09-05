@@ -30,7 +30,7 @@ flows:
           - type: copy
             source_value: "Static Greeting!"
             dest_expression: user_data.temp:payload.greeting
-        component_input:
+        input_selection:
           source_expression: user_data.temp:payload.text
 """
 
@@ -64,7 +64,7 @@ flows:
             source_expression: item
             dest_list_expression: user_data.temp:my_list
             dest_expression: my_obj.full
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
 
@@ -101,7 +101,7 @@ flows:
             source_expression: index
             dest_list_expression: user_data.temp:my_list
             dest_expression: my_obj.index
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
 
@@ -138,7 +138,7 @@ flows:
             source_expression: input.payload:my_obj.two
             dest_list_expression: user_data.temp:my_list
             dest_expression: my_obj.my_obj_two
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
 
@@ -176,7 +176,7 @@ flows:
           - type: append
             source_expression: input.payload:three
             dest_expression: user_data.temp:my_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
 
@@ -204,7 +204,7 @@ flows:
           - type: append
             source_expression: input.payload:one
             dest_expression: user_data.temp:my_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
 
@@ -228,7 +228,7 @@ flows:
         input_transforms:
           - source_expression: input.payload:one
             dest_expression: user_data.temp:my_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
@@ -249,7 +249,7 @@ flows:
           - type: unknown
             source_expression: input.payload:one
             dest_expression: user_data.temp:my_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
@@ -270,7 +270,7 @@ flows:
         input_transforms:
           - type: copy
             dest_expression: user_data.temp:my_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
@@ -291,7 +291,7 @@ flows:
         input_transforms:
           - type: copy
             source_expression: input.payload:one
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
@@ -314,7 +314,7 @@ flows:
               one: 1
               two: 2
             dest_expression: user_data.temp:my_obj
-        component_input:
+        input_selection:
           source_expression: user_data.temp
 """
 

@@ -40,7 +40,7 @@ flows:
                 module: time
                 function: time
             dest_expression: user_data.timestamp
-        component_input:
+        input_selection:
           source_expression: user_data.timestamp
 """
 

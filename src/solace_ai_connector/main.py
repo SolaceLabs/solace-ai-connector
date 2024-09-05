@@ -66,6 +66,8 @@ def main():
 
     app.wait_for_flows()
 
+    print("Solace AI Connector exited successfully!")
+
 
 if __name__ == "__main__":
     # Read in the configuration yaml filenames from the args

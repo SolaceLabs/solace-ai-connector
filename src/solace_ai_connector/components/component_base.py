@@ -28,7 +28,6 @@ class ComponentBase:
         self.component_index = kwargs.pop("component_index", None)
         self.error_queue = kwargs.pop("error_queue", None)
         self.instance_name = kwargs.pop("instance_name", None)
-        self.storage_manager = kwargs.pop("storage_manager", None)
         self.trace_queue = kwargs.pop("trace_queue", False)
         self.connector = kwargs.pop("connector", None)
         self.timer_manager = kwargs.pop("timer_manager", None)
@@ -127,6 +126,8 @@ class ComponentBase:
             self.current_message = None
         elif event.event_type == EventType.TIMER:
             self.handle_timer_event(event.data)
+        elif event.event_type == EventType.CACHE_EXPIRY:
+            self.handle_cache_expiry_event(event.data)
         else:
             log.warning(
                 "%sUnknown event type: %s", self.log_identifier, event.event_type
@@ -159,6 +160,10 @@ class ComponentBase:
         # This method can be overridden by components that need to handle timer events
         pass
 
+    def handle_cache_expiry_event(self, timer_data):
+        # This method can be overridden by components that need to handle cache expiry events
+        pass
+
     def discard_current_message(self):
         # If the message is to be discarded, we need to acknowledge any previous components
         self.current_message_has_been_discarded = True
@@ -168,10 +173,12 @@ class ComponentBase:
         return None
 
     def get_input_data(self, message):
-        component_input = self.config.get("component_input") or {
-            "source_expression": "previous"
-        }
-        source_expression = get_source_expression(component_input)
+        input_selection = (
+            self.config.get("input_selection")
+            or self.config.get("component_input")
+            or {"source_expression": "previous"}
+        )
+        source_expression = get_source_expression(input_selection)
 
         # This should be overridden by the component if it needs to extract data from the message
         return message.get_data(source_expression, self)
@@ -211,7 +218,7 @@ class ComponentBase:
             if self.current_message is None:
                 raise ValueError(
                     f"Component {self.log_identifier} is trying to use an `invoke` config "
-                    "that contains a 'source_expression()' in a context that does not "
+                    "that contains a 'evaluate_expression()' in a context that does not "
                     "have a message available. This is likely a bug in the "
                     "component's configuration."
                 )
@@ -311,6 +318,7 @@ class ComponentBase:
                 "component_index": self.component_index,
             },
         }
+        message = None
         if event and event.event_type == EventType.MESSAGE:
             message = event.data
             if message:

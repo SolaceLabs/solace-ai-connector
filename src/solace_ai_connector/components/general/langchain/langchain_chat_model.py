@@ -13,6 +13,9 @@ info["class_name"] = "LangChainChatModel"
 
 class LangChainChatModel(LangChainChatModelBase):
 
+    def __init__(self, **kwargs):
+        super().__init__(info, **kwargs)
+
     def invoke_model(
         self, input_message, messages, session_id=None, clear_history=False
     ):

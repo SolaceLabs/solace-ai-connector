@@ -74,6 +74,18 @@ info = {
                     "type": "object",
                 },
             },
+            "ids": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                },
+                "description": "The ID of the text to add to the index. required for 'delete' action",
+            },
+            "action": {
+                "type": "string",
+                "default": "add",
+                "description": "The action to perform on the index from one of 'add', 'delete'",
+            },
         },
         "required": ["texts"],
     },
@@ -116,12 +128,35 @@ class LangChainVectorStoreEmbeddingsIndex(LangChainVectorStoreEmbeddingsBase):
 
         # Get the metadatas if they exist
         metadatas = data.get("metadatas", None)
-        args = [texts]
         if metadatas is not None:
             if not isinstance(metadatas, list):
                 metadatas = [metadatas]
-            args.append(metadatas)
 
+        # Get the ids if they exist
+        ids = data.get("ids", None)
+        if ids is not None:
+            if not isinstance(ids, list):
+                ids = [ids]
+
+        action = data.get("action", "add")
+        match action:
+            case "add":
+                return self.add_data(texts, metadatas, ids)
+            case "delete":
+                return self.delete_data(ids)
+            case _:
+                raise ValueError("Invalid action: {}".format(action))
+
+    def add_data(self, texts, metadatas=None, ids=None):
         # Add the texts to the vector store
-        self.vector_store.add_texts(*args)
+        args = [texts]
+        if metadatas is not None:
+            args.append(metadatas)
+        self.vector_store.add_texts(*args, ids=ids)
+        return {"result": "OK"}
+
+    def delete_data(self, ids):
+        if not ids:
+            raise ValueError("No IDs provided to delete")
+        self.vector_store.delete(ids)
         return {"result": "OK"}

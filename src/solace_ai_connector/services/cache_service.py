@@ -5,15 +5,14 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Dict, Tuple
 from threading import Lock
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from ..common.event import Event, EventType
 from ..common.log import log
 
 
 class CacheStorageBackend(ABC):
     @abstractmethod
-    def get(self, key: str) -> Any:
+    def get(self, key: str, include_meta=False) -> Any:
         pass
 
     @abstractmethod
@@ -40,7 +39,7 @@ class InMemoryStorage(CacheStorageBackend):
         self.store: Dict[str, Dict[str, Any]] = {}
         self.lock = Lock()
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str, include_meta=False) -> Any:
         with self.lock:
             item = self.store.get(key)
             if item is None:
@@ -48,7 +47,7 @@ class InMemoryStorage(CacheStorageBackend):
             if item["expiry"] and time.time() > item["expiry"]:
                 del self.store[key]
                 return None
-            return item["value"]
+            return item if include_meta else item["value"]
 
     def set(
         self,
@@ -61,7 +60,7 @@ class InMemoryStorage(CacheStorageBackend):
         with self.lock:
             self.store[key] = {
                 "value": value,
-                "expiry": time.time() + expiry if expiry else None,
+                "expiry": expiry,
                 "metadata": metadata,
                 "component": component,
             }
@@ -103,7 +102,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str, include_meta=False) -> Any:
         session = self.Session()
         try:
             item = session.query(CacheItem).filter_by(key=key).first()
@@ -113,6 +112,13 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.delete(item)
                 session.commit()
                 return None
+            if include_meta: 
+                return {
+                    "value": pickle.loads(item.value),
+                    "metadata": pickle.loads(item.item_metadata) if item.item_metadata else None,
+                    "expiry": item.expiry,
+                    "component": self._get_component_from_reference(item.component_reference),
+                }
             return pickle.loads(item.value), (
                 pickle.loads(item.item_metadata) if item.item_metadata else None
             )
@@ -207,6 +213,16 @@ class CacheService:
         metadata: Optional[Dict] = None,
         component=None,
     ):
+        # Calculate the expiry time
+        expiry = time.time() + expiry if expiry else None
+
+        # Check if the key already exists
+        cache = self.storage.get(key, include_meta=True)
+        if cache:
+            # Use the cache data to combine with the new data
+            expiry = expiry or cache["expiry"]
+            metadata = metadata or cache["metadata"]
+            component = component or cache["component"]
         self.storage.set(key, value, expiry, metadata, component)
         with self.lock:
             if expiry:
@@ -242,23 +258,22 @@ class CacheService:
 
         # Use the storage backend to get all items
         all_items = self.storage.get_all()
-
         for key, (value, metadata, expiry, component) in all_items.items():
             if expiry and current_time > expiry:
-                expired_keys.append((key, metadata, component))
+                expired_keys.append((key, metadata, component, value))
             elif expiry and (next_expiry is None or expiry < next_expiry):
                 next_expiry = expiry
 
         with self.lock:
-            for key, _, _ in expired_keys:
+            for key, _, _, _ in expired_keys:
                 self.storage.delete(key)
 
             self.next_expiry = next_expiry
-
-        for key, metadata, component in expired_keys:
+        
+        for key, metadata, component, value in expired_keys:
             if component:
                 event = Event(
-                    EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata}
+                    EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata, "expired_data": value}
                 )
                 component.enqueue(event)
 

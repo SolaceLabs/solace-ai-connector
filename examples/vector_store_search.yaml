@@ -1,28 +1,40 @@
 ---
-# Example that uses Cohere embeddings and OpenSearch for vector store 
+# Example that uses Cohere embeddings and Amazon OpenSearch Service Serverless for vector store 
 # This also shows how to use AWS credentials and AWS4Auth for OpenSearch
 # which involves using 'invoke' to create the required auth objects
+# 
+# 
+# Follow Boto3 documentation for AWS credentials: 
+# https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration
+# https://python.langchain.com/v0.2/docs/integrations/vectorstores/opensearch/#using-aoss-amazon-opensearch-service-serverless
+#
+# Dependencies:
+# pip install -U langchain_community opensearch-py requests_aws4auth
+#
+# required ENV variables:
+# - AWS_BEDROCK_COHERE_EMBED_MODEL_ID
+# - AWS_BEDROCK_COHERE_EMBED_REGION
+# - AWS_OPENSEARCH_INDEX_NAME
+# - AWS_OPENSEARCH_ENDPOINT
+
 log:
   stdout_log_level: DEBUG
   log_file_level: DEBUG
   log_file: solace_ai_connector.log
 
 shared_config:
-  - broker_config: &broker_connection
-      broker_connection_share: ${SOLACE_BROKER_URL}
-      broker_type: solace
-      broker_url: ${SOLACE_BROKER_URL}
-      broker_username: ${SOLACE_BROKER_USERNAME}
-      broker_password: ${SOLACE_BROKER_PASSWORD}
-      broker_vpn: ${SOLACE_BROKER_VPN}
-
-  # Get AWS credentials object
+  # Get AWS credentials object from .aws credentials
+  # You can pass the ACCESS/SECRET/SESSION keys directly as ENV variables as well
+  # eg: aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
   - aws_credentials: &aws_credentials
       invoke:
         object:
           invoke:
             module: boto3
             function: Session
+            params:
+              keyword:
+                profile_name: default # The profile to choose from .aws/credentials
         function: get_credentials
 
   # Get AWS4Auth object
@@ -47,42 +59,57 @@ shared_config:
                 object: *aws_credentials
                 attribute: token
 
+  # Create a bedrock client for use with AWS components
+  - bedrock_client_config: &bedrock_client_config
+      invoke:
+        module: boto3
+        function: client
+        params:
+          keyword:
+            service_name: bedrock-runtime
+            region_name: ${AWS_BEDROCK_COHERE_EMBED_REGION}
+            aws_access_key_id:
+              invoke:
+                object: *aws_credentials
+                attribute: access_key
+            aws_secret_access_key:
+              invoke:
+                object: *aws_credentials
+                attribute: secret_key
+
 # List of flows
 flows:
   - name: test_flow
     trace_level: DEBUG
     components:
 
-      # Input from a Solace broker
+      # Input from a standard in
       - component_name: stdin
         component_module: stdin_input
-        component_config:
 
       - component_name: opensearch_cohere_embed
         component_module: langchain_vector_store_embedding_search
         component_config:
           vector_store_component_path: langchain_community.vectorstores
           vector_store_component_name: OpenSearchVectorSearch
+          vector_store_index_name: ${AWS_OPENSEARCH_INDEX_NAME}
           vector_store_component_config:
-            index_name: ${AWS_OPENSEARCH_JIRA_INDEX_NAME}
-            opensearch_url: ${AWS_OPENSEARCH_JIRA_ENDPOINT}
+            opensearch_url: ${AWS_OPENSEARCH_ENDPOINT}
             connection_class: 
               invoke:
                 module: opensearchpy
                 attribute: RequestsHttpConnection
             http_auth: *aws_4_auth_aoss
             timeout: 300
-          vector_store_index_name: solace-index-3
-          embedding_component_path: langchain_community.embeddings
+          embedding_component_path: langchain_aws
           embedding_component_name: BedrockEmbeddings
           embedding_component_config:
+            client: *bedrock_client_config
             model_id: ${AWS_BEDROCK_COHERE_EMBED_MODEL_ID}
             region_name: ${AWS_BEDROCK_COHERE_EMBED_REGION}
-            credentials_profile_name: default
           max_results: 7
-        component_input:
+        input_selection:
           source_expression: input.payload
-
 
       - component_name: stdout
         component_module: stdout_output

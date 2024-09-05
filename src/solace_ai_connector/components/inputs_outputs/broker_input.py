@@ -38,13 +38,13 @@ info = {
         },
         {
             "name": "broker_queue_name",
-            "required": True,
-            "description": "Queue name for broker",
+            "required": False,
+            "description": "Queue name for broker, if not provided it will use a temporary queue",
         },
         {
             "name": "temporary_queue",
             "required": False,
-            "description": "Whether to create a temporary queue that will be deleted after disconnection",
+            "description": "Whether to create a temporary queue that will be deleted after disconnection, defaulted to True if broker_queue_name is not provided",
             "default": False,
         },
         {
@@ -91,7 +91,12 @@ class BrokerInput(BrokerBase):
         super().__init__(info, **kwargs)
         self.need_acknowledgement = True
         self.temporary_queue = self.get_config("temporary_queue", False)
-        self.broker_properties["temporary_queue"] = self.temporary_queue
+        # If broker_queue_name is not provided, use temporary queue
+        if not self.get_config("broker_queue_name"):
+            self.temporary_queue = True
+            self.broker_properties["temporary_queue"] = True
+            # Generating a UUID for the queue name
+            self.broker_properties["queue_name"] = self.generate_uuid()
         self.connect()
 
     def invoke(self, message, data):

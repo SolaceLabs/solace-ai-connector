@@ -58,7 +58,7 @@ flows:
           - type: append
             source_expression: self:component_index
             dest_expression: user_data.path:my_path
-        component_input:
+        input_selection:
           source_expression: input.payload:text
 """
         SolaceAiConnector(
@@ -114,7 +114,7 @@ flows:
   - name: test_flow
     components:
       - component_module: delay
-        component_input:
+        input_selection:
           source_expression: input.payload:text
 """
         SolaceAiConnector(

@@ -1,0 +1,74 @@
+# Example for assembling inputs for a Solace AI connector
+#
+# It will subscribe to `demo/messages` and expect an event with the payload:
+#
+# The input message has the following schema:
+# {
+#   "content": "<some text>",
+#   "id": "<same ID across the message>"
+# }
+#
+# It will then send an event back to Solace with the topic: `demo/messages/assembled`
+#
+#
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+
+flows:
+  - name: Simple assemble flow
+    components:
+      # Input from a Solace broker
+      - component_name: solace_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_subscriptions:
+            - topic: demo/messages
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Assemble messages
+      - component_name: assemble_messages
+        component_module: assembly
+        component_config:
+          assemble_key: id
+          max_items: 3
+          max_time_ms: 10000
+        input_selection:
+          source_expression: input.payload
+
+      # Send assembled messages back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:{{text://input.topic}}/assembled
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

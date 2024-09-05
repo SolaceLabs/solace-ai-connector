@@ -20,6 +20,16 @@ info = {
         "type": "object",
         "properties": {},
     },
+    "example_config": """
+```yaml
+   - component_name: iterate_example
+     component_module: iterate
+     component_config: 
+     input_selection:
+       # Take the list field from the message and use it as the input to the iterator
+       source_expression: input.payload:embeddings
+```
+""",
 }
 
 

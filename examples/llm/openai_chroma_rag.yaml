@@ -1,0 +1,183 @@
+# OpenAI RAG (Retrieval Augmented Generation) example using ChromaDB
+# This will create 2 flows like these:
+#
+# Solace[topic:demo/rag/data] -> embed and store in ChromaDB
+# Solace[topic:demo/rag/query] -> search in ChromaDB -> OpenAI -> Solace[topic:demo/rag/query/response]
+#
+# Load Data:
+# Send data to Solace topic `demo/rag/data` with the following payload format:
+# {
+#   "texts": [<text data 1>. <text data 2>, ...]
+# }
+#
+# RAG Query:
+# Send query to Solace topic `demo/rag/query` with the following payload format:
+# {
+#   "query": "<question or request as text>"
+# }
+# The response will be sent to Solace topic `demo/rag/query/response`
+#
+# Dependencies:
+# pip install -U langchain_openai openai chromadb langchain-chroma
+#
+# Required ENV variables:
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT
+# - OPENAI_EMBEDDING_MODEL_NAME
+# - OPENAI_MODEL_NAME
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Data ingestion and augmented inference flows
+flows:
+  # Data ingestion to chromaDB for RAG
+  - name: chroma_ingest
+    components:
+      # Data Input from a Solace broker for ingestion
+      - component_name: solace_data_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: demo_rag_data
+          broker_subscriptions:
+            - topic: demo/rag/data
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Embedding data & ChromaDB ingest
+      - component_name: chroma_embed
+        component_module: langchain_vector_store_embedding_index
+        component_config:
+          vector_store_component_path: langchain_chroma
+          vector_store_component_name: Chroma
+          vector_store_component_config:
+            persist_directory: ./chroma_data
+            collection_name: rag
+          embedding_component_path: langchain_openai
+          embedding_component_name: OpenAIEmbeddings
+          embedding_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${OPENAI_EMBEDDING_MODEL_NAME}
+        input_transforms:
+          - type: copy
+            source_value: topic:demo/rag/data
+            dest_expression: user_data.vector_input:metadatas.source
+          - type: copy
+            source_expression: input.payload:texts
+            dest_expression: user_data.vector_input:texts
+        input_selection:
+          source_expression: user_data.vector_input
+
+  # RAG Inference flow
+  - name: OpenAI_RAG
+    components:
+      # Inference Input from a Solace broker for completion
+      - component_name: solace_completion_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: demo_rag_query
+          broker_subscriptions:
+            - topic: demo/rag/query
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Retrieve the top-k documents from ChromaDB
+      - component_name: chroma_search
+        component_module: langchain_vector_store_embedding_search
+        component_config:
+          vector_store_component_path: langchain_chroma
+          vector_store_component_name: Chroma
+          vector_store_component_config:
+            persist_directory: ./chroma_data
+            collection_name: rag
+          embedding_component_path: langchain_openai
+          embedding_component_name: OpenAIEmbeddings
+          embedding_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${OPENAI_EMBEDDING_MODEL_NAME}
+          max_results: 5
+        input_transforms:
+          - type: copy
+            source_expression: input.payload:query
+            dest_expression: user_data.vector_input:text
+        input_selection:
+          source_expression:  user_data.vector_input
+
+      # Generate response using the retrieved data
+      - component_name: llm_request
+        component_module: openai_chat_model
+        component_config:
+          api_key: ${OPENAI_API_KEY}
+          base_url: ${OPENAI_API_ENDPOINT}
+          model: ${OPENAI_MODEL_NAME}
+          temperature: 0.01
+        input_transforms:
+          # Extract and format the retrieved data
+          - type: map
+            source_list_expression: previous:result
+            source_expression: |
+              template:{{text://item:text}}\n\n
+            dest_list_expression: user_data.retrieved_data
+
+          - type: copy
+            source_expression: |
+              template:You are a helpful AI assistant. Using the provided context, help with the user's request below. Refrain to use any knowledge outside from the provided context. If the user query can not be answered using the provided context, reject user's query.
+
+              <context>
+              {{text://user_data.retrieved_data}}
+              </context>
+              
+              <user-question>
+              {{text://input.payload:query}}
+              </user-question>
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+        input_selection:
+          source_expression: user_data.llm_input
+
+      # Send response back to broker with completion and retrieved data
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous:content
+            dest_expression: user_data.output:payload.response
+          - type: copy
+            source_expression: input.payload:query
+            dest_expression: user_data.output:payload.query
+          - type: copy
+            source_expression: user_data.retrieved_data
+            dest_expression: user_data.output:payload.retrieved_data
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

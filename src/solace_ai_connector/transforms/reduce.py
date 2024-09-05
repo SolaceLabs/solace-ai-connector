@@ -14,8 +14,8 @@ info = {
         " * accumulated_value: The current accumulated value\n"
         " * current_value: The value of the current item in the source list\n"
         " * source_list: The source list\n\n"
-        "These should be accessed using `source_expression(keyword_args:<value name>)`. "
-        "For example, `source_expression(keyword_args:current_value)`. "
+        "These should be accessed using `evaluate_expression(keyword_args:<value name>)`. "
+        "For example, `evaluate_expression(keyword_args:current_value)`. "
         "See the example below for more detail."
     ),
     "short_description": "Reduce a list to a single value",
@@ -64,8 +64,8 @@ info = {
             function: add
               params:
                 positional:
-                  - source_expression(keyword_args:accumulated_value)
-                  - source_expression(keyword_args:current_value)
+                  - evaluate_expression(keyword_args:accumulated_value)
+                  - evaluate_expression(keyword_args:current_value)
         dest_expression: user_data.output:my_obj.sum
 ```
 This transform would take a payload like this:

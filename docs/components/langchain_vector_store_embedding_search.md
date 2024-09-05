@@ -28,7 +28,7 @@ component_config:
 | embedding_component_path | True |  | The embedding library path - e.g. 'langchain_community.embeddings' |
 | embedding_component_name | True |  | The embedding model to use - e.g. BedrockEmbeddings |
 | embedding_component_config | True |  | Model specific configuration for the embedding model. See documentation for valid parameter names. |
-| max_results | True |  | The maximum number of results to return |
+| max_results | True | 3 | The maximum number of results to return |
 | combine_context_from_same_source | False | True | Set to False if you don't want to combine all the context from the same source. Default is True |
 
 

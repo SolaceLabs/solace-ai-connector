@@ -4,6 +4,22 @@
 # sends the response back to the Solace broker
 # It will ask the model to write a dry joke about the input
 # message. It takes the entire payload of the input message
+# 
+# Dependencies:
+# pip install langchain_aws langchain_community
+# 
+# Dependencies:
+# - langchain_aws
+# pip install langchain_aws
+# 
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# - AWS_BEDROCK_ANTHROPIC_CLAUDE_MODEL_ID
+
+
 instance_name: LLM
 log:
   stdout_log_level: DEBUG
@@ -18,21 +34,6 @@ shared_config:
       broker_username: ${SOLACE_BROKER_USERNAME}
       broker_password: ${SOLACE_BROKER_PASSWORD}
       broker_vpn: ${SOLACE_BROKER_VPN}
-
-# Storage
-storage:
-  - storage_name: default
-    storage_type: file
-    storage_config: 
-      path: app/data.json
-  - storage_name: backup
-    storage_type: aws_s3
-    storage_config:
-      aws_access_key_id: ${AWS_ACCESS_KEY_ID}
-      aws_secret_access_key: ${AWS_SECRET_ACCESS_KEY}
-      aws_region_name: ${AWS_REGION_NAME}
-      bucket_name: ${AWS_BUCKET_NAME}
-      path: app/data.json
 
 # List of flows
 flows:
@@ -74,7 +75,7 @@ flows:
           - type: copy
             source_expression: static:user
             dest_expression: user_data.llm_input:messages.0.role
-        component_input:
+        input_selection:
           source_expression: user_data.llm_input
 
       - component_name: solace_sw_broker
@@ -90,10 +91,10 @@ flows:
           payload_format: text
         input_transforms:
           - type: copy
-            source_expression: user_data.temp
+            source_expression: previous
             dest_expression: user_data.output:payload
           - type: copy
             source_expression: template:response/{{text://input.topic}}
             dest_expression: user_data.output:topic
-        component_input:
+        input_selection:
           source_expression: user_data.output

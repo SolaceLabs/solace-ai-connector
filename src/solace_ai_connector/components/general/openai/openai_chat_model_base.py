@@ -119,7 +119,7 @@ class OpenAIChatModelBase(ComponentBase):
             response = client.chat.completions.create(
                 messages=messages, model=self.model, temperature=self.temperature
             )
-            return {"content": response.choices[0].message["content"]}
+            return {"content": response.choices[0].message.content}
 
     def invoke_stream(self, client, message, messages):
         response_uuid = str(uuid.uuid4())

@@ -580,8 +580,8 @@ def test_invoke_import_os_module():
     ) == {"a": "posix"}
 
 
-def test_invoke_with_source_expression_simple():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_simple():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_expression": {
@@ -590,8 +590,8 @@ def test_invoke_with_source_expression_simple():
                     "function": "add",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1)",
-                            "source_expression(input.payload:my_obj.val2)",
+                            "evaluate_expression(input.payload:my_obj.val1)",
+                            "evaluate_expression(input.payload:my_obj.val2)",
                         ],
                     },
                 },
@@ -603,8 +603,8 @@ def test_invoke_with_source_expression_simple():
     assert config == {"source_expression": 3}
 
 
-def test_invoke_with_source_expression_cast_to_int():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_cast_to_int():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_expression": {
@@ -613,7 +613,7 @@ def test_invoke_with_source_expression_cast_to_int():
                     "function": "add",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1, int )",
+                            "evaluate_expression(input.payload:my_obj.val1, int )",
                             2,
                         ],
                     },
@@ -626,8 +626,8 @@ def test_invoke_with_source_expression_cast_to_int():
     assert config == {"source_expression": 3}
 
 
-def test_invoke_with_source_expression_cast_to_float():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_cast_to_float():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_expression": {
@@ -636,7 +636,7 @@ def test_invoke_with_source_expression_cast_to_float():
                     "function": "add",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1, float )",
+                            "evaluate_expression(input.payload:my_obj.val1, float )",
                             2,
                         ],
                     },
@@ -659,7 +659,7 @@ def test_invoke_with_source_expression_cast_to_bool():
                     "function": "and_op",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1 , bool )",
+                            "evaluate_expression(input.payload:my_obj.val1 , bool )",
                             True,
                         ],
                     },
@@ -672,8 +672,8 @@ def test_invoke_with_source_expression_cast_to_bool():
     assert config == {"source_expression": True}
 
 
-def test_invoke_with_source_expression_cast_to_str():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_cast_to_str():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_expression": {
@@ -682,7 +682,7 @@ def test_invoke_with_source_expression_cast_to_str():
                     "function": "add",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1,str)",
+                            "evaluate_expression(input.payload:my_obj.val1,str)",
                             "2",
                         ],
                     },
@@ -695,8 +695,8 @@ def test_invoke_with_source_expression_cast_to_str():
     assert config == {"source_expression": "12"}
 
 
-def test_invoke_with_source_expression_keyword():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_keyword():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_value": {
@@ -705,8 +705,8 @@ def test_invoke_with_source_expression_keyword():
                     "function": "_test_keyword_args",
                     "params": {
                         "keyword": {
-                            "x": "source_expression(input.payload:my_obj.val1)",
-                            "y": "source_expression(input.payload:my_obj.val2)",
+                            "x": "evaluate_expression(input.payload:my_obj.val1)",
+                            "y": "evaluate_expression(input.payload:my_obj.val2)",
                         },
                     },
                 },
@@ -718,8 +718,8 @@ def test_invoke_with_source_expression_keyword():
     assert config == {"source_value": {"x": 1, "y": 2}}
 
 
-def test_invoke_with_source_expression_complex():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_complex():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_expression": {
@@ -728,22 +728,22 @@ def test_invoke_with_source_expression_complex():
                     "function": "_test_positional_and_keyword_args",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1)",
+                            "evaluate_expression(input.payload:my_obj.val1)",
                             {
                                 "invoke": {
                                     "module": "invoke_functions",
                                     "function": "add",
                                     "params": {
                                         "positional": [
-                                            "source_expression(input.payload:my_obj.val2)",
+                                            "evaluate_expression(input.payload:my_obj.val2)",
                                             {
                                                 "invoke": {
                                                     "module": "invoke_functions",
                                                     "function": "multiply",
                                                     "params": {
                                                         "positional": [
-                                                            "source_expression(input.payload:my_obj.val2)",
-                                                            "source_expression(input.payload:my_obj.val2)",
+                                                            "evaluate_expression(input.payload:my_obj.val2)",
+                                                            "evaluate_expression(input.payload:my_obj.val2)",
                                                         ],
                                                     },
                                                 },
@@ -754,15 +754,15 @@ def test_invoke_with_source_expression_complex():
                             },
                         ],
                         "keyword": {
-                            "x": "source_expression(input.payload:my_obj.val1)",
+                            "x": "evaluate_expression(input.payload:my_obj.val1)",
                             "y": {
                                 "invoke": {
                                     "module": "invoke_functions",
                                     "function": "subtract",
                                     "params": {
                                         "positional": [
-                                            "source_expression(input.payload:my_obj.val2)",
-                                            "source_expression(input.payload:my_obj.val3)",
+                                            "evaluate_expression(input.payload:my_obj.val2)",
+                                            "evaluate_expression(input.payload:my_obj.val3)",
                                         ],
                                     },
                                 },
@@ -778,8 +778,8 @@ def test_invoke_with_source_expression_complex():
     assert config == {"source_expression": ((1, 6), {"x": 1, "y": -1})}
 
 
-def test_invoke_with_source_expression_missing():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_evaluate_expression_missing():
+    """Verify that the evaluate expression is evaluated"""
     config = resolve_config_values(
         {
             "source_expression": {
@@ -788,8 +788,8 @@ def test_invoke_with_source_expression_missing():
                     "function": "add",
                     "params": {
                         "positional": [
-                            "source_expression(input.payload:my_obj.val1)",
-                            "source_expression(input.payload:my_obj.val2)",
+                            "evaluate_expression(input.payload:my_obj.val1)",
+                            "evaluate_expression(input.payload:my_obj.val2)",
                         ],
                     },
                 },
@@ -803,10 +803,10 @@ def test_invoke_with_source_expression_missing():
         config["source_expression"] = config["source_expression"](message)
 
 
-def test_invoke_with_source_expression_no_source_expression():
-    """Verify that the source expression is evaluated"""
+def test_invoke_with_source_expression_no_evaluate_expression():
+    """Verify that the evaluated expression is evaluated"""
     with pytest.raises(
-        ValueError, match=r"source_expression\(\) must contain an expression"
+        ValueError, match=r"evaluate_expression\(\) must contain an expression"
     ):
         resolve_config_values(
             {
@@ -816,7 +816,7 @@ def test_invoke_with_source_expression_no_source_expression():
                         "function": "add",
                         "params": {
                             "positional": [
-                                "source_expression()",
+                                "evaluate_expression()",
                                 2,
                             ],
                         },
@@ -826,8 +826,8 @@ def test_invoke_with_source_expression_no_source_expression():
         )
 
 
-def test_invoke_with_source_expression_with_real_flow():
-    """Verify that the source expression is evaluated properly in transforms and component_input"""
+def test_invoke_with_evaluate_expression_with_real_flow():
+    """Verify that the evaluate expression is evaluated properly in transforms and input_selection"""
     config_yaml = """
 instance_name: test_instance
 log:
@@ -846,17 +846,17 @@ flows:
                 function: add
                 params: 
                   positional: 
-                    - source_expression(input.payload:my_obj.val1.1)
+                    - evaluate_expression(input.payload:my_obj.val1.1)
                     - 2
             dest_expression: user_data.temp:my_val
-        component_input:
+        input_selection:
           source_expression: 
             invoke:
               module: invoke_functions
               function: add
               params: 
                 positional: 
-                  - source_expression(input.payload:my_obj.obj2)
+                  - evaluate_expression(input.payload:my_obj.obj2)
                   - " test"
 """
     message = Message(payload={"my_obj": {"val1": [1, 2, 3], "obj2": "Hello, World!"}})
@@ -868,7 +868,7 @@ flows:
     }  # The copy transform
     assert (
         output_message.get_data("previous") == "Hello, World! test"
-    )  # The component_input
+    )  # The input_selection
 
 
 def atest_user_processing_component():
@@ -886,7 +886,7 @@ flows:
             function: add
             params:
               positional:
-                - source_expression(input.payload:my_obj.val1.1)
+                - evaluate_expression(input.payload:my_obj.val1.1)
                 - 2
 """
 
@@ -919,10 +919,10 @@ flows:
                     function: add
                     params:
                         positional:
-                            - source_expression(keyword_args:accumulated_value)
-                            - source_expression(keyword_args:current_value)
+                            - evaluate_expression(keyword_args:accumulated_value)
+                            - evaluate_expression(keyword_args:current_value)
             dest_expression: user_data.temp:my_val
-        component_input:
+        input_selection:
           source_expression: user_data.temp:my_val
 """
     message = Message(payload={"my_list": [1, 2, 3, 4, 5]})
@@ -957,10 +957,10 @@ flows:
                 function: append
                 params:
                   positional:
-                    - source_expression(keyword_args:accumulated_value)
-                    - source_expression(keyword_args:current_value)
+                    - evaluate_expression(keyword_args:accumulated_value)
+                    - evaluate_expression(keyword_args:current_value)
             dest_expression: user_data.temp:my_val
-        component_input:
+        input_selection:
           source_expression: user_data.temp:my_val
    """
     message = Message(payload={"my_list": [1, 2, 3, 4, 5]})
@@ -991,10 +991,10 @@ flows:
                 function: add
                 params:
                   positional:
-                    - source_expression(keyword_args:current_value)
+                    - evaluate_expression(keyword_args:current_value)
                     - 2
             dest_list_expression: user_data.temp:new_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp:new_list
    """
     message = Message(payload={"my_list": [1, 2, 3, 4, 5]})
@@ -1025,10 +1025,10 @@ flows:
                 function: greater_than
                 params:
                   positional:
-                    - source_expression(keyword_args:current_value)
+                    - evaluate_expression(keyword_args:current_value)
                     - 2
             dest_list_expression: user_data.temp:new_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp:new_list
    """
     message = Message(payload={"my_list": [1, 2, 3, 4, 5]})
@@ -1059,10 +1059,10 @@ flows:
                 function: greater_than
                 params:
                   positional:
-                    - source_expression(keyword_args:current_value.my_val)
+                    - evaluate_expression(keyword_args:current_value.my_val)
                     - 2
             dest_list_expression: user_data.temp:new_list
-        component_input:
+        input_selection:
           source_expression: user_data.temp:new_list
    """
     message = Message(
@@ -1076,3 +1076,23 @@ flows:
     assert output_message.get_data("user_data.temp") == {
         "new_list": [{"my_val": 3}, {"my_val": 4}]
     }
+
+
+def test_invoke_with_uuid_generator():
+    """Verify that the uuid invoke_function returns an ID"""
+    response = resolve_config_values(
+        {
+            "a": {
+                "invoke": {
+                    "module": "invoke_functions",
+                    "function": "uuid"
+                },
+            },
+        }
+    ) 
+    
+    # Check if the output is of type string
+    assert type(response["a"]) == str
+
+    # Check if the output is a valid UUID
+    assert len(response["a"]) == 36

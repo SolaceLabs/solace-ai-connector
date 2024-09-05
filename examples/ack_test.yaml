@@ -1,6 +1,13 @@
 ---
 # Simple loopback flow
 # Solace -> Pass Through -> Solace
+# 
+# required ENV variables:
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
 log:
   stdout_log_level: DEBUG
   log_file_level: DEBUG
@@ -40,7 +47,7 @@ flows:
           - type: copy
             source_expression: input.payload
             dest_expression: user_data.temp:text
-        component_input:
+        input_selection:
           source_expression: user_data.temp:text
 
       - component_name: solace_sw_broker
@@ -48,8 +55,6 @@ flows:
         component_config: 
           <<: *broker_connection
           payload_format: json
-        component_input:
-          source_expression: user_data.output
         input_transforms:
           - type: copy
             source_expression: input.payload
@@ -66,5 +71,5 @@ flows:
           - type: copy
             source_expression: user_data.temp
             dest_expression: user_data.output:user_properties
-        component_input:
+        input_selection:
           source_expression: user_data.output

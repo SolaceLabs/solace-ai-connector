@@ -1,20 +1,23 @@
 ---
 # Example configuration file for adding a Milvus vector store and a Cohere embedding model
 # The input comes from STDIN and goes to STDOUT
+# 
+# Dependencies:
+# pip install langchain_milvus pymilvus
+#
+# required ENV variables:
+# - MILVUS_HOST
+# - MILVUS_PORT
+# - MILVUS_COLLECTION_NAME
+# - ACCESS_KEY: AWS access key
+# - SECRET_KEY: AWS secret key
+# - AWS_BEDROCK_COHERE_EMBED_MODEL_ID
+# - AWS_BEDROCK_COHERE_EMBED_REGION
+
 log:
   stdout_log_level: DEBUG
   log_file_level: DEBUG
   log_file: solace_ai_connector.log
-
-shared_config:
-  - broker_config: &broker_connection
-      broker_connection_share: ${SOLACE_BROKER_URL}
-      broker_type: solace
-      broker_url: ${SOLACE_BROKER_URL}
-      broker_username: ${SOLACE_BROKER_USERNAME}
-      broker_password: ${SOLACE_BROKER_PASSWORD}
-      broker_vpn: ${SOLACE_BROKER_VPN}
-
 
 # List of flows
 flows:
@@ -24,60 +27,58 @@ flows:
       # Test input from STDIN
       - component_name: stdin
         component_module: stdin_input
-        component_config:
 
       - component_name: milvus_cohere_embed
         component_module: langchain_vector_store_embedding_index
         component_config:
-          vector_store_component_path: langchain_community.vectorstores
+          vector_store_component_path: langchain_milvus
           vector_store_component_name: Milvus
           vector_store_component_config:
-            collection_name: collection_2
+            auto_id: true
+            collection_name: ${MILVUS_COLLECTION_NAME}
             connection_args:
               host: ${MILVUS_HOST}
               port: ${MILVUS_PORT}
-          # vector_store_index_name: solace-index-3
-          embedding_component_path: langchain_community.embeddings
+          embedding_component_path: langchain_aws
           embedding_component_name: BedrockEmbeddings
           embedding_component_config:
             model_id: ${AWS_BEDROCK_COHERE_EMBED_MODEL_ID}
             region_name: ${AWS_BEDROCK_COHERE_EMBED_REGION}
-            credentials_profile_name: default
+            credentials_profile_name: default # Profile name in ~/.aws/credentials
         input_transforms:
           - type: copy
             source_value: 
               invoke:
                 module: platform
                 function: system
-            dest_expression: user_data.vector_input:metadata.system
+            dest_expression: user_data.vector_input:metadatas.system
           - type: copy
-            source_value: efunneko
-            dest_expression: user_data.vector_input:metadata.user
+            source_value: username
+            dest_expression: user_data.vector_input:metadatas.user
           - type: copy
-            source_value: input.payload
-            dest_expression: user_data.vector_input:text
-        component_input:
+            source_expression: input.payload:text
+            dest_expression: user_data.vector_input:texts
+        input_selection:
           source_expression: user_data.vector_input
 
       - component_name: milvus_cohere_embed_search
         component_module: langchain_vector_store_embedding_search
         component_config:
-          vector_store_component_path: langchain_community.vectorstores
+          vector_store_component_path: langchain_milvus
           vector_store_component_name: Milvus
           vector_store_component_config:
-            collection_name: collection_1
+            collection_name: ${MILVUS_COLLECTION_NAME}
             connection_args:
               host: ${MILVUS_HOST}
               port: ${MILVUS_PORT}
-          # vector_store_index_name: solace-index-3
-          embedding_component_path: langchain_community.embeddings
+          embedding_component_path: langchain_aws
           embedding_component_name: BedrockEmbeddings
           embedding_component_config:
             model_id: ${AWS_BEDROCK_COHERE_EMBED_MODEL_ID}
             region_name: ${AWS_BEDROCK_COHERE_EMBED_REGION}
-            credentials_profile_name: default
+            credentials_profile_name: default # Profile name in ~/.aws/credentials
           max_results: 5
-        component_input:
+        input_selection:
           source_expression: input.payload
 
       - component_name: stdout

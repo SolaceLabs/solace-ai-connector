@@ -1,0 +1,489 @@
+# This will create a flow using the mixture of agents pattern (https://arxiv.org/abs/2406.04692)
+#
+# It will subscribe to `moa/question` and expect an event with the payload:
+# The input message has the following schema:
+# {
+#   "query": "<query as text>"
+# }
+#
+# It will then send an event back to Solace with the topic: `moa/question/response`
+#
+# NOTE: For horizontal scaling, partitioned queues must be used. This is not implemented in this example.
+#
+# Dependencies:
+# pip install -U langchain-google-vertexai langchain_anthropic langchain_openai openai
+#
+# required ENV variables:
+# - GOOGLE_APPLICATION_CREDENTIALS: the path to a service account JSON file
+# - VERTEX_REGION
+# - VERTEX_API_ENDPOINT - optional
+# - VERTEX_MODEL_NAME
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT - optional
+# - OPENAI_MODEL_NAME
+# - ANTHROPIC_API_KEY
+# - ANTHROPIC_API_ENDPOINT - optional
+# - ANTHROPIC_MODEL_NAME
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# - NUMBER_OF_MOA_LAYERS: the number of layers in the mixture of agents
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+shared_config:
+  # Broker connection configuration
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+  # Agent broker input configuration
+  - agent_broker_input: &agent_broker_input
+      component_name: solace_agent_broker
+      component_module: broker_input
+      component_config:
+        <<: *broker_connection
+        broker_subscriptions:
+          - topic: moa/broadcast
+            qos: 1
+        payload_encoding: utf-8
+        payload_format: json
+
+  # Agent broker output configuration
+  - agent_broker_output: &agent_broker_output
+      component_name: solace_agent_broker
+      component_module: broker_output
+      component_config:
+        <<: *broker_connection
+        payload_encoding: utf-8
+        payload_format: json
+        copy_user_properties: true
+      input_transforms:
+        # Copy the contents of the input event (query, id, layer_number)
+        - type: copy
+          source_expression: input.payload
+          dest_expression: user_data.output:payload
+          # Copy the output from the LLM
+        - type: copy
+          source_expression: user_data.formatted_response:content
+          dest_expression: user_data.output:payload.content
+          # Copy the agent name
+        - type: copy
+          source_expression: user_data.formatted_response:agent
+          dest_expression: user_data.output:payload.agent
+          # Copy the response topic based on input  topic
+        - type: copy
+          source_expression: template:{{text://input.topic}}/next
+          dest_expression: user_data.output:topic
+      input_selection:
+        source_expression: user_data.output
+
+  # Agent input transformations
+  - agent_input_transformations: &agent_input_transformations
+      input_transforms:
+        - type: copy
+          source_expression: |
+            template:You are a helpful AI assistant. Please help with the user's request below:
+            <user-question>
+            {{text://input.payload:query}}
+            </user-question>
+          dest_expression: user_data.llm_input:messages.0.content
+        - type: copy
+          source_expression: static:user
+          dest_expression: user_data.llm_input:messages.0.role
+      input_selection:
+        source_expression: user_data.llm_input
+
+flows:
+  # Event manager - Updates user message and send to all agents
+  - name: event manager
+    components:
+      # Broker input for user query
+      - component_name: user_query_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_subscriptions:
+            - topic: moa/question
+              qos: 1
+            - topic: moa/question/aggregate
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Broker output for agents - Update input event with layer number and UUID
+      - component_name: solace_agent_broker
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          # Copy the original user query
+          - type: copy
+            source_expression: input.payload:query
+            dest_expression: user_data.output:payload.query
+            # Increase layer number by 1, if none exists, set to 1
+          - type: copy
+            source_expression:
+              invoke:
+                # Check if layer number exists
+                module: invoke_functions
+                function: if_else
+                params:
+                  positional:
+                    - evaluate_expression(input.payload:layer_number)
+                    - invoke:
+                        # Add 1 to the layer number
+                        module: invoke_functions
+                        function: add
+                        params:
+                          positional:
+                            - invoke:
+                                # Default to zero
+                                module: invoke_functions
+                                function: or_op
+                                params:
+                                  positional:
+                                    - evaluate_expression(input.payload:layer_number)
+                                    - 0
+                            - 1
+                    # No layer number, set to 1
+                    - 1
+            dest_expression: user_data.output:payload.layer_number
+
+            # Copy over the UUID, if doesn't exists create one
+          - type: copy
+            source_value:
+              invoke:
+                module: invoke_functions
+                function: if_else
+                params:
+                  positional:
+                    - evaluate_expression(input.payload:id)
+                    - evaluate_expression(input.payload:id)
+                    - invoke:
+                        module: invoke_functions
+                        function: uuid
+            dest_expression: user_data.output:payload.id
+
+            # Copy the response topic based on input  topic
+          - type: copy
+            source_value: moa/broadcast
+            dest_expression: user_data.output:topic
+
+        input_selection:
+          source_expression: user_data.output
+
+  # Agent 1 - Google Vertex AI
+  - name: Agent 1 - Google Vertex AI
+    components:
+      # Broker input for Vertex AI
+      - <<: *agent_broker_input
+
+      # Vertex AI LLM Request
+      - component_name: llm_request
+        component_module: langchain_chat_model
+        num_instances: 3
+        component_config:
+          langchain_module: langchain_google_vertexai
+          langchain_class: ChatVertexAI
+          langchain_component_config:
+            base_url: ${VERTEX_API_ENDPOINT}
+            location: ${VERTEX_REGION}
+            model: ${VERTEX_MODEL_NAME}
+            temperature: 0.01
+        <<: *agent_input_transformations
+
+      # Format Vertex AI response for broker output
+      - component_name: format_response
+        component_module: pass_through
+        input_transforms:
+          - type: copy
+            source_value: vertex_ai
+            dest_expression: user_data.formatted_response:agent
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.formatted_response:content
+        input_selection:
+          source_expression: user_data.formatted_response
+
+      # Broker output for Vertex AI
+      - <<: *agent_broker_output
+
+  # Agent 2 - OpenAI
+  - name: Agent 2 - OpenAI
+    components:
+      # Broker input for OpenAI
+      - <<: *agent_broker_input
+
+      # OpenAI LLM Request
+      - component_name: llm_request
+        component_module: openai_chat_model
+        num_instances: 3
+        component_config:
+          api_key: ${OPENAI_API_KEY}
+          base_url: ${OPENAI_API_ENDPOINT}
+          model: ${OPENAI_MODEL_NAME}
+          temperature: 0.01
+        <<: *agent_input_transformations
+
+      # Format OpenAI response for broker output
+      - component_name: format_response
+        component_module: pass_through
+        input_transforms:
+          - type: copy
+            source_value: openai
+            dest_expression: user_data.formatted_response:agent
+          - type: copy
+            source_expression: previous:content
+            dest_expression: user_data.formatted_response:content
+        input_selection:
+          source_expression: user_data.formatted_response
+
+      # Broker output for OpenAI
+      - <<: *agent_broker_output
+
+  # Agent 3 - Anthropic
+  - name: Agent 3 - Anthropic
+    components:
+      # Broker input for Anthropic
+      - <<: *agent_broker_input
+
+      # Anthropic LLM Request
+      - component_name: llm_request
+        component_module: langchain_chat_model
+        num_instances: 3
+        component_config:
+          langchain_module: langchain_anthropic
+          langchain_class: ChatAnthropic
+          langchain_component_config:
+            api_key: ${ANTHROPIC_API_KEY}
+            base_url: ${ANTHROPIC_API_ENDPOINT}
+            model: ${ANTHROPIC_MODEL_NAME}
+            temperature: 0.01
+        <<: *agent_input_transformations
+
+      # Format Anthropic response for broker output
+      - component_name: format_response
+        component_module: pass_through
+        input_transforms:
+          - type: copy
+            source_value: anthropic
+            dest_expression: user_data.formatted_response:agent
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.formatted_response:content
+        input_selection:
+          source_expression: user_data.formatted_response
+
+      # Broker output for Anthropic
+      - <<: *agent_broker_output
+
+  # Assemble the responses and send to user/next layer
+  - name: Assemble agent responses
+    components:
+      # Agents responses from solace broker
+      - component_name: agent_responses
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_subscriptions:
+            - topic: moa/broadcast/next
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Assemble Agent responses
+      - component_name: assemble_responses
+        component_module: assembly
+        component_config:
+          assemble_key: id
+          max_time_ms: 30000
+          max_items: 3 # Number of Agents
+        input_selection:
+          source_expression: input.payload
+
+      # Format response for the LLM request
+      - component_name: format_response
+        component_module: pass_through
+        input_transforms:
+          # Copy the ID
+          - type: copy
+            source_expression: previous:0.id
+            dest_expression: user_data.aggregated_data:id
+          # Copy the layer number
+          - type: copy
+            source_expression: previous:0.layer_number
+            dest_expression: user_data.aggregated_data:layer_number
+          # Copy the initial user query
+          - type: copy
+            source_expression: previous:0.query
+            dest_expression: user_data.aggregated_data:query
+          # Transform each response to use the template
+          - type: map
+            source_list_expression: previous
+            source_expression: |
+              template:<response-{{text://index}}>
+              {{text://item:content}}
+              </response-{{text://index}}>\n
+            dest_list_expression: user_data.temp:responses
+          # Transform and reduce the responses to one message
+          - type: reduce
+            source_list_expression: user_data.temp:responses
+            source_expression: item
+            initial_value: ""
+            accumulator_function:
+              invoke:
+                module: invoke_functions
+                function: add
+                params:
+                  positional:
+                    - evaluate_expression(keyword_args:accumulated_value)
+                    - evaluate_expression(keyword_args:current_value)
+            dest_expression: user_data.aggregated_data:responses
+        input_selection:
+          source_expression: user_data.aggregated_data
+
+      # Aggregate all the outcomes from the agents
+      - component_name: aggregate_generations
+        component_module: openai_chat_model
+        component_config:
+          api_key: ${OPENAI_API_KEY}
+          base_url: ${OPENAI_API_ENDPOINT}
+          model: ${OPENAI_MODEL_NAME}
+          temperature: 0.01
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:You have been provided with a set of responses from various large language models to a user query. Your task is to synthesize these responses into a single, high-quality response. It is crucial to critically evaluate the information provided in these responses, recognizing that some of it may be biased or incorrect. Your response should not simply replicate the given answers but should offer a refined, accurate, and comprehensive reply to the instruction. Ensure your response is well-structured, coherent, and adheres to the highest standards of accuracy and reliability. Do not add any extra comments about how you created the response, just synthesize these responses as instructed. Do not mention that the result is created of multiple responses.
+
+              User Query:
+
+              <user-query>
+              {{text://user_data.aggregated_data:query}}
+              <\user-query>
+
+              Responses:
+
+              {{text://user_data.aggregated_data:responses}}
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+        input_selection:
+          source_expression: user_data.llm_input
+
+      - component_name: aggregator_output
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          # Copy the contents of the required info for next layer
+          - type: copy
+            source_expression: user_data.aggregated_data:id
+            dest_expression: user_data.output:payload.id
+          - type: copy
+            source_expression: user_data.aggregated_data:layer_number
+            dest_expression: user_data.output:payload.layer_number
+          # Copy to a temporary location the modified query for the next layer
+          - type: copy
+            source_expression: |
+              template: For the given query, the following draft response is created. Update and enhance the response to be logically accurate, sound natural, and free of errors.
+              Think before you reply. And only reply with the updated response. Do not add any extra comments.
+
+              <query>
+              {{text://user_data.aggregated_data:query}}
+              <\query>
+
+              <response>
+              {{text://previous:content}}
+              <\response>
+            dest_expression: user_data.temp:new_query
+            # Copy the results of the aggregation by LLM
+            # The LLM result is added under query for the next layer
+          - type: copy
+            source_expression: 
+              invoke:
+                # If the layer number is less than the number of layers,
+                # modify the response for the next layer of agents
+                module: invoke_functions
+                function: if_else
+                params:
+                  positional:
+                    - invoke:
+                        module: invoke_functions
+                        function: less_than
+                        params:
+                          positional:
+                            - evaluate_expression(user_data.aggregated_data:layer_number, int)
+                            - ${NUMBER_OF_MOA_LAYERS}
+                    - evaluate_expression(user_data.temp:new_query)
+                    - evaluate_expression(previous:content)
+            dest_expression: user_data.output:payload.query
+            # Copy the response topic based on layer number
+          - type: copy
+            source_expression:
+              invoke:
+                # If the layer number is less than the number of layers,
+                # send to the next layer, otherwise send to the user
+                module: invoke_functions
+                function: if_else
+                params:
+                  positional:
+                    - invoke:
+                        module: invoke_functions
+                        function: less_than
+                        params:
+                          positional:
+                            - evaluate_expression(user_data.aggregated_data:layer_number, int)
+                            - ${NUMBER_OF_MOA_LAYERS}
+                    - moa/question/aggregate
+                    - moa/question/cleanup
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output
+
+  # Cleanup the responses from the assembly and send to the user
+  - name: Cleanup assembled responses
+    components:
+      # Response from the assembly
+      - component_name: assembly_response
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_subscriptions:
+            - topic: moa/question/cleanup
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      - component_name: aggregator_output
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          # Copy the user query and response for the final response
+          - type: copy
+            source_expression: input.payload:query
+            dest_expression: user_data.output:payload.response
+          - type: copy
+            source_value: moa/question/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

@@ -46,7 +46,7 @@ from solace_ai_connector.common.message import Message
 #           - type: append
 #             source_expression: self:component_index
 #             dest_expression: user_data.path:my_path
-#         component_input:
+#         input_selection:
 #           source_expression: input.payload:text
 #       - component_name: delay2
 #         component_module: delay
@@ -63,7 +63,7 @@ from solace_ai_connector.common.message import Message
 #           - type: append
 #             source_expression: self:component_index
 #             dest_expression: user_data.path:my_path
-#         component_input:
+#         input_selection:
 #           source_expression: user_data.temp
 #       - component_name: delay3
 #         component_module: delay
@@ -74,7 +74,7 @@ from solace_ai_connector.common.message import Message
 #           - type: append
 #             source_expression: self:component_index
 #             dest_expression: user_data.path:my_path
-#         component_input:
+#         input_selection:
 #           source_expression: previous
 # """
 #     ],
@@ -131,13 +131,13 @@ flows:
     components:
       - component_name: delay1
         component_module: delay
-        component_input:
+        input_selection:
           source_expression: input.payload:text
   - name: test_flow2
     components:
       - component_name: delay2
         component_module: delay
-        component_input:
+        input_selection:
           source_expression: input.payload:text
 """
     event_handler_called = False
@@ -174,7 +174,7 @@ flows:
     components:
       - component_name: delay1
         component_module: delay
-        component_input:
+        input_selection:
           source_expression: input.payload:text
 """
     # Create the connector
