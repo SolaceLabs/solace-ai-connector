@@ -8,9 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GH_PAT }}
     if: github.repository == 'SolaceLabs/solace-ai-connector'
     steps:
-      - run: gh repo sync SolaceDev/solace-ai-connector --source SolaceLabs/solace-ai-connector --branch $BRANCH_NAME
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-          BRANCH_NAME: ${{ github.ref_name }}
+      - run: gh repo sync SolaceDev/solace-ai-connector --source SolaceLabs/solace-ai-connector --branch ${{github.ref_name}}
