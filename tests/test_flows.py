@@ -1,9 +1,12 @@
 """This test file tests all things to do with the flows and the components that make up the flows"""
 
+import sys
+
+sys.path.append("src")
 import pytest
 import time
 
-from utils_for_test_files import (
+from solace_ai_connector.test_utils.utils_for_test_files import (
     create_test_flows,
     create_connector,
     dispose_connector,

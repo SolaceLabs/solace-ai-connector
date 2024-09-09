@@ -1,8 +1,6 @@
-"""Collection of functions to be used in test files"""
-
+import os
 import queue
 import sys
-import os
 import yaml
 
 sys.path.insert(0, os.path.abspath("src"))
@@ -10,6 +8,7 @@ sys.path.insert(0, os.path.abspath("src"))
 from solace_ai_connector.solace_ai_connector import SolaceAiConnector
 from solace_ai_connector.common.log import log
 from solace_ai_connector.common.event import Event, EventType
+from solace_ai_connector.common.message import Message
 
 # from solace_ai_connector.common.message import Message
 
@@ -61,12 +60,16 @@ class TestInputComponent:
         self.next_component_queue.put(event)
 
 
-def create_connector(config_yaml, event_handlers=None, error_queue=None):
-    """Create a connector from a config"""
+def create_connector(config_or_yaml, event_handlers=None, error_queue=None):
+    """Create a connector from a config that can be an object or a yaml string"""
+
+    config = config_or_yaml
+    if isinstance(config_or_yaml, str):
+        config = yaml.safe_load(config_or_yaml)
 
     # Create the connector
     connector = SolaceAiConnector(
-        yaml.safe_load(config_yaml),
+        config,
         event_handlers=event_handlers,
         error_queue=error_queue,
     )
@@ -76,9 +79,77 @@ def create_connector(config_yaml, event_handlers=None, error_queue=None):
     return connector
 
 
-def create_test_flows(config_yaml, queue_timeout=None, error_queue=None, queue_size=0):
+def run_component_test(
+    module_or_name,
+    validation_func,
+    component_config=None,
+    input_data=None,
+    input_messages=None,
+    input_selection=None,
+    input_transforms=None,
+):
+    if not input_data and not input_messages:
+        raise ValueError("Either input_data or input_messages must be provided")
+
+    if input_data and input_messages:
+        raise ValueError("Only one of input_data or input_messages can be provided")
+
+    if input_data and not isinstance(input_data, list):
+        input_data = [input_data]
+
+    if input_messages and not isinstance(input_messages, list):
+        input_messages = [input_messages]
+
+    if not input_messages:
+        input_messages = []
+
+    if input_selection:
+        if isinstance(input_selection, str):
+            input_selection = {"source_expression": input_selection}
+
+    connector = None
+    try:
+        connector, flows = create_test_flows(
+            {
+                "flows": [
+                    {
+                        "name": "test_flow",
+                        "components": [
+                            {
+                                "component_name": "test_component",
+                                "component_module": module_or_name,
+                                "component_config": component_config or {},
+                                "input_selection": input_selection,
+                                "input_transforms": input_transforms,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+        if input_data:
+            for data in input_data:
+                message = Message(payload=data)
+                message.set_previous(data)
+                input_messages.append(message)
+
+        # Send each message through, one at a time
+        for message in input_messages:
+            send_message_to_flow(flows[0], message)
+            output_message = get_message_from_flow(flows[0])
+            validation_func(output_message.get_previous(), output_message, message)
+
+    finally:
+        if connector:
+            dispose_connector(connector)
+
+
+def create_test_flows(
+    config_or_yaml, queue_timeout=None, error_queue=None, queue_size=0
+):
     # Create the connector
-    connector = create_connector(config_yaml, error_queue=error_queue)
+    connector = create_connector(config_or_yaml, error_queue=error_queue)
 
     flows = connector.get_flows()
 

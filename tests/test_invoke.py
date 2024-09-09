@@ -5,13 +5,14 @@ import pytest
 
 sys.path.append("src")
 
-from utils_for_test_files import (  # pylint: disable=wrong-import-position
+
+from solace_ai_connector.test_utils.utils_for_test_files import (
     create_and_run_component,
 )
-from solace_ai_connector.common.utils import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.utils import (
     resolve_config_values,
 )
-from solace_ai_connector.common.message import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.common.message import (
     Message,
 )
 
@@ -1083,14 +1084,11 @@ def test_invoke_with_uuid_generator():
     response = resolve_config_values(
         {
             "a": {
-                "invoke": {
-                    "module": "invoke_functions",
-                    "function": "uuid"
-                },
+                "invoke": {"module": "invoke_functions", "function": "uuid"},
             },
         }
-    ) 
-    
+    )
+
     # Check if the output is of type string
     assert type(response["a"]) == str
 
