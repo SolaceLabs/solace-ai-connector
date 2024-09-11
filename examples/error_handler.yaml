@@ -25,7 +25,6 @@ log:
 
 shared_config:
   - broker_config: &broker_connection
-      broker_connection_share: ${SOLACE_BROKER_URL}
       broker_type: solace
       broker_url: ${SOLACE_BROKER_URL}
       broker_username: ${SOLACE_BROKER_USERNAME}
