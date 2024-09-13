@@ -37,8 +37,11 @@ class RequestResponseFlowManager:
         return self.flows.get(flow_name)
 
 
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
 from ..common.event import Event, EventType
+
+if TYPE_CHECKING:
+    from ..solace_ai_connector import SolaceAiConnector
 
 class RequestResponseController:
     def __init__(
