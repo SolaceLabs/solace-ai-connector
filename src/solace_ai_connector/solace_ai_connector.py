@@ -35,13 +35,10 @@ class SolaceAiConnector:
         self.cache_service = self.setup_cache_service()
         self.request_response_controllers = {}
 
-    def create_request_response_controller(self, component, controller_config):
+    def create_request_response_controller(self, component, controller_name, controller_config):
         controller = RequestResponseController(controller_config, self)
-        self.request_response_controllers[component] = controller
+        component.request_response_controllers[controller_name] = controller
         return controller
-
-    def get_request_response_controller(self, component):
-        return self.request_response_controllers.get(component)
 
     def run(self):
         """Run the Solace AI Event Connector"""

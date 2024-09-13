@@ -38,6 +38,8 @@ class ComponentBase:
 
         resolve_config_values(self.component_config)
 
+        self.request_response_controllers = {}
+
         self.next_component = None
         self.thread = None
         self.queue_timeout_ms = DEFAULT_QUEUE_TIMEOUT_MS
@@ -381,3 +383,5 @@ class ComponentBase:
                     self.input_queue.get_nowait()
                 except queue.Empty:
                     break
+    def get_request_response_controller(self, name):
+        return self.request_response_controllers.get(name)

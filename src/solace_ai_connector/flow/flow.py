@@ -128,13 +128,11 @@ class Flow:
             )
             sibling_component = component_instance
 
-            # Set up RequestResponseController if specified
-            request_response_controllers = component.get(
-                "request_response_controllers", []
-            )
-            for controller_config in request_response_controllers:
+            # Set up RequestResponseControllers if specified
+            request_response_controllers = component.get("request_response_controllers", {})
+            for controller_name, controller_config in request_response_controllers.items():
                 self.connector.create_request_response_controller(
-                    component_instance, controller_config
+                    component_instance, controller_name, controller_config
                 )
 
             # Add the component to the list
