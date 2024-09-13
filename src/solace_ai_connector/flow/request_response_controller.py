@@ -37,6 +37,9 @@ class RequestResponseFlowManager:
         return self.flows.get(flow_name)
 
 
+from typing import Dict, Any
+from ..common.event import Event, EventType
+
 class RequestResponseController:
     def __init__(
         self, config: Dict[str, Any], connector: 'SolaceAiConnector'

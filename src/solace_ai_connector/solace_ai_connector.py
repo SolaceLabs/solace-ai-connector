@@ -13,6 +13,8 @@ from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 
 
+from .flow.request_response_controller import RequestResponseController
+
 class SolaceAiConnector:
     """Solace AI Connector"""
 
