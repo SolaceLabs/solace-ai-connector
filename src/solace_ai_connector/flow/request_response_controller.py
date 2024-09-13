@@ -39,10 +39,10 @@ class RequestResponseFlowManager:
 
 class RequestResponseController:
     def __init__(
-        self, config: Dict[str, Any], flow_manager: RequestResponseFlowManager
+        self, config: Dict[str, Any], connector: 'SolaceAiConnector'
     ):
         self.config = config
-        self.flow_manager = flow_manager
+        self.connector = connector
         self.flow_name = config["flow_name"]
         self.streaming = config.get("streaming", False)
         self.streaming_last_message_expression = config.get(
@@ -50,13 +50,24 @@ class RequestResponseController:
         )
         self.timeout_ms = config.get("timeout_ms", 30000)
         self.response_queue = queue.Queue()
+        self.flow_instance = self.connector.create_flow_instance(self.flow_name)
+        self.input_queue = self.flow_instance.get_flow_input_queue()
+        self.setup_response_queue()
+
+    def setup_response_queue(self):
+        last_component = self.flow_instance.component_groups[-1][-1]
+        last_component.set_next_component(self)
 
     def send_message(self, message: Any):
-        flow = self.flow_manager.get_flow(self.flow_name)
-        if not flow:
-            raise ValueError(f"Flow {self.flow_name} not found")
+        if not self.input_queue:
+            raise ValueError(f"Input queue for flow {self.flow_name} not found")
 
-        flow.send_message(message)
+        event = Event(EventType.MESSAGE, message)
+        self.input_queue.put(event)
+
+    def enqueue(self, event):
+        if event.event_type == EventType.MESSAGE:
+            self.response_queue.put(event.data)
 
     def get_response(self):
         try:

@@ -32,6 +32,15 @@ class SolaceAiConnector:
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.timer_manager = TimerManager(self.stop_signal)
         self.cache_service = self.setup_cache_service()
+        self.request_response_controllers = {}
+
+    def create_request_response_controller(self, component, controller_config):
+        controller = RequestResponseController(controller_config, self)
+        self.request_response_controllers[component] = controller
+        return controller
+
+    def get_request_response_controller(self, component):
+        return self.request_response_controllers.get(component)
 
     def run(self):
         """Run the Solace AI Event Connector"""
@@ -63,7 +72,7 @@ class SolaceAiConnector:
                 self.flow_input_queues[flow.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
 
-    def create_flow(self, flow: dict, index: int, flow_instance_index: int):
+    def create_flow(self, flow: dict, index: int, flow_instance_index: int, for_request_response=False):
         """Create a single flow"""
 
         return Flow(
@@ -75,7 +84,16 @@ class SolaceAiConnector:
             instance_name=self.instance_name,
             trace_queue=self.trace_queue,
             connector=self,
+            for_request_response=for_request_response
         )
+
+    def create_flow_instance(self, flow_name: str):
+        """Create a new instance of a flow for request-response"""
+        for flow in self.config.get("flows", []):
+            if flow.get("name") == flow_name:
+                new_flow = self.create_flow(flow, -1, -1, for_request_response=True)
+                return new_flow
+        raise ValueError(f"Flow '{flow_name}' not found")
 
     def send_message_to_flow(self, flow_name, message):
         """Send a message to a flow"""

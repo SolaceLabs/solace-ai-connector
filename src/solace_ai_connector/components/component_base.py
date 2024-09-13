@@ -78,6 +78,22 @@ class ComponentBase:
 
         self.stop_component()
 
+    def process_single_event(self, event):
+        try:
+            if self.trace_queue:
+                self.trace_event(event)
+            return self.process_event(event)
+        except Exception as e:
+            log.error(
+                "%sComponent has encountered an error: %s\n%s",
+                self.log_identifier,
+                e,
+                traceback.format_exc(),
+            )
+            if self.error_queue:
+                self.handle_error(e, event)
+            raise
+
     def get_next_event(self):
         # Check if there is a get_next_message defined by a
         # component that inherits from this class - this is
