@@ -39,6 +39,7 @@ class ComponentBase:
         resolve_config_values(self.component_config)
 
         self.request_response_controllers = {}
+        self.initialize_request_response_controllers()
 
         self.next_component = None
         self.thread = None
@@ -383,5 +384,14 @@ class ComponentBase:
                     self.input_queue.get_nowait()
                 except queue.Empty:
                     break
+
+    def initialize_request_response_controllers(self):
+        if self.connector:
+            request_response_controllers = self.config.get("request_response_controllers", {})
+            for controller_name, controller_config in request_response_controllers.items():
+                self.connector.create_request_response_controller(
+                    self, controller_name, controller_config
+                )
+
     def get_request_response_controller(self, name):
         return self.request_response_controllers.get(name)
