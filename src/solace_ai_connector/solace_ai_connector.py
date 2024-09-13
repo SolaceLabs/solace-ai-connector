@@ -11,9 +11,8 @@ from .flow.flow import Flow
 from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
-
-
 from .flow.request_response_controller import RequestResponseController
+
 
 class SolaceAiConnector:
     """Solace AI Connector"""
@@ -74,7 +73,13 @@ class SolaceAiConnector:
                 self.flow_input_queues[flow.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
 
-    def create_flow(self, flow: dict, index: int, flow_instance_index: int, for_request_response=False):
+    def create_flow(
+        self,
+        flow: dict,
+        index: int,
+        flow_instance_index: int,
+        for_request_response=False,
+    ):
         """Create a single flow"""
 
         return Flow(
@@ -86,7 +91,7 @@ class SolaceAiConnector:
             instance_name=self.instance_name,
             trace_queue=self.trace_queue,
             connector=self,
-            for_request_response=for_request_response
+            for_request_response=for_request_response,
         )
 
     def create_flow_instance(self, flow_name: str):

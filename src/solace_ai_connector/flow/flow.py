@@ -89,25 +89,6 @@ class Flow:
 
         self.flow_input_queue = self.component_groups[0][0].get_input_queue()
 
-    def create_components(self):
-        # Loop through the components and create them
-        for index, component in enumerate(self.flow_config.get("components", [])):
-            self.create_component_group(component, index)
-
-        # Now loop through them again and set the next component
-        for index, component_group in enumerate(self.component_groups):
-            if index < len(self.component_groups) - 1:
-                for component in component_group:
-                    component.set_next_component(self.component_groups[index + 1][0])
-
-        # Now one more time to create threads and run them
-        for index, component_group in enumerate(self.component_groups):
-            for component in component_group:
-                thread = component.create_thread_and_run()
-                self.threads.append(thread)
-
-        self.flow_input_queue = self.component_groups[0][0].get_input_queue()
-
     def create_component_group(self, component, index):
         component_module = component.get("component_module", "")
         base_path = component.get("component_base_path", None)
@@ -148,9 +129,13 @@ class Flow:
             sibling_component = component_instance
 
             # Set up RequestResponseController if specified
-            request_response_controllers = component.get("request_response_controllers", [])
+            request_response_controllers = component.get(
+                "request_response_controllers", []
+            )
             for controller_config in request_response_controllers:
-                self.connector.create_request_response_controller(component_instance, controller_config)
+                self.connector.create_request_response_controller(
+                    component_instance, controller_config
+                )
 
             # Add the component to the list
             component_group.append(component_instance)
