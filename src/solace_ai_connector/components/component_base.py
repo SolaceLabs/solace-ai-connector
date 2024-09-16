@@ -39,7 +39,7 @@ class ComponentBase:
 
         resolve_config_values(self.component_config)
 
-        self.request_response_controllers = {}
+        self.request_response_flow_controllers = {}
 
         self.next_component = None
         self.thread = None
@@ -377,34 +377,34 @@ class ComponentBase:
                 except queue.Empty:
                     break
 
-    def initialize_request_response_controllers(self):
-        request_response_controllers_config = self.config.get(
-            "request_response_controllers", []
+    def initialize_request_response_flow_controllers(self):
+        request_response_flow_controllers_config = self.config.get(
+            "request_response_flow_controllers", []
         )
-        if request_response_controllers_config:
-            for rrc_config in request_response_controllers_config:
-                name = rrc_config.get("name")
+        if request_response_flow_controllers_config:
+            for rrfc_config in request_response_flow_controllers_config:
+                name = rrfc_config.get("name")
                 if not name:
                     raise ValueError(
-                        f"Request Response Controller in component {self.name} does not have a name"
+                        f"Request Response Flow Controller in component {self.name} does not have a name"
                     )
 
-                rrc = RequestResponseController(
-                    config=rrc_config, connector=self.connector
+                rrfc = RequestResponseFlowController(
+                    config=rrfc_config, connector=self.connector
                 )
 
-                if not rrc:
+                if not rrfc:
                     raise ValueError(
-                        f"Request Response Controller failed to initialize in component {self.name}"
+                        f"Request Response Flow Controller failed to initialize in component {self.name}"
                     )
 
-                self.request_response_controllers[name] = rrc
+                self.request_response_flow_controllers[name] = rrfc
 
-    def get_request_response_controller(self, name):
-        return self.request_response_controllers.get(name)
+    def get_request_response_flow_controller(self, name):
+        return self.request_response_flow_controllers.get(name)
 
-    def send_request_response_message(self, rrc_name, message, data):
-        rrc = self.get_request_response_controller(rrc_name)
-        if rrc:
-            return rrc.send_message(message, data)
+    def send_request_response_flow_message(self, rrfc_name, message, data):
+        rrfc = self.get_request_response_flow_controller(rrfc_name)
+        if rrfc:
+            return rrfc.send_message(message, data)
         return None

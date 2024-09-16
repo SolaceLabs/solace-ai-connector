@@ -11,16 +11,16 @@ from solace_ai_connector.test_utils.utils_for_test_files import (
 )
 from solace_ai_connector.common.message import Message
 from solace_ai_connector.flow.request_response_controller import (
-    RequestResponseController,
+    RequestResponseFlowController,
 )
 
 
-def test_request_response_controller_basic():
-    """Test basic functionality of the RequestResponseController"""
+def test_request_response_flow_controller_basic():
+    """Test basic functionality of the RequestResponseFlowController"""
 
     def test_invoke_handler(component, message, data):
         # Call the request_response_flow
-        data_iter = component.send_request_response_message(
+        data_iter = component.send_request_response_flow_message(
             "test_controller", message, {"test": "data"}
         )
 
@@ -42,7 +42,7 @@ def test_request_response_controller_basic():
                         "component_config": {
                             "invoke_handler": test_invoke_handler,
                         },
-                        "request_response_controllers": [
+                        "request_response_flow_controllers": [
                             {
                                 "name": "test_controller",
                                 "flow_name": "request_response_flow",

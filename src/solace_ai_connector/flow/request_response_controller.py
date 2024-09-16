@@ -38,7 +38,7 @@ class RequestResponseControllerOuputComponent:
 
 
 # This is the main class that will be used to send messages to a flow and receive the response
-class RequestResponseController:
+class RequestResponseFlowController:
     def __init__(self, config: Dict[str, Any], connector: "SolaceAiConnector"):
         self.config = config
         self.connector = connector
