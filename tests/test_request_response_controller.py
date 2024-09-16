@@ -1,5 +1,4 @@
 import sys
-import pytest
 
 sys.path.append("src")
 
@@ -10,22 +9,19 @@ from solace_ai_connector.test_utils.utils_for_test_files import (
     get_message_from_flow,
 )
 from solace_ai_connector.common.message import Message
-from solace_ai_connector.flow.request_response_controller import (
-    RequestResponseFlowController,
-)
 
 
 def test_request_response_flow_controller_basic():
     """Test basic functionality of the RequestResponseFlowController"""
 
-    def test_invoke_handler(component, message, data):
+    def test_invoke_handler(component, message, _data):
         # Call the request_response_flow
         data_iter = component.send_request_response_flow_message(
             "test_controller", message, {"test": "data"}
         )
 
         # Just a single message with no streaming
-        for message, data in data_iter():
+        for message, _data in data_iter():
             assert message.get_data("previous") == {"test": "data"}
             assert message.get_data("input.payload") == {"text": "Hello, World!"}
 
@@ -86,7 +82,7 @@ def test_request_response_controller_streaming():
 
     def test_invoke_handler(component, message, data):
         # Call the request_response_flow
-        data_iter = component.send_request_response_message(
+        data_iter = component.send_request_response_flow_message(
             "test_controller",
             message,
             [
@@ -150,6 +146,10 @@ def test_request_response_controller_streaming():
 
         assert output_message.get_data("previous") == "done"
 
+    except Exception as e:
+        print(e)
+        assert False
+
     finally:
         dispose_connector(connector)
 
@@ -160,7 +160,7 @@ def test_request_response_controller_timeout():
 
     def test_invoke_handler(component, message, data):
         # Call the request_response_flow
-        data_iter = component.send_request_response_message(
+        data_iter = component.send_request_response_flow_message(
             "test_controller", message, {"test": "data"}
         )
 

@@ -10,7 +10,7 @@ from ..transforms.transforms import Transforms
 from ..common.message import Message
 from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
-from ..flow.request_response_controller import RequestResponseFlowController
+from ..flow.request_response_flow_controller import RequestResponseFlowController
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -63,7 +63,7 @@ class ComponentBase:
     def run(self):
         # Init the request response controllers here so that we know
         # the connector is fully initialized and all flows are created
-        self.initialize_request_response_controllers()
+        self.initialize_request_response_flow_controllers()
 
         while not self.stop_signal.is_set():
             event = None

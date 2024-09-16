@@ -22,10 +22,7 @@ Each component can optionally create multiple of these using the configuration:
 
 import queue
 import time
-from typing import Dict, Any, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..solace_ai_connector import SolaceAiConnector
+from typing import Dict, Any
 
 from ..common.message import Message
 from ..common.event import Event, EventType
@@ -42,7 +39,7 @@ class RequestResponseControllerOuputComponent:
 
 # This is the main class that will be used to send messages to a flow and receive the response
 class RequestResponseFlowController:
-    def __init__(self, config: Dict[str, Any], connector: "SolaceAiConnector"):
+    def __init__(self, config: Dict[str, Any], connector):
         self.config = config
         self.connector = connector
         self.flow_name = config.get("flow_name")
