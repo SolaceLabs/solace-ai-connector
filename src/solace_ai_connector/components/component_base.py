@@ -10,7 +10,7 @@ from ..transforms.transforms import Transforms
 from ..common.message import Message
 from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
-from ..flow.request_response_controller import RequestResponseController
+from ..flow.request_response_controller import RequestResponseFlowController
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5

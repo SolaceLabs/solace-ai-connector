@@ -22,7 +22,10 @@ Each component can optionally create multiple of these using the configuration:
 
 import queue
 import time
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..solace_ai_connector import SolaceAiConnector
 
 from ..common.message import Message
 from ..common.event import Event, EventType
