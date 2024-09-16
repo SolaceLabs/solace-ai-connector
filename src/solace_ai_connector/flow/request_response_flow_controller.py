@@ -10,7 +10,7 @@ Each component can optionally create multiple of these using the configuration:
   components:
     - component_name: example_component
       component_module: custom_component
-      request_response_controllers:
+      request_response_flow_controllers:
         - name: example_controller
           flow_name: llm_flow
           streaming: true

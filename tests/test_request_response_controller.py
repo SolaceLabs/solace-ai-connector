@@ -111,7 +111,7 @@ def test_request_response_flow_controller_streaming():
                         "component_config": {
                             "invoke_handler": test_invoke_handler,
                         },
-                        "request_response_controllers": [
+                        "request_response_flow_controllers": [
                             {
                                 "name": "test_controller",
                                 "flow_name": "request_response_flow",
@@ -184,7 +184,7 @@ def test_request_response_flow_controller_timeout():
                         "component_config": {
                             "invoke_handler": test_invoke_handler,
                         },
-                        "request_response_controllers": [
+                        "request_response_flow_controllers": [
                             {
                                 "name": "test_controller",
                                 "flow_name": "request_response_flow",
