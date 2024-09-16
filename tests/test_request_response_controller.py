@@ -77,8 +77,8 @@ def test_request_response_flow_controller_basic():
 
 # Test simple streaming request response
 # Use the iterate component to break a single message into multiple messages
-def test_request_response_controller_streaming():
-    """Test streaming functionality of the RequestResponseController"""
+def test_request_response_flow_controller_streaming():
+    """Test streaming functionality of the RequestResponseFlowController"""
 
     def test_invoke_handler(component, message, data):
         # Call the request_response_flow
@@ -155,8 +155,8 @@ def test_request_response_controller_streaming():
 
 
 # Test the timeout functionality
-def test_request_response_controller_timeout():
-    """Test timeout functionality of the RequestResponseController"""
+def test_request_response_flow_controller_timeout():
+    """Test timeout functionality of the RequestResponseFlowController"""
 
     def test_invoke_handler(component, message, data):
         # Call the request_response_flow
