@@ -10,6 +10,7 @@ from ..transforms.transforms import Transforms
 from ..common.message import Message
 from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
+from ..flow.request_response_controller import RequestResponseController
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -39,7 +40,6 @@ class ComponentBase:
         resolve_config_values(self.component_config)
 
         self.request_response_controllers = {}
-        self.initialize_request_response_controllers()
 
         self.next_component = None
         self.thread = None
@@ -61,6 +61,10 @@ class ComponentBase:
         return self.thread
 
     def run(self):
+        # Init the request response controllers here so that we know
+        # the connector is fully initialized and all flows are created
+        self.initialize_request_response_controllers()
+
         while not self.stop_signal.is_set():
             event = None
             try:
@@ -80,22 +84,6 @@ class ComponentBase:
                     self.handle_error(e, event)
 
         self.stop_component()
-
-    def process_single_event(self, event):
-        try:
-            if self.trace_queue:
-                self.trace_event(event)
-            return self.process_event(event)
-        except Exception as e:
-            log.error(
-                "%sComponent has encountered an error: %s\n%s",
-                self.log_identifier,
-                e,
-                traceback.format_exc(),
-            )
-            if self.error_queue:
-                self.handle_error(e, event)
-            raise
 
     def get_next_event(self):
         # Check if there is a get_next_message defined by a
@@ -233,7 +221,11 @@ class ComponentBase:
         val = self.component_config.get(key, None)
         if val is None:
             val = self.config.get(key, default)
-        if callable(val):
+        if callable(val) and key not in [
+            "invoke_handler",
+            "get_next_event_handler",
+            "send_message_handler",
+        ]:
             if self.current_message is None:
                 raise ValueError(
                     f"Component {self.log_identifier} is trying to use an `invoke` config "
@@ -386,12 +378,33 @@ class ComponentBase:
                     break
 
     def initialize_request_response_controllers(self):
-        if self.connector:
-            request_response_controllers = self.config.get("request_response_controllers", {})
-            for controller_name, controller_config in request_response_controllers.items():
-                self.connector.create_request_response_controller(
-                    self, controller_name, controller_config
+        request_response_controllers_config = self.config.get(
+            "request_response_controllers", []
+        )
+        if request_response_controllers_config:
+            for rrc_config in request_response_controllers_config:
+                name = rrc_config.get("name")
+                if not name:
+                    raise ValueError(
+                        f"Request Response Controller in component {self.name} does not have a name"
+                    )
+
+                rrc = RequestResponseController(
+                    config=rrc_config, connector=self.connector
                 )
+
+                if not rrc:
+                    raise ValueError(
+                        f"Request Response Controller failed to initialize in component {self.name}"
+                    )
+
+                self.request_response_controllers[name] = rrc
 
     def get_request_response_controller(self, name):
         return self.request_response_controllers.get(name)
+
+    def send_request_response_message(self, rrc_name, message, data):
+        rrc = self.get_request_response_controller(rrc_name)
+        if rrc:
+            return rrc.send_message(message, data)
+        return None

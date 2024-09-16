@@ -11,7 +11,6 @@ from .flow.flow import Flow
 from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
-from .flow.request_response_controller import RequestResponseController
 
 
 class SolaceAiConnector:
@@ -33,12 +32,6 @@ class SolaceAiConnector:
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.timer_manager = TimerManager(self.stop_signal)
         self.cache_service = self.setup_cache_service()
-        self.request_response_controllers = {}
-
-    def create_request_response_controller(self, component, controller_name, controller_config):
-        controller = RequestResponseController(controller_config, self)
-        component.request_response_controllers[controller_name] = controller
-        return controller
 
     def run(self):
         """Run the Solace AI Event Connector"""
@@ -69,14 +62,10 @@ class SolaceAiConnector:
                 flow_input_queue = flow_instance.get_flow_input_queue()
                 self.flow_input_queues[flow.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
+        for flow in self.flows:
+            flow.run()
 
-    def create_flow(
-        self,
-        flow: dict,
-        index: int,
-        flow_instance_index: int,
-        for_request_response=False,
-    ):
+    def create_flow(self, flow: dict, index: int, flow_instance_index: int):
         """Create a single flow"""
 
         return Flow(
@@ -88,16 +77,7 @@ class SolaceAiConnector:
             instance_name=self.instance_name,
             trace_queue=self.trace_queue,
             connector=self,
-            for_request_response=for_request_response,
         )
-
-    def create_flow_instance(self, flow_name: str):
-        """Create a new instance of a flow for request-response"""
-        for flow in self.config.get("flows", []):
-            if flow.get("name") == flow_name:
-                new_flow = self.create_flow(flow, -1, -1, for_request_response=True)
-                return new_flow
-        raise ValueError(f"Flow '{flow_name}' not found")
 
     def send_message_to_flow(self, flow_name, message):
         """Send a message to a flow"""
@@ -223,6 +203,13 @@ class SolaceAiConnector:
     def get_flows(self):
         """Return the flows"""
         return self.flows
+
+    def get_flow(self, flow_name):
+        """Return a specific flow by name"""
+        for flow in self.flows:
+            if flow.name == flow_name:
+                return flow
+        return None
 
     def setup_cache_service(self):
         """Setup the cache service"""
