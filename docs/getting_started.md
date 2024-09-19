@@ -72,7 +72,7 @@ area in the Subscriber side of the "Try me!" page.
 Download the OpenAI connector example configuration file:
 
 ```sh
-curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/main/examples/llm/openai_chat.yaml > openai_chat.yaml
+curl https://raw.githubusercontent.com/SolaceLabs/solace-ai-connector/refs/heads/main/examples/llm/langchain_openai_with_history_chat.yaml > langchain_openai_with_history_chat.yaml
 ```
 
 For this one, you need to also define the following additional environment variables:
@@ -94,7 +94,7 @@ pip install langchain_openai openai
 Run the connector:
 
 ```sh
-solace-ai-connector openai_chat.yaml
+solace-ai-connector langchain_openai_with_history_chat.yaml
 ```
 
 Use the "Try Me!" function on the broker's browser UI (or some other means) to publish an event like this:
