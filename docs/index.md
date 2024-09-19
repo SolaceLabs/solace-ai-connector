@@ -10,6 +10,7 @@ This connector application makes it easy to connect your AI/ML models to Solace 
   - [Components](components/index.md)
   - [Transforms](transforms/index.md)
 - [Tips and Tricks](tips_and_tricks.md)
+- [Guides](guides/index.md)
 - [Examples](../examples/)
 - [Contributing](../CONTRIBUTING.md)
 - [License](../LICENSE)
