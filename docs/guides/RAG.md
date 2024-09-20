@@ -230,3 +230,7 @@ This modularity allows developers to adapt the system to different business requ
 The Solace AI Connector, when combined with technologies like RAG, LLMs, and embeddings, enables a powerful AI-driven ecosystem for real-time applications. By ingesting data, embedding it into vector databases, and performing retrieval-augmented generation with LLMs, developers can build applications that provide accurate, context-aware responses to user queries fast.
 
 This YAML configuration serves as a template for setting up such an application, you can find the complete example in the [examples directory](../../examples/llm/openai_chroma_rag.yaml). 
+
+## Want to Learn More About Solace AI Connector?
+
+Check out the [Solace AI Connector Overview](../overview.md) to explore its features in depth, or dive right in by following the [Getting Started Guide](../getting_started.md) to begin working with Solace AI Connector today!
