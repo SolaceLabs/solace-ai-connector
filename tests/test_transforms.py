@@ -50,8 +50,8 @@ def test_transform_with_run_component_test():
     """This test is actually testing the test infrastructure method: run_component_test"""
 
     def validation_func(output_data, output_message, _input_message):
-        assert output_data == "Hello, World!"
-        assert output_message.get_data("user_data.temp") == {
+        assert output_data[0] == "Hello, World!"
+        assert output_message[0].get_data("user_data.temp") == {
             "payload": {"text": "Hello, World!", "greeting": "Static Greeting!"}
         }
 
@@ -79,8 +79,8 @@ def test_transform_with_run_component_test_with_static_import():
     """This test is actually testing the test infrastructure method: run_component_test"""
 
     def validation_func(output_data, output_message, _input_message):
-        assert output_data == "Hello, World!"
-        assert output_message.get_data("user_data.temp") == {
+        assert output_data == ["Hello, World!"]
+        assert output_message[0].get_data("user_data.temp") == {
             "payload": {"text": "Hello, World!", "greeting": "Static Greeting!"}
         }
 

@@ -87,6 +87,7 @@ def run_component_test(
     input_messages=None,
     input_selection=None,
     input_transforms=None,
+    max_response_timeout=None,
 ):
     if not input_data and not input_messages:
         raise ValueError("Either input_data or input_messages must be provided")
@@ -125,7 +126,8 @@ def run_component_test(
                         ],
                     }
                 ]
-            }
+            },
+            queue_timeout=max_response_timeout,
         )
 
         if input_data:
@@ -135,10 +137,20 @@ def run_component_test(
                 input_messages.append(message)
 
         # Send each message through, one at a time
+        output_data_list = []
+        output_message_list = []
         for message in input_messages:
             send_message_to_flow(flows[0], message)
             output_message = get_message_from_flow(flows[0])
-            validation_func(output_message.get_previous(), output_message, message)
+            if not output_message:
+                # This only happens if the max_response_timeout is reached
+                output_message_list.append(None)
+                output_data_list.append(None)
+                continue
+            output_data_list.append(output_message.get_data("previous"))
+            output_message_list.append(output_message)
+
+        validation_func(output_data_list, output_message_list, message)
 
     finally:
         if connector:
@@ -194,6 +206,8 @@ def send_message_to_flow(flow_info, message):
 def get_message_from_flow(flow_info):
     output_component = flow_info["output_component"]
     event = output_component.get_output()
+    if not event:
+        return event
     if event.event_type != EventType.MESSAGE:
         raise ValueError("Expected a message event")
     return event.data
