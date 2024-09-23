@@ -10,6 +10,7 @@ from ..transforms.transforms import Transforms
 from ..common.message import Message
 from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
+from ..flow.request_response_flow_controller import RequestResponseFlowController
 
 DEFAULT_QUEUE_TIMEOUT_MS = 200
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -34,6 +35,9 @@ class ComponentBase:
         self.cache_service = kwargs.pop("cache_service", None)
 
         self.component_config = self.config.get("component_config") or {}
+        self.broker_request_response_config = self.config.get(
+            "broker_request_response", None
+        )
         self.name = self.config.get("component_name", "<unnamed>")
 
         resolve_config_values(self.component_config)
@@ -51,6 +55,7 @@ class ComponentBase:
         self.validate_config()
         self.setup_transforms()
         self.setup_communications()
+        self.setup_broker_request_response()
 
     def create_thread_and_run(self):
         self.thread = threading.Thread(target=self.run)
@@ -66,6 +71,8 @@ class ComponentBase:
                     if self.trace_queue:
                         self.trace_event(event)
                     self.process_event(event)
+            except AssertionError as e:
+                raise e
             except Exception as e:
                 log.error(
                     "%sComponent has crashed: %s\n%s",
@@ -214,7 +221,15 @@ class ComponentBase:
         val = self.component_config.get(key, None)
         if val is None:
             val = self.config.get(key, default)
-        if callable(val):
+
+        # We reserve a few callable function names for internal use
+        # They are used for the handler_callback component which is used
+        # in testing (search the tests directory for example uses)
+        if callable(val) and key not in [
+            "invoke_handler",
+            "get_next_event_handler",
+            "send_message_handler",
+        ]:
             if self.current_message is None:
                 raise ValueError(
                     f"Component {self.log_identifier} is trying to use an `invoke` config "
@@ -261,6 +276,32 @@ class ComponentBase:
             self.input_queue = self.sibling_component.get_input_queue()
         else:
             self.input_queue = queue.Queue(maxsize=self.queue_max_depth)
+
+    def setup_broker_request_response(self):
+        if (
+            not self.broker_request_response_config
+            or not self.broker_request_response_config.get("enabled", False)
+        ):
+            self.broker_request_response_controller = None
+            return
+        broker_config = self.broker_request_response_config.get("broker_config", {})
+        request_expiry_ms = self.broker_request_response_config.get(
+            "request_expiry_ms", 30000
+        )
+        if not broker_config:
+            raise ValueError(
+                f"Broker request response config not found for component {self.name}"
+            )
+        rrc_config = {
+            "broker_config": broker_config,
+            "request_expiry_ms": request_expiry_ms,
+        }
+        self.broker_request_response_controller = RequestResponseFlowController(
+            config=rrc_config, connector=self.connector
+        )
+
+    def is_broker_request_response_enabled(self):
+        return self.broker_request_response_controller is not None
 
     def setup_transforms(self):
         self.transforms = Transforms(
@@ -365,3 +406,26 @@ class ComponentBase:
                     self.input_queue.get_nowait()
                 except queue.Empty:
                     break
+
+    # This should be used to do an on-the-fly broker request response
+    def do_broker_request_response(
+        self, message, stream=False, streaming_complete_expression=None
+    ):
+        if self.broker_request_response_controller:
+            if stream:
+                return (
+                    self.broker_request_response_controller.do_broker_request_response(
+                        message, stream, streaming_complete_expression
+                    )
+                )
+            else:
+                generator = (
+                    self.broker_request_response_controller.do_broker_request_response(
+                        message
+                    )
+                )
+                next_message, last = next(generator, None)
+                return next_message
+        raise ValueError(
+            f"Broker request response controller not found for component {self.name}"
+        )

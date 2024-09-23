@@ -38,5 +38,6 @@ class Delay(ComponentBase):
         super().__init__(info, **kwargs)
 
     def invoke(self, message, data):
-        sleep(self.get_config("delay"))
+        delay = self.get_config("delay")
+        sleep(delay)
         return deepcopy(data)

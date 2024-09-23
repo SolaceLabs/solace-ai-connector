@@ -66,6 +66,9 @@ class Flow:
         self.cache_service = connector.cache_service if connector else None
         self.create_components()
 
+    def get_input_queue(self):
+        return self.flow_input_queue
+
     def create_components(self):
         # Loop through the components and create them
         for index, component in enumerate(self.flow_config.get("components", [])):
@@ -77,13 +80,14 @@ class Flow:
                 for component in component_group:
                     component.set_next_component(self.component_groups[index + 1][0])
 
+        self.flow_input_queue = self.component_groups[0][0].get_input_queue()
+
+    def run(self):
         # Now one more time to create threads and run them
-        for index, component_group in enumerate(self.component_groups):
+        for _index, component_group in enumerate(self.component_groups):
             for component in component_group:
                 thread = component.create_thread_and_run()
                 self.threads.append(thread)
-
-        self.flow_input_queue = self.component_groups[0][0].get_input_queue()
 
     def create_component_group(self, component, index):
         component_module = component.get("component_module", "")
@@ -132,6 +136,12 @@ class Flow:
 
     def get_flow_input_queue(self):
         return self.flow_input_queue
+
+    # This will set the next component in all the components in the
+    # last component group
+    def set_next_component(self, component):
+        for comp in self.component_groups[-1]:
+            comp.set_next_component(component)
 
     def wait_for_threads(self):
         for thread in self.threads:

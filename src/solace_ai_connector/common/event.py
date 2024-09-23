@@ -6,7 +6,10 @@ class EventType(Enum):
     MESSAGE = "message"
     TIMER = "timer"
     CACHE_EXPIRY = "cache_expiry"
-    # Add more event types as needed
+    # Add more event types as need
+
+    def __eq__(self, other):
+        return self.value == other.value
 
 
 class Event:

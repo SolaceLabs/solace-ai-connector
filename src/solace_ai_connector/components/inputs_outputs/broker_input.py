@@ -44,7 +44,8 @@ info = {
         {
             "name": "temporary_queue",
             "required": False,
-            "description": "Whether to create a temporary queue that will be deleted after disconnection, defaulted to True if broker_queue_name is not provided",
+            "description": "Whether to create a temporary queue that will be deleted "
+            "after disconnection, defaulted to True if broker_queue_name is not provided",
             "default": False,
         },
         {

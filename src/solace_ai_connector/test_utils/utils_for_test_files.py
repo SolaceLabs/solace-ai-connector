@@ -168,6 +168,8 @@ def create_test_flows(
     # For each of the flows, add the input and output components
     flow_info = []
     for flow in flows:
+        if flow.flow_config.get("test_ignore", False):
+            continue
         input_component = TestInputComponent(
             flow.component_groups[0][0].get_input_queue()
         )

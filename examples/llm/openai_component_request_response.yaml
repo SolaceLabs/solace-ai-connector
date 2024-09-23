@@ -1,0 +1,147 @@
+# This example demostrates how to use the request_response_flow_controller to 
+# inject another flow into an existing flow. This is commonly used when
+# you want to call a service that is only accessible via the broker.
+#
+#    Main flow:   STDIN -> llm_streaming_custom_component -> STDOUT
+#                                       |       ^
+#                                       v       |
+#                              do_broker_request_response()
+#                                       |       ^
+#                                       v       |
+#                                    Broker   Broker
+#
+#
+#    LLM flow:                  Broker -> OpenAI -> Broker
+#
+#
+# While this looks a bit complicated, it allows you to very easily use all
+# the benefits of the broker to distribute service requests, such as load
+# balancing, failover, and scaling to LLMs.
+#
+# It will subscribe to `demo/question` and expect an event with the payload:
+#
+# The input message has the following schema:
+# {
+#   "text": "<question or request as text>"
+# }
+#
+# It will then send an event back to Solace with the topic: `demo/question/response`
+#
+# Dependencies:
+# pip install -U langchain_openai openai
+#
+# required ENV variables:
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT
+# - OPENAI_MODEL_NAME
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Take from input broker and publish back to Solace
+flows:
+  # broker input processing
+  - name: main_flow
+    components:
+      # Input from a Solace broker
+      - component_name: input
+        component_module: stdin_input
+
+      # Our custom component
+      - component_name: llm_streaming_custom_component
+        component_module: llm_streaming_custom_component
+        # Relative path to the component
+        component_base_path: examples/llm/custom_components
+        component_config:
+          llm_request_topic: example/llm/best
+        broker_request_response:
+          enabled: true
+          broker_config: *broker_connection
+          request_expiry_ms: 60000
+          payload_encoding: utf-8
+          payload_format: json
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:You are a helpful AI assistant. Please help with the user's request below:
+              <user-question>
+              {{text://input.payload:text}}
+              </user-question>
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+        input_selection:
+          source_expression: user_data.llm_input
+
+      # Send response to stdout
+      - component_name: send_response
+        component_module: stdout_output
+        component_config:
+          add_new_line_between_messages: false
+        input_selection:
+          source_expression: previous:chunk
+
+
+
+  # The LLM flow that is accessible via the broker
+  - name: llm_flow
+    components:
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: example_flow_streaming
+          broker_subscriptions:
+            - topic: example/llm/best
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Do an LLM request
+      - component_name: llm_request
+        component_module: openai_chat_model
+        component_config:
+          api_key: ${OPENAI_API_KEY}
+          base_url: ${OPENAI_API_ENDPOINT}
+          model: ${MODEL_NAME}
+          temperature: 0.01
+          llm_mode: stream
+          stream_to_next_component: true
+          stream_batch_size: 20
+        input_selection:
+          source_expression: input.payload
+
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: input.user_properties:__solace_ai_connector_broker_request_reply_topic__
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output
