@@ -184,4 +184,4 @@ make build
 
 ---
 
-Checkout [configuration.md](configuration.md) or [overview.md](overview.md) next
+Checkout [configuration](configuration.md) or [overview](overview.md) next
