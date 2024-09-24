@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import yaml
 from .solace_ai_connector import SolaceAiConnector
 
@@ -12,7 +13,7 @@ def load_config(file):
             yaml_str = f.read()
 
         # Substitute the environment variables using os.environ
-        yaml_str = os.path.expandvars(yaml_str)
+        yaml_str = expandvars_with_defaults(yaml_str)
 
         # Load the YAML string using yaml.safe_load
         return yaml.safe_load(yaml_str)
@@ -20,6 +21,19 @@ def load_config(file):
     except Exception as e:  # pylint: disable=locally-disabled, broad-exception-caught
         print(f"Error loading configuration file: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def expandvars_with_defaults(text):
+    """Expand environment variables with support for default values.
+    Supported syntax: ${VAR_NAME} or ${VAR_NAME, default_value}"""
+    pattern = re.compile(r"\$\{([^}:\s]+)(?:\s*,\s*([^}]*))?\}")
+
+    def replacer(match):
+        var_name = match.group(1)
+        default_value = match.group(2) if match.group(2) is not None else ""
+        return os.environ.get(var_name, default_value)
+
+    return pattern.sub(replacer, text)
 
 
 def merge_config(dict1, dict2):
