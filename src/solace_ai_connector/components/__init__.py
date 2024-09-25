@@ -33,6 +33,11 @@ from .general.langchain import (
     langchain_vector_store_embedding_search,
 )
 
+from .general.websearch import (
+    websearch_duckduckgo,
+    websearch_google
+)
+
 # Also import the components from the submodules
 from .inputs_outputs.error_input import ErrorInput
 from .inputs_outputs.timer_input import TimerInput
@@ -62,3 +67,6 @@ from .general.langchain.langchain_vector_store_embedding_index import (
 from .general.langchain.langchain_vector_store_embedding_search import (
     LangChainVectorStoreEmbeddingsSearch,
 )
+from .general.websearch.websearch_duckduckgo import WebSearchDuckDuckGo
+from .general.websearch.websearch_google import WebSearchGoogle
+

@@ -1,0 +1,32 @@
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+flows:
+  - name: web_scraping_flow
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+    # Using Custom component
+      - component_name: web_scraping_component
+        component_module: web_scraper
+        component_config:
+          max_depth: 1
+          use_async: false
+          extractor: null
+          metadata_extractor: null
+          exclude_dirs: []
+          timeout: 10
+          check_response_status: true
+          continue_on_failure: true
+          prevent_outside: true
+          base_url: null
+        input_selection:
+          source_expression: previous
+
+     # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output
