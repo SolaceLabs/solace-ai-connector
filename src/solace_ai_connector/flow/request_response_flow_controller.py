@@ -30,7 +30,6 @@ from ..common.event import Event, EventType
 
 # This is a very basic component which will be stitched onto the final component in the flow
 class RequestResponseControllerOuputComponent:
-
     def __init__(self, controller):
         self.controller = controller
 
@@ -40,7 +39,6 @@ class RequestResponseControllerOuputComponent:
 
 # This is the main class that will be used to send messages to a flow and receive the response
 class RequestResponseFlowController:
-
     def __init__(self, config: Dict[str, Any], connector):
         self.config = config
         self.connector = connector
