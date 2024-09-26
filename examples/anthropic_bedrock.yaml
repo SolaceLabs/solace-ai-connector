@@ -3,7 +3,10 @@
 # sends a message to an Anthropic Bedrock model, and
 # sends the response back to the Solace broker
 # It will ask the model to write a dry joke about the input
-# message. It takes the entire payload of the input message
+# message. 
+# Send a message to the Solace broker topics `my/topic1` or `my/topic2`
+# with a plain text payload. The model will respond with a dry joke to the
+# same topic prefixed with `response/`. (e.g. `response/my/topic1`)
 # 
 # Dependencies:
 # pip install langchain_aws langchain_community
@@ -28,12 +31,12 @@ log:
 
 shared_config:
   - broker_config: &broker_connection
-      broker_connection_share: ${SOLACE_BROKER_URL}
       broker_type: solace
       broker_url: ${SOLACE_BROKER_URL}
       broker_username: ${SOLACE_BROKER_USERNAME}
       broker_password: ${SOLACE_BROKER_PASSWORD}
       broker_vpn: ${SOLACE_BROKER_VPN}
+      payload_encoding: utf-8
 
 # List of flows
 flows:
@@ -51,7 +54,6 @@ flows:
               qos: 1
             - topic: my/topic2
               qos: 1
-          payload_encoding: utf-8
           payload_format: text
 
       - component_name: llm
@@ -81,13 +83,7 @@ flows:
       - component_name: solace_sw_broker
         component_module: broker_output
         component_config: 
-          broker_connection_share: ${SOLACE_BROKER_URL}
-          broker_type: solace
-          broker_url: ${SOLACE_BROKER_URL}
-          broker_username: ${SOLACE_BROKER_USERNAME}
-          broker_password: ${SOLACE_BROKER_PASSWORD}
-          broker_vpn: ${SOLACE_BROKER_VPN}
-          payload_encoding: utf-8
+          <<: *broker_connection
           payload_format: text
         input_transforms:
           - type: copy

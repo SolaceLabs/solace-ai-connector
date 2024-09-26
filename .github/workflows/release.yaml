@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   release:
-    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_pypi.yml@v1.0.1
+    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_pypi.yml@latest
     with:
       ENVIRONMENT: pypi
       version: ${{ github.event.inputs.version }}

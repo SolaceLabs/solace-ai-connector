@@ -1,18 +1,25 @@
 """Test various things related to the configuration file"""
 
 import sys
-import yaml
 import pytest
+import yaml
 
 sys.path.append("src")
 
-from utils_for_test_files import (  # pylint: disable=wrong-import-position
+from solace_ai_connector.test_utils.utils_for_test_files import (  # pylint: disable=wrong-import-position
     create_connector,
+    create_test_flows,
+    dispose_connector,
+    send_message_to_flow,
+    get_message_from_flow,
 )
 
 from solace_ai_connector.solace_ai_connector import (  # pylint: disable=wrong-import-position
     SolaceAiConnector,
 )
+
+from solace_ai_connector.common.message import Message
+import solace_ai_connector.components.general.pass_through
 
 # from solace_ai_connector.common.log import log
 
@@ -141,6 +148,46 @@ flows:
         )
     except ValueError as e:
         assert str(e) == "component_module not provided in flow 0, component 0"
+
+
+def test_static_import_and_object_config():
+    """Test that we can statically import a module and pass an object for the config"""
+
+    config = {
+        "log": {"log_file_level": "DEBUG", "log_file": "solace_ai_connector.log"},
+        "flows": [
+            {
+                "name": "test_flow",
+                "components": [
+                    {
+                        "component_name": "delay1",
+                        "component_module": solace_ai_connector.components.general.pass_through,
+                        "component_config": {"delay": 0.1},
+                        "input_selection": {"source_expression": "input.payload"},
+                    }
+                ],
+            }
+        ],
+    }
+    connector = None
+    try:
+        connector, flows = create_test_flows(config)
+
+        # Test pushing a simple message through the delay component
+        message = Message(payload={"text": "Hello, World!"})
+        send_message_to_flow(flows[0], message)
+
+        # Get the output message
+        output_message = get_message_from_flow(flows[0])
+
+        # Check that the output is correct
+        assert output_message.get_data("previous") == {"text": "Hello, World!"}
+
+    except Exception as e:
+        pytest.fail(f"Test failed with exception: {e}")
+    finally:
+        if "connector" in locals():
+            dispose_connector(connector)
 
 
 def test_bad_module():

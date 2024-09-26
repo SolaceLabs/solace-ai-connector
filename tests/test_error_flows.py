@@ -2,11 +2,11 @@
 
 import sys
 
-# import queue
-
 sys.path.append("src")
 
-from utils_for_test_files import (  # pylint: disable=wrong-import-position
+# import queue
+
+from solace_ai_connector.test_utils.utils_for_test_files import (  # pylint: disable=wrong-import-position
     create_test_flows,
     # create_and_run_component,
     dispose_connector,

@@ -37,9 +37,12 @@ class BrokerBase(ComponentBase):
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.broker_properties = self.get_broker_properties()
-        self.messaging_service = (
-            MessagingServiceBuilder().from_properties(self.broker_properties).build()
-        )
+        if self.broker_properties["broker_type"] not in ["test", "test_streaming"]:
+            self.messaging_service = (
+                MessagingServiceBuilder()
+                .from_properties(self.broker_properties)
+                .build()
+            )
         self.current_broker_message = None
         self.messages_to_ack = []
         self.connected = False

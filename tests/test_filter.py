@@ -1,8 +1,12 @@
 """Some tests to verify the filter component works as expected"""
 
+import sys
+
+sys.path.append("src")
+
 # import pytest
 
-from utils_for_test_files import (
+from solace_ai_connector.test_utils.utils_for_test_files import (
     create_test_flows,
     # create_connector,
     dispose_connector,

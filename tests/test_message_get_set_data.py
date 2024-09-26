@@ -1,11 +1,11 @@
 """This test fixture will test the get_data and set_data methods of the Message class"""
 
+import sys
+sys.path.append("src")
 import json
 import base64
-import sys
 import pytest
 
-sys.path.append("src")
 from solace_ai_connector.common.message import Message
 
 # Create a few different messages to test with

@@ -62,6 +62,8 @@ class SolaceAiConnector:
                 flow_input_queue = flow_instance.get_flow_input_queue()
                 self.flow_input_queues[flow.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
+        for flow in self.flows:
+            flow.run()
 
     def create_flow(self, flow: dict, index: int, flow_instance_index: int):
         """Create a single flow"""
@@ -97,15 +99,6 @@ class SolaceAiConnector:
                 log.info("Received keyboard interrupt - stopping")
                 self.stop()
                 self.cleanup()
-
-    def stop(self):
-        """Stop the Solace AI Event Connector"""
-        log.info("Stopping Solace AI Event Connector")
-        self.stop_signal.set()
-        self.timer_manager.stop()  # Stop the timer manager first
-        self.wait_for_flows()
-        if self.trace_thread:
-            self.trace_thread.join()
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
@@ -201,6 +194,13 @@ class SolaceAiConnector:
     def get_flows(self):
         """Return the flows"""
         return self.flows
+
+    def get_flow(self, flow_name):
+        """Return a specific flow by name"""
+        for flow in self.flows:
+            if flow.name == flow_name:
+                return flow
+        return None
 
     def setup_cache_service(self):
         """Setup the cache service"""

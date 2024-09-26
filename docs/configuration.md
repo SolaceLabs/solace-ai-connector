@@ -238,7 +238,7 @@ Each component configuration is a dictionary with the following keys:
 - `input_selection`: <dictionary> - A `source_expression` or `source_value` to use as the input to the component. Check [Expression Syntax](#expression-syntax) for more details. [Optional: If not specified, the complete previous component output will be used]
 - `queue_depth`: <int> - The depth of the input queue for the component.
 - `num_instances`: <int> - The number of instances of the component to run (Starts multiple threads to process messages)
-
+- `broker_request_response`: <dictionary> - Configuration for the broker request-response functionality. [Optional]
 
 ### component_module
 
@@ -358,6 +358,37 @@ The `queue_depth` is an integer that specifies the depth of the input queue for 
 ### num_instances
 
 The `num_instances` is an integer that specifies the number of instances of the component to run. This is the number of threads that will be started to process messages from the input queue. By default, the number of instances is 1.
+
+### Broker Request-Response Configuration
+
+The `broker_request_response` configuration allows components to perform request-response operations with a broker. It has the following structure:
+
+```yaml
+broker_request_response:
+  enabled: <boolean>
+  broker_config:
+    broker_type: <string>
+    broker_url: <string>
+    broker_username: <string>
+    broker_password: <string>
+    broker_vpn: <string>
+    payload_encoding: <string>
+    payload_format: <string>
+  request_expiry_ms: <int>
+```
+
+- `enabled`: Set to `true` to enable broker request-response functionality for the component.
+- `broker_config`: Configuration for the broker connection.
+  - `broker_type`: Type of the broker (e.g., "solace").
+  - `broker_url`: URL of the broker.
+  - `broker_username`: Username for broker authentication.
+  - `broker_password`: Password for broker authentication.
+  - `broker_vpn`: VPN name for the broker connection.
+  - `payload_encoding`: Encoding for the payload (e.g., "utf-8", "base64").
+  - `payload_format`: Format of the payload (e.g., "json", "text").
+- `request_expiry_ms`: Expiry time for requests in milliseconds.
+
+For more details on using this functionality, see the [Advanced Component Features](advanced_component_features.md#broker-request-response) documentation.
 
 ### Built-in components
 
