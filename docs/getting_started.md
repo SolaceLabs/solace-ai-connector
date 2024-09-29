@@ -135,6 +135,10 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
     ```sh
     pip install -r requirements.txt
     ```
+4. Install the necessary browser binaries for the web scraper.
+    ```sh
+    playwright install
+    ```
 
 ## Configuration
 

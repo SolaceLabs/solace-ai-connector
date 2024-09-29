@@ -35,7 +35,12 @@ from .general.langchain import (
 
 from .general.websearch import (
     websearch_duckduckgo,
-    websearch_google
+    websearch_google,
+    websearch_bing
+)
+
+from .general.filter import (
+    filter_by_llm
 )
 
 # Also import the components from the submodules
@@ -69,4 +74,6 @@ from .general.langchain.langchain_vector_store_embedding_search import (
 )
 from .general.websearch.websearch_duckduckgo import WebSearchDuckDuckGo
 from .general.websearch.websearch_google import WebSearchGoogle
+from .general.websearch.websearch_bing import WebSearchBing
+from .general.filter.filter_by_llm import CleanJsonObject
 

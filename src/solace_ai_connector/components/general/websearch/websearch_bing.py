@@ -1,38 +1,37 @@
-# This is a Google search engine.
-# The configuration will configure the Google engine.
+# This is a Bing search engine.
+# The configuration will configure the Bing engine.
 import requests
-import json
 
 from .websearch_base import (
     WebSearchBase,
 )
 
 info = {
-    "class_name": "WebSearchGoogle",
-    "description": "Perform a search query on Google.",
+    "class_name": "WebSearchBing",
+    "description": "Perform a search query on Bing.",
     "config_parameters": [
         {
             "name": "engine",
             "required": True,
             "description": "The type of search engine.",
-            "default": "google"
+            "default": "bing"
         },
         {
             "name": "api_key",
             "required": True,
-            "description": "Google API Key.",
+            "description": "Bing API Key.",
         },
         {
-            "name": "search_engine_id",
+            "name": "count",
             "required": False,
-            "description": "The custom search engine id.",
-            "default": 1
+            "description": "Number of search results to return.",
+            "default": 10
         },
         {
-            "name": "detail",
+            "name": "safesearch",
             "required": False,
-            "description": "Return the detail.",
-            "default": False
+            "description": "Safe search setting: Off, Moderate, or Strict.",
+            "default": "Moderate"
         }
     ],
     "input_schema": {
@@ -45,26 +44,30 @@ info = {
     },
 }
 
-class WebSearchGoogle(WebSearchBase):
+class WebSearchBing(WebSearchBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.init()
         
     def init(self):
         self.api_key = self.get_config("api_key")
-        self.search_engine_id = self.get_config("search_engine_id")
-        self.url = "https://www.googleapis.com/customsearch/v1"
+        self.count = self.get_config("count")
+        self.safesearch = self.get_config("safesearch")
+        self.url = "https://api.bing.microsoft.com/v7.0/search"
 
     def invoke(self, message, data):
         query = data["text"]
-        if self.engine.lower() == "google":
+        if self.engine.lower() == "bing":
             params = {
                 "q": query,                       # User query
-                "key": self.api_key,              # Google API Key
-                "cx": self.search_engine_id,      # Google custom search engine id
+                "count": self.count,              # Number of results to return
+                "safesearch": self.safesearch     # Safe search filter
+            }
+            headers = {
+                "Ocp-Apim-Subscription-Key": self.api_key  # Bing API Key
             }
 
-            response = requests.get(self.url, params=params)
+            response = requests.get(self.url, headers=headers, params=params)
             if response.status_code == 200:
                 response = response.json()
                 response = self.parse(response)
@@ -72,7 +75,7 @@ class WebSearchGoogle(WebSearchBase):
             else:
                 return f"Error: {response.status_code}"
         else:
-            return f"Error: The engine is not DuckDuckGo."
+            return f"Error: The engine is not Bing."
         
     # Extract required data from a message
     def parse(self, message):
@@ -82,10 +85,10 @@ class WebSearchGoogle(WebSearchBase):
             data = []
                 
             # Process the search results to create a summary
-            for item in message.get('items', []):
+            for web_page in message.get("webPages", {}).get("value", []):
                 data.append({
-                    "Title": item['title'],
-                    "Snippet": item['snippet'],
-                    "URL": item['link']
+                    "Title": web_page['name'],
+                    "Snippet": web_page['snippet'],
+                    "URL": web_page['url']
                 })
             return data

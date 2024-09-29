@@ -14,16 +14,6 @@ flows:
       - component_name: web_scraping_component
         component_module: web_scraper
         component_config:
-          max_depth: 1
-          use_async: false
-          extractor: null
-          metadata_extractor: null
-          exclude_dirs: []
-          timeout: 10
-          check_response_status: true
-          continue_on_failure: true
-          prevent_outside: true
-          base_url: null
         input_selection:
           source_expression: previous
 
