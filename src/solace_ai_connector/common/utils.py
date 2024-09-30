@@ -205,7 +205,10 @@ def call_function(function, params, allow_source_expression):
     if positional:
         for index, value in enumerate(positional):
             # source_expression check for backwards compatibility
-            if isinstance(value, str) and (value.startswith("evaluate_expression(") or value.startswith("source_expression(")): 
+            if isinstance(value, str) and (
+                value.startswith("evaluate_expression(")
+                or value.startswith("source_expression(")
+            ):
                 # if not allow_source_expression:
                 #     raise ValueError(
                 #         "evaluate_expression() is not allowed in this context"
@@ -220,7 +223,10 @@ def call_function(function, params, allow_source_expression):
     if keyword:
         for key, value in keyword.items():
             # source_expression check for backwards compatibility
-            if isinstance(value, str) and (value.startswith("evaluate_expression(") or value.startswith("source_expression(")): 
+            if isinstance(value, str) and (
+                value.startswith("evaluate_expression(")
+                or value.startswith("source_expression(")
+            ):
                 if not allow_source_expression:
                     raise ValueError(
                         "evaluate_expression() is not allowed in this context"
@@ -257,7 +263,7 @@ def install_package(package_name):
 def extract_evaluate_expression(se_call):
     # First remove the evaluate_expression( and the trailing )
     # Account for possible whitespace
-    if (se_call.startswith("evaluate_expression(")):
+    if se_call.startswith("evaluate_expression("):
         expression = se_call.split("evaluate_expression(")[1].split(")")[0].strip()
     else:
         # For backwards compatibility
@@ -313,3 +319,19 @@ def get_obj_text(block_format, text):
     if f"```{block_format}" in text:
         return text.split(f"```{block_format}")[1].split("```")[0]
     return text
+
+
+def ensure_slash_on_end(string):
+    if not string:
+        return ""
+    if not string.endswith("/"):
+        return string + "/"
+    return string
+
+
+def ensure_slash_on_start(string):
+    if not string:
+        return ""
+    if not string.startswith("/"):
+        return "/" + string
+    return string

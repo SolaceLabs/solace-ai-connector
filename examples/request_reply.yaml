@@ -77,7 +77,7 @@ flows:
             source_expression: input.user_properties
             dest_expression: user_data.output:user_properties
           - type: copy
-            source_expression: input.user_properties:__solace_ai_connector_broker_request_reply_topic__
+            source_expression: input.user_properties:__solace_ai_connector_broker_request_response_topic__
             dest_expression: user_data.output:topic
         input_selection:
           source_expression: user_data.output
