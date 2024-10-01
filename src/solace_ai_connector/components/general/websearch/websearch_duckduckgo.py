@@ -88,4 +88,8 @@ class WebSearchDuckDuckGo(WebSearchBase):
         if self.detail:
             return message
         else:
-            return message['Abstract']
+            return {
+                    "Title": message['AbstractSource'],
+                    "Snippet": message['Abstract'],
+                    "URL": message['AbstractURL']
+                }

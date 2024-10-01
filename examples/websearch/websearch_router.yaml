@@ -1,15 +1,15 @@
-# This will create a flow like this:
-#    Solace -> OpenAI -> Solace
+# This is a router that search either a LLM or web search engine
+#    Flow 1: Interprets a query and route the next flow (#2 or #3). It gets requests from Solace broker on search/query topic and forward the request to either search/query/llm or search/query/web_search topic.
+#    Flow 2: Listens to the search/query/web_search topic and uses the Google API to answer the query. It cleans the result by a LLM agent, and finally returns the response to search/query/web_search/response topic.
+#    Flow 3: Listens to the search/query/llm topic and uses the LLM agent to answer the query. It cleans the result by a LLM agent, and finally returns the response to search/query/llm/response topic.
 #
-# It will subscribe to `demo/joke/subject` and expect an event with the payload:
+# It will subscribe to `search/query` and expect an event with the payload:
 #
 # {
-#   "joke": {
-#     "subject": "<subject for the joke>"
-#   }
+#   "text": "<query>"
 # }
 #
-# It will then send an event back to Solace with the topic: `demo/joke/subject/response`
+# It will then send an event back to Solace with the topics: `search/query/web_search/response` or `search/query/llm/response`
 #
 # Dependencies:
 # pip install -U langchain_openai openai
@@ -23,7 +23,6 @@
 # - SOLACE_BROKER_PASSWORD
 # - SOLACE_BROKER_VPN
 
----
 log:
   stdout_log_level: INFO
   log_file_level: DEBUG
@@ -47,7 +46,7 @@ flows:
         component_module: broker_input
         component_config:
           <<: *broker_connection
-          broker_queue_name: web_search_broker
+          broker_queue_name: web_search_broker1
           broker_subscriptions:
             - topic: search/query
               qos: 1
@@ -67,7 +66,7 @@ flows:
             temperature: 0.01
           history_module: langchain_core.chat_history
           history_class: InMemoryChatMessageHistory
-          history_max_turns: 20
+          history_max_turns: 0
           history_max_length: 1
         input_transforms:
           - type: copy
@@ -80,7 +79,7 @@ flows:
               }
               {
               name: web_search
-              description: Use for looking up real-time or current information, recent events, latest news, up-to-date statistics, current prices, weather forecasts, ongoing developments, or any query that requires the most recent data. This agent is also suitable for fact-checking or verifying claims about recent occurrences.
+              description: Use for searching real-time, current or up-to-date information, recent events, latest news, up-to-date statistics, current prices, weather forecasts, ongoing developments, or any query that requires the most recent data. This agent is also suitable for fact-checking or verifying claims about recent occurrences.
               }
               </agents>
 
@@ -89,7 +88,7 @@ flows:
               2. For questions about historical events, established scientific facts, or timeless concepts, choose LLM.
               3. If the query is about a potentially evolving situation but doesn't specifically request current information, lean towards web_search to ensure accuracy.
               4. For tasks involving analysis, creative writing, or explanation of concepts, choose LLM.
-              5. If unsure, err on the side of web_search to provide the most up-to-date information.
+              5. If unsure, select web_search to provide the most up-to-date information.
 
               Examples:
               1. Query: "What is the current stock price of Apple?"
@@ -158,10 +157,10 @@ flows:
                         function: equal
                         params:
                           positional:
-                            - evaluate_expression(user_data.output:payload, text)
-                            - "web_search"
+                            - evaluate_expression(previous, text)
+                            - "LLM"
                     - search/query/llm
-                    - search/query/llm
+                    - search/query/web_search
             dest_expression: user_data.output:topic
         input_selection:
           source_expression: user_data.output
@@ -205,7 +204,7 @@ flows:
             temperature: 0.01
           history_module: langchain_core.chat_history
           history_class: InMemoryChatMessageHistory
-          history_max_turns: 20
+          history_max_turns: 0
           history_max_length: 1
         input_transforms:
           - type: copy
@@ -233,16 +232,6 @@ flows:
         input_selection:
           source_expression: user_data.input
 
-      # # Filter json
-      # - component_name: filter_json_component
-      #   component_module: filter_by_llm
-      #   input_transforms:
-      #     - type: copy
-      #       source_expression: previous
-      #       dest_expression: user_data.input:payload
-      #   input_selection:
-      #     source_expression: input.payload
-
       # Send response back to broker with completion and retrieved data
       - component_name: send_response
         component_module: broker_output
@@ -264,7 +253,7 @@ flows:
         input_selection:
           source_expression: user_data.output
 
-# Flow 3: LLM
+  # Flow 3: LLM
   - name: LLM
     components:
       # Agent broker input configuration
@@ -292,17 +281,14 @@ flows:
             temperature: 0.01
           history_module: langchain_core.chat_history
           history_class: InMemoryChatMessageHistory
-          history_max_turns: 20
+          history_max_turns: 0
           history_max_length: 1
         input_transforms:
-          - type: copy
-            source_expression: previous
-            dest_expression: user_data.input:payload
           - type: copy
             source_expression: |
               template:You are a helpful AI assistant. Please help with the user's request below:
               <user-question>
-              {{text://user_data.input:payload}}
+              {{text://input.payload:text}}
               </user-question>
             dest_expression: user_data.input:messages.0.content
           - type: copy
@@ -324,7 +310,7 @@ flows:
             temperature: 0.01
           history_module: langchain_core.chat_history
           history_class: InMemoryChatMessageHistory
-          history_max_turns: 20
+          history_max_turns: 0
           history_max_length: 1
         input_transforms:
           - type: copy
@@ -351,16 +337,6 @@ flows:
             dest_expression: user_data.input:messages.0.role
         input_selection:
           source_expression: user_data.input
-
-      # # Filter json
-      # - component_name: filter_json_component
-      #   component_module: filter_by_llm
-      #   input_transforms:
-      #     - type: copy
-      #       source_expression: previous
-      #       dest_expression: user_data.input:payload
-      #   input_selection:
-      #     source_expression: input.payload
 
       # Send response back to broker with completion and retrieved data
       - component_name: send_response
