@@ -1,10 +1,12 @@
 """Base class for OpenAI chat models"""
 
 import uuid
+import time
 
 from openai import OpenAI
 from ...component_base import ComponentBase
 from ....common.message import Message
+from ....common.log import log
 
 openai_info_base = {
     "class_name": "OpenAIChatModelBase",
@@ -142,10 +144,23 @@ class OpenAIChatModelBase(ComponentBase):
         if self.llm_mode == "stream":
             return self.invoke_stream(client, message, messages)
         else:
-            response = client.chat.completions.create(
-                messages=messages, model=self.model, temperature=self.temperature, response_format={"type": self.response_format}
-            )
-            return {"content": response.choices[0].message.content}
+            max_retries = 3
+            while max_retries > 0:
+                try:
+                    response = client.chat.completions.create(
+                        messages=messages,
+                        model=self.model,
+                        temperature=self.temperature,
+                        response_format={"type": self.response_format}
+                    )
+                    return {"content": response.choices[0].message.content}
+                except Exception as e:
+                    log.error("Error invoking OpenAI: %s", e)
+                    max_retries -= 1
+                    if max_retries <= 0:
+                        raise e
+                    else:
+                        time.sleep(1)
 
     def invoke_stream(self, client, message, messages):
         response_uuid = str(uuid.uuid4())
@@ -156,37 +171,50 @@ class OpenAIChatModelBase(ComponentBase):
         current_batch = ""
         first_chunk = True
 
-        for chunk in client.chat.completions.create(
-            messages=messages,
-            model=self.model,
-            temperature=self.temperature,
-            stream=True,
-        ):
-            if chunk.choices[0].delta.content is not None:
-                content = chunk.choices[0].delta.content
-                aggregate_result += content
-                current_batch += content
-                if len(current_batch.split()) >= self.stream_batch_size:
-                    if self.stream_to_flow:
-                        self.send_streaming_message(
-                            message,
-                            current_batch,
-                            aggregate_result,
-                            response_uuid,
-                            first_chunk,
-                            False,
-                        )
-                    elif self.stream_to_next_component:
-                        self.send_to_next_component(
-                            message,
-                            current_batch,
-                            aggregate_result,
-                            response_uuid,
-                            first_chunk,
-                            False,
-                        )
-                    current_batch = ""
-                    first_chunk = False
+        max_retries = 3
+        while max_retries > 0:
+            try:
+                for chunk in client.chat.completions.create(
+                    messages=messages,
+                    model=self.model,
+                    temperature=self.temperature,
+                    stream=True,
+                ):
+                    # If we get any response, then don't retry
+                    max_retries = 0
+                    if chunk.choices[0].delta.content is not None:
+                        content = chunk.choices[0].delta.content
+                        aggregate_result += content
+                        current_batch += content
+                        if len(current_batch.split()) >= self.stream_batch_size:
+                            if self.stream_to_flow:
+                                self.send_streaming_message(
+                                    message,
+                                    current_batch,
+                                    aggregate_result,
+                                    response_uuid,
+                                    first_chunk,
+                                    False,
+                                )
+                            elif self.stream_to_next_component:
+                                self.send_to_next_component(
+                                    message,
+                                    current_batch,
+                                    aggregate_result,
+                                    response_uuid,
+                                    first_chunk,
+                                    False,
+                                )
+                            current_batch = ""
+                            first_chunk = False
+            except Exception as e:
+                log.error("Error invoking OpenAI: %s", e)
+                max_retries -= 1
+                if max_retries <= 0:
+                    raise e
+                else:
+                    # Small delay before retrying
+                    time.sleep(1)
 
         if self.stream_to_next_component:
             # Just return the last chunk

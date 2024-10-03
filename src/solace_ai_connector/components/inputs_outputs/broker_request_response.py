@@ -11,6 +11,7 @@ from copy import deepcopy
 from ...common.log import log
 from .broker_base import BrokerBase
 from ...common.message import Message
+from ...common.utils import ensure_slash_on_end, ensure_slash_on_start
 
 # from ...common.event import Event, EventType
 
@@ -60,10 +61,29 @@ info = {
             "default": "json",
         },
         {
+            "name": "response_topic_prefix",
+            "required": False,
+            "description": "Prefix for reply topics",
+            "default": "reply",
+        },
+        {
+            "name": "response_topic_suffix",
+            "required": False,
+            "description": "Suffix for reply topics",
+            "default": "",
+        },
+        {
+            "name": "reply_queue_prefix",
+            "required": False,
+            "description": "Prefix for reply queues",
+            "default": "reply-queue",
+        },
+        {
             "name": "request_expiry_ms",
             "required": False,
             "description": "Expiry time for cached requests in milliseconds",
             "default": 60000,
+            "type": "integer",
         },
         {
             "name": "streaming",
@@ -93,6 +113,10 @@ info = {
             "user_properties": {
                 "type": "object",
                 "description": "User properties to send with the request message",
+            },
+            "response_topic_suffix": {
+                "type": "string",
+                "description": "Suffix for the reply topic",
             },
             "stream": {
                 "type": "boolean",
@@ -137,8 +161,18 @@ class BrokerRequestResponse(BrokerBase):
         super().__init__(info, **kwargs)
         self.need_acknowledgement = False
         self.request_expiry_ms = self.get_config("request_expiry_ms")
-        self.reply_queue_name = f"reply-queue-{uuid.uuid4()}"
-        self.reply_topic = f"reply/{uuid.uuid4()}"
+        self.response_topic_prefix = ensure_slash_on_end(
+            self.get_config("response_topic_prefix")
+        )
+        self.response_topic_suffix = ensure_slash_on_start(
+            self.get_config("response_topic_suffix")
+        )
+        self.reply_queue_prefix = ensure_slash_on_end(
+            self.get_config("reply_queue_prefix")
+        )
+        self.requestor_id = str(uuid.uuid4())
+        self.reply_queue_name = f"{self.reply_queue_prefix}{self.requestor_id}"
+        self.response_topic = f"{self.response_topic_prefix}{self.requestor_id}{self.response_topic_suffix}"
         self.response_thread = None
         self.streaming = self.get_config("streaming")
         self.streaming_complete_expression = self.get_config(
@@ -149,9 +183,13 @@ class BrokerRequestResponse(BrokerBase):
         self.broker_properties["queue_name"] = self.reply_queue_name
         self.broker_properties["subscriptions"] = [
             {
-                "topic": self.reply_topic,
+                "topic": self.response_topic,
                 "qos": 1,
-            }
+            },
+            {
+                "topic": self.response_topic + "/>",
+                "qos": 1,
+            },
         ]
         self.test_mode = False
 
@@ -168,7 +206,7 @@ class BrokerRequestResponse(BrokerBase):
 
     def setup_reply_queue(self):
         self.messaging_service.bind_to_queue(
-            self.reply_queue_name, [self.reply_topic], temporary=True
+            self.reply_queue_name, [self.response_topic], temporary=True
         )
 
     def setup_test_pass_through(self):
@@ -269,15 +307,15 @@ class BrokerRequestResponse(BrokerBase):
             ] = json.dumps(metadata_stack)
             # Put the last reply topic back in the user properties
             response["user_properties"][
-                "__solace_ai_connector_broker_request_reply_topic__"
-            ] = metadata_stack[-1]["reply_topic"]
+                "__solace_ai_connector_broker_request_response_topic__"
+            ] = metadata_stack[-1]["response_topic"]
         else:
             # Remove the metadata and reply topic from the user properties
             response["user_properties"].pop(
                 "__solace_ai_connector_broker_request_reply_metadata__", None
             )
             response["user_properties"].pop(
-                "__solace_ai_connector_broker_request_reply_topic__", None
+                "__solace_ai_connector_broker_request_response_topic__", None
             )
 
         message = Message(
@@ -310,7 +348,11 @@ class BrokerRequestResponse(BrokerBase):
         if "streaming_complete_expression" in data:
             streaming_complete_expression = data["streaming_complete_expression"]
 
-        metadata = {"request_id": request_id, "reply_topic": self.reply_topic}
+        topic = self.response_topic
+        if "response_topic_suffix" in data:
+            topic = f"{topic}/{data['response_topic_suffix']}"
+
+        metadata = {"request_id": request_id, "response_topic": topic}
 
         if (
             "__solace_ai_connector_broker_request_reply_metadata__"
@@ -343,8 +385,8 @@ class BrokerRequestResponse(BrokerBase):
             "__solace_ai_connector_broker_request_reply_metadata__"
         ] = json.dumps(metadata)
         data["user_properties"][
-            "__solace_ai_connector_broker_request_reply_topic__"
-        ] = self.reply_topic
+            "__solace_ai_connector_broker_request_response_topic__"
+        ] = self.response_topic
 
         if self.test_mode:
             if self.broker_type == "test_streaming":

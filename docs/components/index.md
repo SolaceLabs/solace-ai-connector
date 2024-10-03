@@ -21,7 +21,7 @@
 | [openai_chat_model](openai_chat_model.md) | OpenAI chat model component |
 | [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
 | [pass_through](pass_through.md) | What goes in comes out |
-| [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. |
+| [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. The component will wait for its output message to be acknowledged before prompting for the next input. |
 | [stdout_output](stdout_output.md) | STDOUT output component |
 | [timer_input](timer_input.md) | An input that will generate a message at a specified interval. |
 | [user_processor](user_processor.md) | A component that allows the processing stage to be defined in the configuration file. |

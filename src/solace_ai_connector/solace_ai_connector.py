@@ -35,7 +35,7 @@ class SolaceAiConnector:
 
     def run(self):
         """Run the Solace AI Event Connector"""
-        log.debug("Starting Solace AI Event Connector")
+        log.info("Starting Solace AI Event Connector")
         try:
             self.create_flows()
 
@@ -44,6 +44,7 @@ class SolaceAiConnector:
             if on_flow_creation:
                 on_flow_creation(self.flows)
 
+            log.info("Solace AI Event Connector started successfully")
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
             self.stop()
@@ -53,7 +54,7 @@ class SolaceAiConnector:
     def create_flows(self):
         """Loop through the flows and create them"""
         for index, flow in enumerate(self.config.get("flows", [])):
-            log.debug("Creating flow %s", flow.get("name"))
+            log.info("Creating flow %s", flow.get("name"))
             num_instances = flow.get("num_instances", 1)
             if num_instances < 1:
                 num_instances = 1
