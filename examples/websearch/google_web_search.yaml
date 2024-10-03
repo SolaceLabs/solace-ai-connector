@@ -1,3 +1,9 @@
+# This is a Google search engine workflow
+# The input payload is:
+# <text>
+#
+# Do not forget to set the api_key and search_engine_id in the below configuration.
+
 log:
   stdout_log_level: INFO
   log_file_level: INFO

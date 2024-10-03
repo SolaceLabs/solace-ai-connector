@@ -1,3 +1,13 @@
+# This example gets a url and scrapes the website.
+#
+# The input payload is:
+# <url>
+#
+# Ensure that the browser binaries are installed. If not, install them by:
+# ```sh
+#     playwright install
+# ```
+
 log:
   stdout_log_level: INFO
   log_file_level: INFO

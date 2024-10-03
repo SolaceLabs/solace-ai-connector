@@ -1,3 +1,7 @@
+# This is a Duck Duck Go search engine workflow
+# The input payload is:
+# <text>
+
 log:
   stdout_log_level: INFO
   log_file_level: INFO
