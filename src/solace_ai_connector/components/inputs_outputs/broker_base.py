@@ -76,6 +76,9 @@ class BrokerBase(ComponentBase):
             isinstance(payload, bytes) or isinstance(payload, bytearray)
         ):
             payload = payload.decode("utf-8")
+        elif encoding == "unicode_escape":
+            payload = payload.decode('unicode_escape')
+
         if payload_format == "json":
             payload = json.loads(payload)
         elif payload_format == "yaml":
