@@ -11,12 +11,6 @@ info = {
     "description": "Perform a search query on Bing.",
     "config_parameters": [
         {
-            "name": "engine",
-            "required": True,
-            "description": "The type of search engine.",
-            "default": "bing"
-        },
-        {
             "name": "api_key",
             "required": True,
             "description": "Bing API Key.",
@@ -57,25 +51,22 @@ class WebSearchBing(WebSearchBase):
 
     def invoke(self, message, data):
         query = data["text"]
-        if self.engine.lower() == "bing":
-            params = {
-                "q": query,                       # User query
-                "count": self.count,              # Number of results to return
-                "safesearch": self.safesearch     # Safe search filter
-            }
-            headers = {
-                "Ocp-Apim-Subscription-Key": self.api_key  # Bing API Key
-            }
+        params = {
+            "q": query,                       # User query
+            "count": self.count,              # Number of results to return
+            "safesearch": self.safesearch     # Safe search filter
+        }
+        headers = {
+            "Ocp-Apim-Subscription-Key": self.api_key  # Bing API Key
+        }
 
-            response = requests.get(self.url, headers=headers, params=params)
-            if response.status_code == 200:
-                response = response.json()
-                response = self.parse(response)
-                return response
-            else:
-                return f"Error: {response.status_code}"
+        response = requests.get(self.url, headers=headers, params=params)
+        if response.status_code == 200:
+            response = response.json()
+            response = self.parse(response)
+            return response
         else:
-            return f"Error: The engine is not Bing."
+            return f"Error: {response.status_code}"
         
     # Extract required data from a message
     def parse(self, message):

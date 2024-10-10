@@ -1,6 +1,8 @@
 """Scrape a website"""
-from playwright.sync_api import sync_playwright
+import subprocess
+import sys
 from ...component_base import ComponentBase
+from ....common.log import log
 
 info = {
     "class_name": "WebScraper",
@@ -28,9 +30,27 @@ class WebScraper(ComponentBase):
 
     # Scrape a website
     def scrape(self, url):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+                log.error(
+                    "Please install playwright by running 'pip install playwright' and 'playwright install'."
+                )
+                raise ValueError(
+                    "Please install playwright by running 'pip install playwright' and 'playwright install'."
+                )
+    
         with sync_playwright() as p:
-            # Launch a browser instance (Chromium, Firefox, or WebKit)
-            browser = p.chromium.launch(headless=True)  # Set headless=False to see the browser in action
+            try:
+                # Launch a Chromium browser instance
+                browser = p.chromium.launch(headless=True)  # Set headless=False to see the browser in action
+            except ImportError:
+                log.error(
+                    f"Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
+                )
+                raise ValueError(
+                    f"Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
+                )
             page = browser.new_page()
             page.goto(url)
 

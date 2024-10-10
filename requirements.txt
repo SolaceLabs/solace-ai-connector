@@ -4,4 +4,3 @@ langchain~=0.3.0
 PyYAML~=6.0.1
 Requests~=2.32.3
 solace_pubsubplus~=1.8.0
-playwright~=1.47.0

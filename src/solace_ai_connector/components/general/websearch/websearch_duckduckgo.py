@@ -11,12 +11,6 @@ info = {
     "description": "Perform a search query on DuckDuckGo.",
     "config_parameters": [
         {
-            "name": "engine",
-            "required": True,
-            "description": "The type of search engine.",
-            "default": "duckduckgo"
-        },
-        {
             "name": "pretty",
             "required": False,
             "description": "Beautify the search output.",
@@ -64,24 +58,21 @@ class WebSearchDuckDuckGo(WebSearchBase):
 
     def invoke(self, message, data):
         query = data["text"]
-        if self.engine.lower() == "duckduckgo":
-            params = {
-                "q": query,                         # User query
-                "format": "json",                   # Response format (json by default)
-                "pretty": self.pretty,              # Beautify the output
-                "no_html": self.no_html,            # Remove HTML from the response
-                "skip_disambig": self.skip_disambig # Skip disambiguation
-            }
+        params = {
+            "q": query,                         # User query
+            "format": "json",                   # Response format (json by default)
+            "pretty": self.pretty,              # Beautify the output
+            "no_html": self.no_html,            # Remove HTML from the response
+            "skip_disambig": self.skip_disambig # Skip disambiguation
+        }
 
-            response = requests.get(self.url, params=params)
-            if response.status_code == 200:
-                response = response.json()
-                response = self.parse(response)
-                return response
-            else:
-                return f"Error: {response.status_code}"
+        response = requests.get(self.url, params=params)
+        if response.status_code == 200:
+            response = response.json()
+            response = self.parse(response)
+            return response
         else:
-            return f"Error: The engine is not DuckDuckGo."
+            return f"Error: {response.status_code}"
         
     # Extract required data from a message
     def parse(self, message):

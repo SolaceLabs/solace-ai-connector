@@ -31,7 +31,6 @@ info_base = {
 class WebSearchBase(ComponentBase):
     def __init__(self, info_base, **kwargs):
         super().__init__(info_base, **kwargs)
-        self.engine = self.get_config("engine")
         self.detail = self.get_config("detail")
 
     def invoke(self, message, data):

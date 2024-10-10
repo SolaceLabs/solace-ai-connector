@@ -12,12 +12,6 @@ info = {
     "description": "Perform a search query on Google.",
     "config_parameters": [
         {
-            "name": "engine",
-            "required": True,
-            "description": "The type of search engine.",
-            "default": "google"
-        },
-        {
             "name": "api_key",
             "required": True,
             "description": "Google API Key.",
@@ -57,23 +51,20 @@ class WebSearchGoogle(WebSearchBase):
 
     def invoke(self, message, data):
         query = data["text"]
-        if self.engine.lower() == "google":
-            params = {
-                "q": query,                       # User query
-                "key": self.api_key,              # Google API Key
-                "cx": self.search_engine_id,      # Google custom search engine id
-            }
+        params = {
+            "q": query,                       # User query
+            "key": self.api_key,              # Google API Key
+            "cx": self.search_engine_id,      # Google custom search engine id
+        }
 
-            response = requests.get(self.url, params=params)
-            if response.status_code == 200:
-                response = response.json()
-                response = self.parse(response)
-                return response
-            else:
-                return f"Error: {response.status_code}"
+        response = requests.get(self.url, params=params)
+        if response.status_code == 200:
+            response = response.json()
+            response = self.parse(response)
+            return response
         else:
-            return f"Error: The engine is not DuckDuckGo."
-        
+            return f"Error: {response.status_code}"
+
     # Extract required data from a message
     def parse(self, message):
         if self.detail:

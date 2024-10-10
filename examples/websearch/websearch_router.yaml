@@ -22,6 +22,8 @@
 # - SOLACE_BROKER_USERNAME
 # - SOLACE_BROKER_PASSWORD
 # - SOLACE_BROKER_VPN
+# - GOOGLE_API_KEY
+# - GOOGLE_ENGINE_ID
 
 log:
   stdout_log_level: INFO
@@ -184,9 +186,8 @@ flows:
       - component_name: web_search_component
         component_module: websearch_google
         component_config:
-          engine: google
-          api_key: AIzaSyA7kKgIBK_Clw-HFb_YZYSxwQgKEX1rza8
-          search_engine_id: d244da49663d44d5e
+          api_key: ${GOOGLE_API_KEY}
+          search_engine_id: ${GOOGLE_ENGINE_ID}
           detail: false
         input_selection:
           source_expression: input.payload

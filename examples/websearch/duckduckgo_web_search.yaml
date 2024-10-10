@@ -18,7 +18,6 @@ flows:
       - component_name: web_search_component
         component_module: websearch_duckduckgo
         component_config:
-          engine: duckduckgo
           detail: false
         input_selection:
           source_expression: previous

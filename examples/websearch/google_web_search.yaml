@@ -2,7 +2,9 @@
 # The input payload is:
 # <text>
 #
-# Do not forget to set the api_key and search_engine_id in the below configuration.
+# Required ENV variables:
+# - Google_API_KEY
+# - GOOGLE_ENGINE_ID
 
 log:
   stdout_log_level: INFO
@@ -20,9 +22,8 @@ flows:
       - component_name: web_search_component
         component_module: websearch_google
         component_config:
-          engine: google
-          api_key: <enter the google api key>
-          search_engine_id: <enter the engine id>
+          api_key: ${GOOGLE_API_KEY}
+          search_engine_id: ${GOOGLE_ENGINE_ID}
           detail: false
         input_selection:
           source_expression: previous
