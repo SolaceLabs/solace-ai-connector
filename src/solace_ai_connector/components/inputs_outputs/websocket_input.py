@@ -56,7 +56,7 @@ class WebsocketInput(ComponentBase):
             socket_id = str(uuid.uuid4())
             self.sockets[socket_id] = self.socketio
             self.kv_store_set("websocket_connections", self.sockets)
-            log.info(f"New WebSocket connection established. Socket ID: {socket_id}")
+            log.info("New WebSocket connection established. Socket ID: %s", socket_id)
             return socket_id
 
         @self.socketio.on("disconnect")
@@ -65,7 +65,7 @@ class WebsocketInput(ComponentBase):
             if socket_id in self.sockets:
                 del self.sockets[socket_id]
                 self.kv_store_set("websocket_connections", self.sockets)
-                log.info(f"WebSocket connection closed. Socket ID: {socket_id}")
+                log.info("WebSocket connection closed. Socket ID: %s", socket_id)
 
         @self.socketio.on("message")
         def handle_message(data):
@@ -78,7 +78,7 @@ class WebsocketInput(ComponentBase):
                 event = Event(EventType.MESSAGE, message)
                 self.enqueue(event)
             except json.JSONDecodeError:
-                log.error(f"Received invalid JSON: {data}")
+                log.error("Received invalid JSON: %s", data)
 
     def start(self):
         if not self.thread:
@@ -102,7 +102,7 @@ class WebsocketInput(ComponentBase):
                 "user_properties": message.get_user_properties(),
             }
         except Exception as e:
-            log.error(f"Error processing WebSocket message: {str(e)}")
+            log.error("Error processing WebSocket message: %s", str(e))
             return None
 
     def get_next_message(self):
