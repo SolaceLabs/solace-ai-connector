@@ -6,6 +6,7 @@ from flask import Flask
 from flask_socketio import SocketIO
 from ...common.log import log
 from ...common.message import Message
+from ...common.event import Event, EventType
 from ..component_base import ComponentBase
 
 info = {
@@ -48,7 +49,8 @@ class WebsocketInput(ComponentBase):
             try:
                 payload = json.loads(data)
                 message = Message(payload=payload)
-                self.send_message(message)
+                event = Event(EventType.MESSAGE, message)
+                self.enqueue(event)
             except json.JSONDecodeError:
                 log.error(f"Received invalid JSON: {data}")
 
