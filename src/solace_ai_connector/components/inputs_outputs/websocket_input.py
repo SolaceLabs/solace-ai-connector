@@ -31,6 +31,8 @@ info = {
         "required": ["payload"],
     },
 }
+
+
 class WebsocketInput(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
@@ -41,7 +43,7 @@ class WebsocketInput(ComponentBase):
         self.setup_websocket()
 
     def setup_websocket(self):
-        @self.socketio.on('message')
+        @self.socketio.on("message")
         def handle_message(data):
             try:
                 payload = json.loads(data)
