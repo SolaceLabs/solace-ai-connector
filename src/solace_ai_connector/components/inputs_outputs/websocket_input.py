@@ -33,6 +33,12 @@ info = {
 }
 
 
+# <inst>
+# The classes below were copied from another project. Their purpose was to do
+# a basic HTTP request response component. This component is supposed to be
+# a websocket input component. The classes below need adjustments to work
+# as a websocket input component.
+# </inst>
 class HttpServerInputBase(ComponentBase):
     def __init__(self, receiver_class, **kwargs):
         super().__init__(info, **kwargs)
