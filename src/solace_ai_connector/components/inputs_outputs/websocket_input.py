@@ -3,8 +3,8 @@
 import json
 import threading
 import uuid
-from flask import Flask
-from flask import request
+import os
+from flask import Flask, send_file, request
 from flask_socketio import SocketIO
 from ...common.log import log
 from ...common.message import Message
@@ -21,6 +21,20 @@ info = {
             "required": False,
             "description": "Port to listen on",
             "default": 5000,
+        },
+        {
+            "name": "serve_html",
+            "type": "bool",
+            "required": False,
+            "description": "Serve the example HTML file",
+            "default": False,
+        },
+        {
+            "name": "html_path",
+            "type": "string",
+            "required": False,
+            "description": "Path to the HTML file to serve",
+            "default": "examples/websocket/websocket_example_app.html",
         },
     ],
     "output_schema": {
@@ -40,12 +54,22 @@ class WebsocketInput(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.listen_port = self.get_config("listen_port")
+        self.serve_html = self.get_config("serve_html")
+        self.html_path = self.get_config("html_path")
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         self.thread = None
         self.sockets = {}
         self.kv_store_set("websocket_connections", self.sockets)
         self.setup_websocket()
+        
+        if self.serve_html:
+            self.setup_html_route()
+
+    def setup_html_route(self):
+        @self.app.route('/')
+        def serve_html():
+            return send_file(self.html_path)
 
     def setup_websocket(self):
         @self.socketio.on("connect")
