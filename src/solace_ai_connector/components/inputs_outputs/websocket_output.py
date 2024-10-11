@@ -26,9 +26,6 @@ info = {
 }
 
 
-# <inst>
-# Don't use f-strings for logging, use format directives instead
-# </inst>
 class WebsocketOutput(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
