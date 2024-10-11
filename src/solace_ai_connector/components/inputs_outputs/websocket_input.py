@@ -2,6 +2,7 @@
 
 import json
 import threading
+import uuid
 from flask import Flask
 from flask_socketio import SocketIO
 from ...common.log import log
@@ -33,7 +34,6 @@ info = {
     },
 }
 
-
 class WebsocketInput(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
@@ -41,14 +41,32 @@ class WebsocketInput(ComponentBase):
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         self.thread = None
+        self.sockets = {}
         self.setup_websocket()
 
     def setup_websocket(self):
+        @self.socketio.on("connect")
+        def handle_connect():
+            socket_id = str(uuid.uuid4())
+            self.sockets[socket_id] = self.socketio
+            self.kv_store_set("websocket_connections", self.sockets)
+            log.info(f"New WebSocket connection established. Socket ID: {socket_id}")
+            return socket_id
+
+        @self.socketio.on("disconnect")
+        def handle_disconnect():
+            socket_id = self.socketio.sid
+            if socket_id in self.sockets:
+                del self.sockets[socket_id]
+                self.kv_store_set("websocket_connections", self.sockets)
+                log.info(f"WebSocket connection closed. Socket ID: {socket_id}")
+
         @self.socketio.on("message")
         def handle_message(data):
             try:
                 payload = json.loads(data)
-                message = Message(payload=payload)
+                socket_id = self.socketio.sid
+                message = Message(payload=payload, user_properties={"socket_id": socket_id})
                 event = Event(EventType.MESSAGE, message)
                 self.enqueue(event)
             except json.JSONDecodeError:
