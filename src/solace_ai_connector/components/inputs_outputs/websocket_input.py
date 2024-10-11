@@ -34,6 +34,11 @@ info = {
     },
 }
 
+# <inst>
+# Don't use f-strings for logging, use format directives instead
+# </inst>
+
+
 class WebsocketInput(ComponentBase):
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
@@ -42,6 +47,7 @@ class WebsocketInput(ComponentBase):
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         self.thread = None
         self.sockets = {}
+        self.kv_store_set("websocket_connections", self.sockets)
         self.setup_websocket()
 
     def setup_websocket(self):
@@ -66,7 +72,9 @@ class WebsocketInput(ComponentBase):
             try:
                 payload = json.loads(data)
                 socket_id = self.socketio.sid
-                message = Message(payload=payload, user_properties={"socket_id": socket_id})
+                message = Message(
+                    payload=payload, user_properties={"socket_id": socket_id}
+                )
                 event = Event(EventType.MESSAGE, message)
                 self.enqueue(event)
             except json.JSONDecodeError:
@@ -91,7 +99,7 @@ class WebsocketInput(ComponentBase):
             return {
                 "payload": message.get_payload(),
                 "topic": message.get_topic(),
-                "user_properties": message.get_user_properties()
+                "user_properties": message.get_user_properties(),
             }
         except Exception as e:
             log.error(f"Error processing WebSocket message: {str(e)}")
