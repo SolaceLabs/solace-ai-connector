@@ -28,10 +28,10 @@ class WebScraper(ComponentBase):
 
     # Scrape a website
     def scrape(self, url):
-        err_msg = "Please install playwright by running 'pip install playwright' and 'playwright install'."
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
+                err_msg = "Please install playwright by running 'pip install playwright' and 'playwright install'."
                 log.error(
                     err_msg
                 )
@@ -40,11 +40,11 @@ class WebScraper(ComponentBase):
                 )
     
         with sync_playwright() as p:
-            err_msg = "Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
             try:
                 # Launch a Chromium browser instance
                 browser = p.chromium.launch(headless=True)  # Set headless=False to see the browser in action
             except ImportError:
+                err_msg = "Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
                 log.error(
                     err_msg
                 )
