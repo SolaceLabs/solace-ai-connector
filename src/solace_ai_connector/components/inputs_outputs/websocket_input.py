@@ -4,6 +4,7 @@ import json
 import threading
 import uuid
 from flask import Flask
+from flask import request
 from flask_socketio import SocketIO
 from ...common.log import log
 from ...common.message import Message
@@ -57,7 +58,7 @@ class WebsocketInput(ComponentBase):
 
         @self.socketio.on("disconnect")
         def handle_disconnect():
-            socket_id = self.socketio.sid
+            socket_id = request.sid
             if socket_id in self.sockets:
                 del self.sockets[socket_id]
                 self.kv_store_set("websocket_connections", self.sockets)
@@ -67,7 +68,7 @@ class WebsocketInput(ComponentBase):
         def handle_message(data):
             try:
                 payload = json.loads(data)
-                socket_id = self.socketio.sid
+                socket_id = request.sid
                 message = Message(
                     payload=payload, user_properties={"socket_id": socket_id}
                 )
