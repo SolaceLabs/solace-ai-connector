@@ -47,15 +47,15 @@ class WebsocketOutput(ComponentBase):
             socket_id = data["socket_id"]
 
             if socket_id not in self.sockets:
-                log.error(f"No active connection found for socket_id: {socket_id}")
+                log.error("No active connection found for socket_id: %s", socket_id)
                 self.discard_current_message()
                 return None
 
             socket = self.sockets[socket_id]
             socket.emit("message", json.dumps(payload))
-            log.debug(f"Message sent to WebSocket connection {socket_id}")
+            log.debug("Message sent to WebSocket connection %s", socket_id)
         except Exception as e:
-            log.error(f"Error sending message via WebSocket: {str(e)}")
+            log.error("Error sending message via WebSocket: %s", str(e))
             self.discard_current_message()
 
         return data
