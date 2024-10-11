@@ -34,10 +34,6 @@ info = {
     },
 }
 
-# <inst>
-# Don't use f-strings for logging, use format directives instead
-# </inst>
-
 
 class WebsocketInput(ComponentBase):
     def __init__(self, **kwargs):
