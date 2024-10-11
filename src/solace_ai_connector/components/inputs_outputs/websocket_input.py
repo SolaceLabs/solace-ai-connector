@@ -48,7 +48,7 @@ class WebsocketInput(ComponentBase):
             try:
                 payload = json.loads(data)
                 message = Message(payload=payload)
-                self.enqueue(message)
+                self.send_message(message)
             except json.JSONDecodeError:
                 log.error(f"Received invalid JSON: {data}")
 
@@ -67,7 +67,15 @@ class WebsocketInput(ComponentBase):
             self.thread = None
 
     def invoke(self, message, data):
-        return data
+        try:
+            return {
+                "payload": message.get_payload(),
+                "topic": message.get_topic(),
+                "user_properties": message.get_user_properties()
+            }
+        except Exception as e:
+            log.error(f"Error processing WebSocket message: {str(e)}")
+            return None
 
     def get_next_message(self):
         return self.get_input_queue().get()
