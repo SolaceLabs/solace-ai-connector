@@ -1,6 +1,4 @@
 """Scrape a website"""
-import subprocess
-import sys
 from ...component_base import ComponentBase
 from ....common.log import log
 
@@ -30,26 +28,28 @@ class WebScraper(ComponentBase):
 
     # Scrape a website
     def scrape(self, url):
+        err_msg = "Please install playwright by running 'pip install playwright' and 'playwright install'."
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
                 log.error(
-                    "Please install playwright by running 'pip install playwright' and 'playwright install'."
+                    err_msg
                 )
                 raise ValueError(
-                    "Please install playwright by running 'pip install playwright' and 'playwright install'."
+                    err_msg
                 )
     
         with sync_playwright() as p:
+            err_msg = "Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
             try:
                 # Launch a Chromium browser instance
                 browser = p.chromium.launch(headless=True)  # Set headless=False to see the browser in action
             except ImportError:
                 log.error(
-                    f"Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
+                    err_msg
                 )
                 raise ValueError(
-                    f"Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
+                    err_msg
                 )
             page = browser.new_page()
             page.goto(url)

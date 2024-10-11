@@ -1,7 +1,6 @@
 # This is a Google search engine.
 # The configuration will configure the Google engine.
 import requests
-import json
 
 from .websearch_base import (
     WebSearchBase,
