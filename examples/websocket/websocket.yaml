@@ -23,8 +23,19 @@
        - component_name: pass_through
          component_module: pass_through
          component_config: {}
+         input_transforms:
+           - type: copy
+             source_expression: input.payload
+             dest_expression: user_data.input:payload
+           - type: copy
+             source_expression: input.user_properties:socket_id
+             dest_expression: user_data.input:socket_id
+         input_selection:
+           source_expression: user_data.input
 
        # WebSocket Output
        - component_name: websocket_output
          component_module: websocket_output
          component_config: {}
+         input_selection:
+           source_expression: previous
