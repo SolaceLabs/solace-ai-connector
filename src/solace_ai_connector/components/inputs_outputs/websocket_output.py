@@ -1,6 +1,5 @@
 """This component sends messages to a websocket connection."""
 
-import json
 from ...common.log import log
 from ...common.utils import encode_payload
 from ..component_base import ComponentBase
