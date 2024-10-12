@@ -13,7 +13,7 @@ info = {
             "name": "payload_encoding",
             "required": False,
             "description": "Encoding for the payload (utf-8, base64, gzip, none)",
-            "default": "utf-8",
+            "default": "none",
         },
         {
             "name": "payload_format",
@@ -69,7 +69,9 @@ class WebsocketOutput(ComponentBase):
                 return None
 
             socket = self.sockets[socket_id]
-            encoded_payload = encode_payload(payload, self.payload_encoding, self.payload_format)
+            encoded_payload = encode_payload(
+                payload, self.payload_encoding, self.payload_format
+            )
             socket.emit("message", encoded_payload)
             log.debug("Message sent to WebSocket connection %s", socket_id)
         except Exception as e:
