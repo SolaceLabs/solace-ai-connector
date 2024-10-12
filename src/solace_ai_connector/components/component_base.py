@@ -68,22 +68,28 @@ class ComponentBase:
             try:
                 event = self.get_next_event()
                 if event is not None:
-                    if self.trace_queue:
-                        self.trace_event(event)
-                    self.process_event(event)
+                    self.process_event_with_tracing(event)
             except AssertionError as e:
                 raise e
             except Exception as e:
-                log.error(
-                    "%sComponent has crashed: %s\n%s",
-                    self.log_identifier,
-                    e,
-                    traceback.format_exc(),
-                )
-                if self.error_queue:
-                    self.handle_error(e, event)
+                self.handle_component_error(e, event)
 
         self.stop_component()
+
+    def process_event_with_tracing(self, event):
+        if self.trace_queue:
+            self.trace_event(event)
+        self.process_event(event)
+
+    def handle_component_error(self, e, event):
+        log.error(
+            "%sComponent has crashed: %s\n%s",
+            self.log_identifier,
+            e,
+            traceback.format_exc(),
+        )
+        if self.error_queue:
+            self.handle_error(e, event)
 
     def get_next_event(self):
         # Check if there is a get_next_message defined by a

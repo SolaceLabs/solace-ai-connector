@@ -106,53 +106,11 @@ class WebsocketInput(ComponentBase):
                     payload=payload, user_properties={"socket_id": socket_id}
                 )
                 event = Event(EventType.MESSAGE, message)
-                self.process_websocket_event(event)
+                self.process_event_with_tracing(event)
             except json.JSONDecodeError:
                 log.error("Received invalid JSON: %s", data)
             except Exception as e:
-                log.error(
-                    "%sComponent has crashed: %s\n%s",
-                    self.log_identifier,
-                    e,
-                    traceback.format_exc(),
-                )
-                if self.error_queue:
-                    self.handle_error(e, event)
-
-    def process_websocket_event(self, event):
-        if self.trace_queue:
-            self.trace_event(event)
-        self.process_event(event)
-
-    def trace_event(self, event):
-        trace_message = TraceMessage(
-            location=self.log_identifier,
-            message=f"Received event: {event}",
-            trace_type="Event Received",
-        )
-        self.trace_queue.put(trace_message)
-
-    def process_event(self, event):
-        if event.event_type == EventType.MESSAGE:
-            message = event.data
-            self.current_message = message
-            data = self.process_pre_invoke(message)
-
-            if self.trace_queue:
-                self.trace_data(data)
-
-            self.current_message_has_been_discarded = False
-            result = self.invoke(message, data)
-
-            if self.current_message_has_been_discarded:
-                message.call_acknowledgements()
-            elif result is not None:
-                self.process_post_invoke(result, message)
-            self.current_message = None
-        else:
-            log.warning(
-                "%sUnknown event type: %s", self.log_identifier, event.event_type
-            )
+                self.handle_component_error(e, event)
 
     def run(self):
         self.socketio.run(self.app, port=self.listen_port)
