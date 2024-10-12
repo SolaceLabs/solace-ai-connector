@@ -40,8 +40,13 @@ class WebsocketOutput(ComponentBase):
                 return None
 
         try:
-            payload = data["payload"]
-            socket_id = data["socket_id"]
+            payload = data.get("payload")
+            socket_id = data.get("socket_id")
+
+            if not socket_id:
+                log.error("No socket_id provided")
+                self.discard_current_message()
+                return None
 
             if socket_id not in self.sockets:
                 log.error("No active connection found for socket_id: %s", socket_id)

@@ -259,18 +259,7 @@
          const infoPopup = document.getElementById('info-popup');
          let isInfoPopupVisible = false;
 
-         infoIcon.addEventListener('click', (event) => {
-             event.stopPropagation();
-             isInfoPopupVisible = !isInfoPopupVisible;
-             infoPopup.style.display = isInfoPopupVisible ? 'block' : 'none';
-         });
 
-         document.addEventListener('click', (event) => {
-             if (isInfoPopupVisible && !infoPopup.contains(event.target) && event.target !== infoIcon) {
-                 isInfoPopupVisible = false;
-                 infoPopup.style.display = 'none';
-             }
-         });
      </script>
  </body>
  </html>

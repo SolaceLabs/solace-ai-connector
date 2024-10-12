@@ -83,7 +83,7 @@ class WebsocketInput(ComponentBase):
     def setup_websocket(self):
         @self.socketio.on("connect")
         def handle_connect():
-            socket_id = str(uuid.uuid4())
+            socket_id = request.sid
             self.sockets[socket_id] = self.socketio
             self.kv_store_set("websocket_connections", self.sockets)
             log.info("New WebSocket connection established. Socket ID: %s", socket_id)
@@ -109,6 +109,8 @@ class WebsocketInput(ComponentBase):
                 self.process_event_with_tracing(event)
             except json.JSONDecodeError:
                 log.error("Received invalid JSON: %s", data)
+            except AssertionError as e:
+                raise e
             except Exception as e:
                 self.handle_component_error(e, event)
 
