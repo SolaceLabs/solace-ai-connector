@@ -154,7 +154,10 @@
  </head>
  <body>
      <div class="container">
-         <h1>WebSocket Example App</h1>
+         <h1>WebSocket Example App <span id="info-icon">ⓘ</span></h1>
+         <div id="info-popup" class="info-popup">
+             <p>This is a simple app to show how JSON can be sent into a solace-ai-connector flow and how to receive output from it. Just hit connect to connect to the flow, type in some JSON and hit send. Your JSON should be echoed back to you.</p>
+         </div>
 
          <div id="connection-section">
              <input type="text" id="url-input" value="ws://localhost:5000">
@@ -251,6 +254,24 @@
 
          clearButton.addEventListener('click', () => {
              messagesDiv.innerHTML = '';
+         });
+
+         // Info icon functionality
+         const infoIcon = document.getElementById('info-icon');
+         const infoPopup = document.getElementById('info-popup');
+         let isInfoPopupVisible = false;
+
+         infoIcon.addEventListener('click', (event) => {
+             event.stopPropagation();
+             isInfoPopupVisible = !isInfoPopupVisible;
+             infoPopup.style.display = isInfoPopupVisible ? 'block' : 'none';
+         });
+
+         document.addEventListener('click', (event) => {
+             if (isInfoPopupVisible && !infoPopup.contains(event.target) && event.target !== infoIcon) {
+                 isInfoPopupVisible = false;
+                 infoPopup.style.display = 'none';
+             }
          });
      </script>
  </body>
