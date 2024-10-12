@@ -7,6 +7,11 @@ import re
 import builtins
 import subprocess
 import types
+import base64
+import gzip
+import json
+import yaml
+
 
 from .log import log
 
@@ -303,11 +308,6 @@ def create_lambda_function_for_source_expression(source_expression, data_type=No
     return lambda message: message.get_data(source_expression, data_type=data_type)
 
 
-import base64
-import gzip
-import json
-import yaml
-
 def get_source_expression(config_obj, key="source_expression"):
     if "source_value" in config_obj:
         source_value = config_obj.get("source_value")
@@ -340,6 +340,8 @@ def ensure_slash_on_start(string):
     if not string.startswith("/"):
         return "/" + string
     return string
+
+
 def encode_payload(payload, encoding, payload_format):
     if encoding == "utf-8":
         if payload_format == "json":
@@ -370,17 +372,20 @@ def encode_payload(payload, encoding, payload_format):
         else:
             return str(payload)
 
+
 def decode_payload(payload, encoding, payload_format):
     if encoding == "base64":
         payload = base64.b64decode(payload)
     elif encoding == "gzip":
         payload = gzip.decompress(payload)
-    elif encoding == "utf-8" and (isinstance(payload, bytes) or isinstance(payload, bytearray)):
+    elif encoding == "utf-8" and (
+        isinstance(payload, bytes) or isinstance(payload, bytearray)
+    ):
         payload = payload.decode("utf-8")
-    
+
     if payload_format == "json":
         payload = json.loads(payload)
     elif payload_format == "yaml":
         payload = yaml.safe_load(payload)
-    
+
     return payload
