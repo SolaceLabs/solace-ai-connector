@@ -6,10 +6,48 @@
      <title>WebSocket Example App</title>
      <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
      <style>
+         :root {
+             --bg-color: #e6f3ff;
+             --container-bg: #ffffff;
+             --text-color: #333333;
+             --header-color: #3498db;
+             --input-bg: #f8f9fa;
+             --input-border: #ced4da;
+             --button-bg: #3498db;
+             --button-color: #ffffff;
+             --button-hover: #2980b9;
+             --message-bg: #ffffff;
+             --message-border: #e9ecef;
+             --message-alt-bg: #f8f9fa;
+             --timestamp-color: #6c757d;
+             --error-color: #dc3545;
+             --shadow-color: rgba(0, 0, 0, 0.1);
+         }
+
+         @media (prefers-color-scheme: dark) {
+             :root {
+                 --bg-color: #1a1a1a;
+                 --container-bg: #2c2c2c;
+                 --text-color: #e0e0e0;
+                 --header-color: #4fa3d1;
+                 --input-bg: #3a3a3a;
+                 --input-border: #555555;
+                 --button-bg: #4fa3d1;
+                 --button-color: #ffffff;
+                 --button-hover: #3a7ca5;
+                 --message-bg: #2c2c2c;
+                 --message-border: #444444;
+                 --message-alt-bg: #333333;
+                 --timestamp-color: #a0a0a0;
+                 --error-color: #ff6b6b;
+                 --shadow-color: rgba(0, 0, 0, 0.3);
+             }
+         }
+
          body {
              font-family: 'Roboto', Arial, sans-serif;
-             background-color: #e6f3ff;
-             color: #333;
+             background-color: var(--bg-color);
+             color: var(--text-color);
              line-height: 1.6;
              padding: 20px;
          }
@@ -17,36 +55,38 @@
          .container {
              max-width: 800px;
              margin: 0 auto;
-             background-color: #ffffff;
+             background-color: var(--container-bg);
              padding: 30px;
              border-radius: 8px;
-             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+             box-shadow: 0 2px 10px var(--shadow-color);
          }
 
          h1, h2 {
-             color: #3498db;
+             color: var(--header-color);
              margin-bottom: 20px;
          }
 
          #connection-section, #input-section, #output-section {
-             background-color: #f8f9fa;
+             background-color: var(--input-bg);
              padding: 20px;
              margin-bottom: 30px;
              border-radius: 8px;
-             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+             box-shadow: 0 1px 3px var(--shadow-color);
          }
 
          input[type="text"], #json-input {
              width: 100%;
              padding: 10px;
-             border: 1px solid #ced4da;
+             border: 1px solid var(--input-border);
              border-radius: 4px;
              font-size: 16px;
+             background-color: var(--input-bg);
+             color: var(--text-color);
          }
 
          button {
-             background-color: #3498db;
-             color: white;
+             background-color: var(--button-bg);
+             color: var(--button-color);
              border: none;
              padding: 10px 20px;
              border-radius: 4px;
@@ -55,18 +95,18 @@
          }
 
          button:hover {
-             background-color: #2980b9;
+             background-color: var(--button-hover);
          }
 
          #status {
              font-weight: bold;
              margin-left: 10px;
-             color: #3498db;
+             color: var(--header-color);
          }
 
          .message {
-             background-color: #ffffff;
-             border: 1px solid #e9ecef;
+             background-color: var(--message-bg);
+             border: 1px solid var(--message-border);
              border-radius: 4px;
              padding: 15px;
              margin-bottom: 15px;
@@ -74,16 +114,16 @@
          }
 
          .message:nth-child(even) {
-             background-color: #f8f9fa;
+             background-color: var(--message-alt-bg);
          }
 
          .timestamp {
              font-size: 0.8em;
-             color: #6c757d;
+             color: var(--timestamp-color);
          }
 
          .error {
-             color: #dc3545;
+             color: var(--error-color);
              margin-top: 5px;
          }
 
@@ -91,11 +131,11 @@
              body {
                  padding: 10px;
              }
-
+            
              .container {
                  padding: 15px;
              }
-
+            
              input[type="text"], #json-input, button {
                  font-size: 14px;
              }
