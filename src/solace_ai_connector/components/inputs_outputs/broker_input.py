@@ -114,9 +114,13 @@ class BrokerInput(BrokerBase):
         if not broker_message:
             return None
         self.current_broker_message = broker_message
-        payload = broker_message.get_payload_as_bytes()
-        topic = broker_message.get_destination_name()
+
+        payload = broker_message.get_payload_as_string()
+        if payload is None:
+            payload = broker_message.get_payload_as_bytes()
         payload = self.decode_payload(payload)
+
+        topic = broker_message.get_destination_name()
         user_properties = broker_message.get_properties()
         log.debug(
             "Received message from broker: topic=%s, user_properties=%s, payload length=%d",

@@ -348,6 +348,8 @@ def encode_payload(payload, encoding, payload_format):
         formatted_payload = json.dumps(payload)
     elif payload_format == "yaml":
         formatted_payload = yaml.dump(payload)
+    elif isinstance(payload, bytes) or isinstance(payload, bytearray):
+        formatted_payload = payload
     else:
         formatted_payload = str(payload)
 

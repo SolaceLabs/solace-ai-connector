@@ -9,6 +9,7 @@ from ...common.log import log
 from ...common.message import Message
 from ...common.event import Event, EventType
 from ..component_base import ComponentBase
+from ...common.utils import decode_payload
 
 info = {
     "class_name": "WebsocketInput",
@@ -110,7 +111,9 @@ class WebsocketInput(ComponentBase):
         @self.socketio.on("message")
         def handle_message(data):
             try:
-                decoded_payload = decode_payload(data, self.payload_encoding, self.payload_format)
+                decoded_payload = decode_payload(
+                    data, self.payload_encoding, self.payload_format
+                )
                 socket_id = request.sid
                 message = Message(
                     payload=decoded_payload, user_properties={"socket_id": socket_id}
