@@ -343,34 +343,23 @@ def ensure_slash_on_start(string):
 
 
 def encode_payload(payload, encoding, payload_format):
-    if encoding == "utf-8":
-        if payload_format == "json":
-            return json.dumps(payload).encode("utf-8")
-        elif payload_format == "yaml":
-            return yaml.dump(payload).encode("utf-8")
-        else:
-            return str(payload).encode("utf-8")
-    elif encoding == "base64":
-        if payload_format == "json":
-            return base64.b64encode(json.dumps(payload).encode("utf-8"))
-        elif payload_format == "yaml":
-            return base64.b64encode(yaml.dump(payload).encode("utf-8"))
-        else:
-            return base64.b64encode(str(payload).encode("utf-8"))
-    elif encoding == "gzip":
-        if payload_format == "json":
-            return gzip.compress(json.dumps(payload).encode("utf-8"))
-        elif payload_format == "yaml":
-            return gzip.compress(yaml.dump(payload).encode("utf-8"))
-        else:
-            return gzip.compress(str(payload).encode("utf-8"))
+    # First, format the payload
+    if payload_format == "json":
+        formatted_payload = json.dumps(payload)
+    elif payload_format == "yaml":
+        formatted_payload = yaml.dump(payload)
     else:
-        if payload_format == "json":
-            return json.dumps(payload)
-        elif payload_format == "yaml":
-            return yaml.dump(payload)
-        else:
-            return str(payload)
+        formatted_payload = str(payload)
+
+    # Then, encode the formatted payload
+    if encoding == "utf-8":
+        return formatted_payload.encode("utf-8")
+    elif encoding == "base64":
+        return base64.b64encode(formatted_payload.encode("utf-8"))
+    elif encoding == "gzip":
+        return gzip.compress(formatted_payload.encode("utf-8"))
+    else:
+        return formatted_payload
 
 
 def decode_payload(payload, encoding, payload_format):
