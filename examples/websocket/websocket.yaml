@@ -1,0 +1,30 @@
+---
+ # Example configuration for a WebSocket flow
+ # This flow creates a WebSocket server that echoes messages back to clients
+ # It also serves an example HTML file for easy testing
+
+ log:
+   stdout_log_level: INFO
+   log_file_level: DEBUG
+   log_file: solace_ai_connector.log
+
+ flows:
+   - name: websocket_echo
+     components:
+       # WebSocket Input
+       - component_name: websocket_input
+         component_module: websocket_input
+         component_config:
+           listen_port: 5000
+           serve_html: true
+           html_path: "examples/websocket/websocket_example_app.html"
+
+       # Pass Through
+       - component_name: pass_through
+         component_module: pass_through
+         component_config: {}
+
+       # WebSocket Output
+       - component_name: websocket_output
+         component_module: websocket_output
+         component_config: {}

@@ -1,18 +1,166 @@
-<inst>
-  Ok. Now a challenging request for you. 
-  
+<!-- <inst>
+  Ok. Now a challenging request for you.
+
   I want to make an example for the websocket_input and websocket_output components. This webapp will do:
 
-  1. There is a section at the top that manages connecting to the server. It takes a URL and has a Connect button. 
-     The URL should default to ws://localhost:5000. When the Connect button is pressed, it should connect to the 
-     server. If it is already connected, it should disconnect and change the button text to "Connect". 
+  1. There is a section at the top that manages connecting to the server. It takes a URL and has a Connect button.
+     The URL should default to ws://localhost:5000. When the Connect button is pressed, it should connect to the
+     server. If it is already connected, it should disconnect and change the button text to "Connect".
      If it is not connected, it should connect and change the button text to "Disconnect".
-  2. Lower on the page there is a textarea in which the user can input JSON. When the user presses Enter, the JSON 
+  2. Lower on the page there is a textarea in which the user can input JSON. When the user presses Enter, the JSON
      should be sent to the server.
   3. Below the textarea, there is a div that displays the JSON that is received from the server. Each JSON object
-     should be displayed in a separate div. The div should be formatted with a border and padding so that it is 
+     should be displayed in a separate div. The div should be formatted with a border and padding so that it is
      easy to read.
   4. Do your best to make the page look nice using css embedded in the html file.
 
   Leave this text here and add your code below. Good luck!
-</inst>
+</inst> -->
+<!DOCTYPE html>
+ <html lang="en">
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>WebSocket Example App</title>
+     <style>
+         body {
+             font-family: Arial, sans-serif;
+             max-width: 800px;
+             margin: 0 auto;
+             padding: 20px;
+             line-height: 1.6;
+         }
+         #connection-section, #input-section, #output-section {
+             margin-bottom: 20px;
+         }
+         #url-input {
+             width: 250px;
+         }
+         #json-input {
+             width: 100%;
+             height: 100px;
+         }
+         #status {
+             font-weight: bold;
+             margin-left: 10px;
+         }
+         .message {
+             border: 1px solid #ddd;
+             padding: 10px;
+             margin-bottom: 10px;
+             background-color: #f9f9f9;
+         }
+         .timestamp {
+             font-size: 0.8em;
+             color: #666;
+         }
+         #clear-button {
+             margin-top: 10px;
+         }
+         .error {
+             color: red;
+             margin-top: 5px;
+         }
+     </style>
+ </head>
+ <body>
+     <h1>WebSocket Example App</h1>
+
+     <div id="connection-section">
+         <input type="text" id="url-input" value="ws://localhost:5000">
+         <button id="connect-button">Connect</button>
+         <span id="status">Disconnected</span>
+     </div>
+
+     <div id="input-section">
+         <textarea id="json-input" placeholder="Enter JSON here"></textarea>
+         <button id="send-button">Send</button>
+         <div id="input-error" class="error"></div>
+     </div>
+
+     <div id="output-section">
+         <h2>Received Messages</h2>
+         <div id="messages"></div>
+         <button id="clear-button">Clear Messages</button>
+     </div>
+
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+     <script>
+         const urlInput = document.getElementById('url-input');
+         const connectButton = document.getElementById('connect-button');
+         const status = document.getElementById('status');
+         const jsonInput = document.getElementById('json-input');
+         const sendButton = document.getElementById('send-button');
+         const inputError = document.getElementById('input-error');
+         const messagesDiv = document.getElementById('messages');
+         const clearButton = document.getElementById('clear-button');
+
+         let socket;
+
+         function connect() {
+             socket = io(urlInput.value);
+
+             socket.on('connect', () => {
+                 status.textContent = 'Connected';
+                 connectButton.textContent = 'Disconnect';
+             });
+
+             socket.on('disconnect', () => {
+                 status.textContent = 'Disconnected';
+                 connectButton.textContent = 'Connect';
+             });
+
+             socket.on('message', (data) => {
+                 const messageDiv = document.createElement('div');
+                 messageDiv.className = 'message';
+                 const timestamp = new Date().toLocaleString();
+                 messageDiv.innerHTML = `
+                     <div class="timestamp">${timestamp}</div>
+                     <pre>${JSON.stringify(JSON.parse(data), null, 2)}</pre>
+                 `;
+                 messagesDiv.appendChild(messageDiv);
+             });
+         }
+
+         function disconnect() {
+             if (socket) {
+                 socket.disconnect();
+                 socket = null;
+             }
+         }
+
+         connectButton.addEventListener('click', () => {
+             if (socket && socket.connected) {
+                 disconnect();
+             } else {
+                 connect();
+             }
+         });
+
+         function sendMessage() {
+             const jsonString = jsonInput.value.trim();
+             try {
+                 const jsonObject = JSON.parse(jsonString);
+                 socket.emit('message', JSON.stringify(jsonObject));
+                 jsonInput.value = '';
+                 inputError.textContent = '';
+             } catch (error) {
+                 inputError.textContent = 'Invalid JSON: ' + error.message;
+             }
+         }
+
+         sendButton.addEventListener('click', sendMessage);
+
+         jsonInput.addEventListener('keypress', (event) => {
+             if (event.key === 'Enter' && !event.shiftKey) {
+                 event.preventDefault();
+                 sendMessage();
+             }
+         });
+
+         clearButton.addEventListener('click', () => {
+             messagesDiv.innerHTML = '';
+         });
+     </script>
+ </body>
+ </html>
