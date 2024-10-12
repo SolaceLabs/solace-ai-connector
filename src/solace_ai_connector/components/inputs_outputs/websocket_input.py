@@ -3,7 +3,7 @@
 import json
 import threading
 import uuid
-
+import os
 
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
@@ -65,10 +65,17 @@ class WebsocketInput(ComponentBase):
 
         if self.serve_html:
             self.setup_html_route()
+            # Fix the path to the HTML file - if it's relative, it
+            # should be relative to the current working directory
+            if not os.path.isabs(self.html_path):
+                self.html_path = os.path.join(os.getcwd(), self.html_path)
 
     def setup_html_route(self):
         @self.app.route("/")
         def serve_html():
+            # Get the directory where this app is running
+            directory = os.path.dirname(os.path.realpath(__file__))
+            print(directory)
             return send_file(self.html_path)
 
     def setup_websocket(self):
@@ -118,6 +125,3 @@ class WebsocketInput(ComponentBase):
         except Exception as e:
             log.error("Error processing WebSocket message: %s", str(e))
             return None
-
-    def get_next_message(self):
-        return self.get_input_queue().get()
