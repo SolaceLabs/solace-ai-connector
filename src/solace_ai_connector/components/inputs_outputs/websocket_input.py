@@ -1,17 +1,13 @@
 """This component receives messages from a websocket connection and sends them to the next component in the flow."""
 
 import json
-import threading
-import uuid
 import os
 
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
 from ...common.log import log
 from ...common.message import Message
-import traceback
 from ...common.event import Event, EventType
-from ...common.trace_message import TraceMessage
 from ..component_base import ComponentBase
 
 info = {

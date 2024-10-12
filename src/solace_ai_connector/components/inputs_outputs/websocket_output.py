@@ -2,7 +2,6 @@
 
 import json
 from ...common.log import log
-from ...common.message import Message
 from ..component_base import ComponentBase
 
 info = {
