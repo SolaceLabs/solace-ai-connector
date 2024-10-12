@@ -1,87 +1,128 @@
-<!-- <inst>
-  Ok. Now a challenging request for you.
-
-  I want to make an example for the websocket_input and websocket_output components. This webapp will do:
-
-  1. There is a section at the top that manages connecting to the server. It takes a URL and has a Connect button.
-     The URL should default to ws://localhost:5000. When the Connect button is pressed, it should connect to the
-     server. If it is already connected, it should disconnect and change the button text to "Connect".
-     If it is not connected, it should connect and change the button text to "Disconnect".
-  2. Lower on the page there is a textarea in which the user can input JSON. When the user presses Enter, the JSON
-     should be sent to the server.
-  3. Below the textarea, there is a div that displays the JSON that is received from the server. Each JSON object
-     should be displayed in a separate div. The div should be formatted with a border and padding so that it is
-     easy to read.
-  4. Do your best to make the page look nice using css embedded in the html file.
-
-  Leave this text here and add your code below. Good luck!
-</inst> -->
 <!DOCTYPE html>
  <html lang="en">
  <head>
      <meta charset="UTF-8">
      <meta name="viewport" content="width=device-width, initial-scale=1.0">
      <title>WebSocket Example App</title>
+     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
      <style>
          body {
-             font-family: Arial, sans-serif;
+             font-family: 'Roboto', Arial, sans-serif;
+             background-color: #e6f3ff;
+             color: #333;
+             line-height: 1.6;
+             padding: 20px;
+         }
+
+         .container {
              max-width: 800px;
              margin: 0 auto;
-             padding: 20px;
-             line-height: 1.6;
+             background-color: #ffffff;
+             padding: 30px;
+             border-radius: 8px;
+             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
          }
-         #connection-section, #input-section, #output-section {
+
+         h1, h2 {
+             color: #3498db;
              margin-bottom: 20px;
          }
-         #url-input {
-             width: 250px;
+
+         #connection-section, #input-section, #output-section {
+             background-color: #f8f9fa;
+             padding: 20px;
+             margin-bottom: 30px;
+             border-radius: 8px;
+             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
          }
-         #json-input {
+
+         input[type="text"], #json-input {
              width: 100%;
-             height: 100px;
+             padding: 10px;
+             border: 1px solid #ced4da;
+             border-radius: 4px;
+             font-size: 16px;
          }
+
+         button {
+             background-color: #3498db;
+             color: white;
+             border: none;
+             padding: 10px 20px;
+             border-radius: 4px;
+             cursor: pointer;
+             transition: background-color 0.3s;
+         }
+
+         button:hover {
+             background-color: #2980b9;
+         }
+
          #status {
              font-weight: bold;
              margin-left: 10px;
+             color: #3498db;
          }
+
          .message {
-             border: 1px solid #ddd;
-             padding: 10px;
-             margin-bottom: 10px;
-             background-color: #f9f9f9;
+             background-color: #ffffff;
+             border: 1px solid #e9ecef;
+             border-radius: 4px;
+             padding: 15px;
+             margin-bottom: 15px;
+             transition: all 0.3s ease;
          }
+
+         .message:nth-child(even) {
+             background-color: #f8f9fa;
+         }
+
          .timestamp {
              font-size: 0.8em;
-             color: #666;
+             color: #6c757d;
          }
-         #clear-button {
-             margin-top: 10px;
-         }
+
          .error {
-             color: red;
+             color: #dc3545;
              margin-top: 5px;
+         }
+
+         @media (max-width: 600px) {
+             body {
+                 padding: 10px;
+             }
+
+             .container {
+                 padding: 15px;
+             }
+
+             input[type="text"], #json-input, button {
+                 font-size: 14px;
+             }
          }
      </style>
  </head>
  <body>
-     <h1>WebSocket Example App</h1>
+     <div class="container">
+         <h1>WebSocket Example App</h1>
 
-     <div id="connection-section">
-         <input type="text" id="url-input" value="ws://localhost:5000">
-         <button id="connect-button">Connect</button>
-         <span id="status">Disconnected</span>
-     </div>
+         <div id="connection-section">
+             <input type="text" id="url-input" value="ws://localhost:5000">
+             <button id="connect-button">Connect</button>
+             <span id="status">Disconnected</span>
+         </div>
 
-     <div id="input-section">
-         <textarea id="json-input" placeholder="Enter JSON here"></textarea>
-         <button id="send-button">Send</button>
-         <div id="input-error" class="error"></div>
-     </div>
+         <div id="input-section">
+             <textarea id="json-input" placeholder="Enter JSON here"></textarea>
+             <button id="send-button">Send</button>
+             <div id="input-error" class="error"></div>
+         </div>
 
-     <div id="output-section">
-         <h2>Received Messages</h2>
-         <div id="messages"></div>
-         <button id="clear-button">Clear Messages</button>
+         <div id="output-section">
+             <h2>Received Messages</h2>
+             <div id="messages"></div>
+             <button id="clear-button">Clear Messages</button>
+         </div>
      </div>
 
      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
