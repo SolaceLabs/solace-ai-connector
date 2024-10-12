@@ -79,7 +79,7 @@
          }
 
          input[type="text"], #json-input {
-             width: 100%;
+             width: calc(100% - 20px);  /* Subtract 20px to account for padding */
              padding: 10px;
              border: 1px solid var(--input-border);
              border-radius: 4px;
@@ -87,9 +87,11 @@
              background-color: var(--input-bg);
              color: var(--text-color);
              transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+             margin-bottom: 10px;  /* Add space below inputs */
          }
 
          button {
+             margin-top: 5px;  /* Add space above buttons */
              background-color: var(--button-bg);
              color: var(--button-color);
              border: none;
