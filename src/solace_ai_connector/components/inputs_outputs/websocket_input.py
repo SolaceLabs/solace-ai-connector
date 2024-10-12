@@ -35,6 +35,18 @@ info = {
             "description": "Path to the HTML file to serve",
             "default": "examples/websocket/websocket_example_app.html",
         },
+        {
+            "name": "payload_encoding",
+            "required": False,
+            "description": "Encoding for the payload (utf-8, base64, gzip, none)",
+            "default": "utf-8",
+        },
+        {
+            "name": "payload_format",
+            "required": False,
+            "description": "Format for the payload (json, yaml, text)",
+            "default": "json",
+        },
     ],
     "output_schema": {
         "type": "object",
@@ -55,6 +67,8 @@ class WebsocketInput(ComponentBase):
         self.listen_port = self.get_config("listen_port")
         self.serve_html = self.get_config("serve_html")
         self.html_path = self.get_config("html_path")
+        self.payload_encoding = self.get_config("payload_encoding")
+        self.payload_format = self.get_config("payload_format")
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         self.sockets = {}
@@ -96,15 +110,15 @@ class WebsocketInput(ComponentBase):
         @self.socketio.on("message")
         def handle_message(data):
             try:
-                payload = json.loads(data)
+                decoded_payload = decode_payload(data, self.payload_encoding, self.payload_format)
                 socket_id = request.sid
                 message = Message(
-                    payload=payload, user_properties={"socket_id": socket_id}
+                    payload=decoded_payload, user_properties={"socket_id": socket_id}
                 )
                 event = Event(EventType.MESSAGE, message)
                 self.process_event_with_tracing(event)
             except json.JSONDecodeError:
-                log.error("Received invalid JSON: %s", data)
+                log.error("Received invalid payload: %s", data)
             except AssertionError as e:
                 raise e
             except Exception as e:
