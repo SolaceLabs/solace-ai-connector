@@ -59,7 +59,6 @@ class WebsocketInput(ComponentBase):
         self.html_path = self.get_config("html_path")
         self.app = Flask(__name__)
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")
-        self.thread = None
         self.sockets = {}
         self.kv_store_set("websocket_connections", self.sockets)
         self.setup_websocket()
@@ -102,19 +101,12 @@ class WebsocketInput(ComponentBase):
             except json.JSONDecodeError:
                 log.error("Received invalid JSON: %s", data)
 
-    def start(self):
-        if not self.thread:
-            self.thread = threading.Thread(target=self.run_websocket)
-            self.thread.start()
-
-    def run_websocket(self):
+    def run(self):
         self.socketio.run(self.app, port=self.listen_port)
 
     def stop_component(self):
-        if self.thread:
+        if self.socketio:
             self.socketio.stop()
-            self.thread.join()
-            self.thread = None
 
     def invoke(self, message, data):
         try:
