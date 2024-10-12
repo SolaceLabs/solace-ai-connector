@@ -3,7 +3,8 @@
 import json
 import threading
 import uuid
-import os
+
+
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
 from ...common.log import log
@@ -62,12 +63,12 @@ class WebsocketInput(ComponentBase):
         self.sockets = {}
         self.kv_store_set("websocket_connections", self.sockets)
         self.setup_websocket()
-        
+
         if self.serve_html:
             self.setup_html_route()
 
     def setup_html_route(self):
-        @self.app.route('/')
+        @self.app.route("/")
         def serve_html():
             return send_file(self.html_path)
 
