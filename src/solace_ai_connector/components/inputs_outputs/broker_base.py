@@ -1,17 +1,13 @@
 """Base class for broker input/output components for the Solace AI Event Connector"""
 
-import base64
-import gzip
-import json
-import yaml
 import uuid
 
 from abc import abstractmethod
 
-# from solace_ai_connector.common.log import log
 from ..component_base import ComponentBase
 from ...common.message import Message
 from ...common.messaging.messaging_builder import MessagingServiceBuilder
+from ...common.utils import encode_payload, decode_payload
 
 # TBD - at the moment, there is no connection sharing supported. It should be possible
 # to share a connection between multiple components and even flows. The changes
@@ -39,7 +35,7 @@ class BrokerBase(ComponentBase):
         self.broker_properties = self.get_broker_properties()
         if self.broker_properties["broker_type"] not in ["test", "test_streaming"]:
             self.messaging_service = (
-                MessagingServiceBuilder()
+                MessagingServiceBuilder(self.flow_lock_manager, self.flow_kv_store)
                 .from_properties(self.broker_properties)
                 .build()
             )
@@ -68,51 +64,12 @@ class BrokerBase(ComponentBase):
     def decode_payload(self, payload):
         encoding = self.get_config("payload_encoding")
         payload_format = self.get_config("payload_format")
-        if encoding == "base64":
-            payload = base64.b64decode(payload)
-        elif encoding == "gzip":
-            payload = gzip.decompress(payload)
-        elif encoding == "utf-8" and (
-            isinstance(payload, bytes) or isinstance(payload, bytearray)
-        ):
-            payload = payload.decode("utf-8")
-        if payload_format == "json":
-            payload = json.loads(payload)
-        elif payload_format == "yaml":
-            payload = yaml.safe_load(payload)
-        return payload
+        return decode_payload(payload, encoding, payload_format)
 
     def encode_payload(self, payload):
         encoding = self.get_config("payload_encoding")
         payload_format = self.get_config("payload_format")
-        if encoding == "utf-8":
-            if payload_format == "json":
-                return json.dumps(payload).encode("utf-8")
-            elif payload_format == "yaml":
-                return yaml.dump(payload).encode("utf-8")
-            else:
-                return str(payload).encode("utf-8")
-        elif encoding == "base64":
-            if payload_format == "json":
-                return base64.b64encode(json.dumps(payload).encode("utf-8"))
-            elif payload_format == "yaml":
-                return base64.b64encode(yaml.dump(payload).encode("utf-8"))
-            else:
-                return base64.b64encode(str(payload).encode("utf-8"))
-        elif encoding == "gzip":
-            if payload_format == "json":
-                return gzip.compress(json.dumps(payload).encode("utf-8"))
-            elif payload_format == "yaml":
-                return gzip.compress(yaml.dump(payload).encode("utf-8"))
-            else:
-                return gzip.compress(str(payload).encode("utf-8"))
-        else:
-            if payload_format == "json":
-                return json.dumps(payload)
-            elif payload_format == "yaml":
-                return yaml.dump(payload)
-            else:
-                return str(payload)
+        return encode_payload(payload, encoding, payload_format)
 
     def get_egress_topic(self, message: Message):
         pass

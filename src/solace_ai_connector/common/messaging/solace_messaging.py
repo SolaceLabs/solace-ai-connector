@@ -246,8 +246,19 @@ class SolaceMessaging(Messaging):
             user_context=user_context,
         )
 
-    def receive_message(self, timeout_ms):
-        return self.persistent_receivers[0].receive_message(timeout_ms)
+    def receive_message(self, timeout_ms, queue_id):
+        broker_message = self.persistent_receivers[0].receive_message(timeout_ms)
+        if broker_message is None:
+            return None
+
+        # Convert Solace message to dictionary format
+        return {
+            "payload": broker_message.get_payload_as_string()
+            or broker_message.get_payload_as_bytes(),
+            "topic": broker_message.get_destination_name(),
+            "user_properties": broker_message.get_properties(),
+            "_original_message": broker_message,  # Keep original message for acknowledgement
+        }
 
     def subscribe(
         self, subscription: str, persistent_receiver: PersistentMessageReceiver
@@ -256,4 +267,7 @@ class SolaceMessaging(Messaging):
         persistent_receiver.add_subscription(sub)
 
     def ack_message(self, broker_message):
-        self.persistent_receiver.ack(broker_message)
+        if "_original_message" in broker_message:
+            self.persistent_receiver.ack(broker_message["_original_message"])
+        else:
+            log.warning("Cannot acknowledge message: original Solace message not found")
