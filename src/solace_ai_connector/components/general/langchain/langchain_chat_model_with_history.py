@@ -213,7 +213,7 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
                 True,
             )
 
-        result = namedtuple("Result", ["content", "uuid"])(
+        result = namedtuple("Result", ["content", "response_uuid"])(
             aggregate_result, response_uuid
         )
 
@@ -233,7 +233,7 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         message = Message(
             payload={
                 "chunk": chunk,
-                "aggregate_result": aggregate_result,
+                "content": aggregate_result,
                 "response_uuid": response_uuid,
                 "first_chunk": first_chunk,
                 "last_chunk": last_chunk,

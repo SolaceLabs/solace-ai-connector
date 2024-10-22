@@ -193,11 +193,12 @@ class BrokerRequestResponse(BrokerBase):
         ]
         self.test_mode = False
 
-        if self.broker_type == "solace":
-            self.connect()
-        elif self.broker_type == "test" or self.broker_type == "test_streaming":
+        if self.broker_type == "test" or self.broker_type == "test_streaming":
             self.test_mode = True
             self.setup_test_pass_through()
+        else:
+            self.connect()
+
         self.start()
 
     def start(self):
@@ -224,7 +225,9 @@ class BrokerRequestResponse(BrokerBase):
     def handle_responses(self):
         while not self.stop_signal.is_set():
             try:
-                broker_message = self.messaging_service.receive_message(1000)
+                broker_message = self.messaging_service.receive_message(
+                    1000, self.reply_queue_name
+                )
                 if broker_message:
                     self.process_response(broker_message)
             except Exception as e:
@@ -248,12 +251,10 @@ class BrokerRequestResponse(BrokerBase):
             topic = broker_message.get_topic()
             user_properties = broker_message.get_user_properties()
         else:
-            payload = broker_message.get_payload_as_string()
-            if payload is None:
-                payload = broker_message.get_payload_as_bytes()
+            payload = broker_message.get("payload")
             payload = self.decode_payload(payload)
-            topic = broker_message.get_destination_name()
-            user_properties = broker_message.get_properties()
+            topic = broker_message.get("topic")
+            user_properties = broker_message.get("user_properties", {})
 
         metadata_json = user_properties.get(
             "__solace_ai_connector_broker_request_reply_metadata__"
