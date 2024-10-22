@@ -145,6 +145,7 @@ class OpenAIChatModelBase(ComponentBase):
         self.stream_to_next_component = self.get_config("stream_to_next_component")
         self.llm_mode = self.get_config("llm_mode")
         self.stream_batch_size = self.get_config("stream_batch_size")
+        self.response_format = self.get_config("response_format", "text")
         self.set_response_uuid_in_user_properties = self.get_config(
             "set_response_uuid_in_user_properties"
         )
@@ -170,6 +171,7 @@ class OpenAIChatModelBase(ComponentBase):
                         messages=messages,
                         model=self.model,
                         temperature=self.temperature,
+                        response_format={"type": self.response_format}
                     )
                     return {"content": response.choices[0].message.content}
                 except Exception as e:

@@ -1,0 +1,25 @@
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+flows:
+  - name: web_search_flow
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+    # Using Custom component
+      - component_name: web_search_component
+        component_base_path: .
+        component_module: web_search
+        component_config:
+          engine: DuckDuckGo
+          format: json
+        input_selection:
+          source_expression: previous
+
+     # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output

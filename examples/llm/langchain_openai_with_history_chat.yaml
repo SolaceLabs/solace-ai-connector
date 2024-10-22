@@ -65,6 +65,7 @@ flows:
             base_url: ${OPENAI_API_ENDPOINT}
             model: ${MODEL_NAME}
             temperature: 0.01
+          llm_response_format: text # options: text, json, or yaml
           history_module: langchain_core.chat_history
           history_class: InMemoryChatMessageHistory
           history_max_turns: 20

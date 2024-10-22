@@ -1,9 +1,9 @@
 # This is the base class of a wrapper around all the LangChain chat models
 # The configuration will control dynamic loading of the chat models
 
-import json
 import yaml
 from abc import abstractmethod
+from langchain_core.output_parsers import JsonOutputParser
 
 from ....common.utils import get_obj_text
 from langchain.schema.messages import (
@@ -116,9 +116,9 @@ class LangChainChatModelBase(LangChainBase):
 
         res_format = self.get_config("llm_response_format", "text")
         if res_format == "json":
-            obj_text = get_obj_text("json", llm_res.content)
             try:
-                json_res = json.loads(obj_text)
+                parser = JsonOutputParser()
+                json_res = parser.invoke(llm_res.content)
                 return json_res
             except Exception as e:
                 raise ValueError(f"Error parsing LLM JSON response: {str(e)}") from e

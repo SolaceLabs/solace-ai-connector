@@ -16,6 +16,7 @@ from .general import (
     delay,
     iterate,
     message_filter,
+    parser,
 )
 
 from .general.for_testing import (
@@ -31,6 +32,12 @@ from .general.langchain import (
     langchain_chat_model_with_history,
     langchain_vector_store_embedding_index,
     langchain_vector_store_embedding_search,
+)
+
+from .general.websearch import (
+    websearch_duckduckgo,
+    websearch_google,
+    websearch_bing
 )
 
 # Also import the components from the submodules
@@ -49,6 +56,7 @@ from .general.pass_through import PassThrough
 from .general.delay import Delay
 from .general.iterate import Iterate
 from .general.message_filter import MessageFilter
+from .general.parser import Parser
 from .general.langchain.langchain_base import LangChainBase
 from .general.langchain.langchain_embeddings import LangChainEmbeddings
 from .general.langchain.langchain_vector_store_delete import LangChainVectorStoreDelete
@@ -62,3 +70,7 @@ from .general.langchain.langchain_vector_store_embedding_index import (
 from .general.langchain.langchain_vector_store_embedding_search import (
     LangChainVectorStoreEmbeddingsSearch,
 )
+from .general.websearch.websearch_duckduckgo import WebSearchDuckDuckGo
+from .general.websearch.websearch_google import WebSearchGoogle
+from .general.websearch.websearch_bing import WebSearchBing
+

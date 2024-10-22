@@ -127,7 +127,9 @@ def import_module(module, base_path=None, component_package=None):
                     ".components.general.for_testing",
                     ".components.general.langchain",
                     ".components.general.openai",
+                    ".components.general.websearch",
                     ".components.inputs_outputs",
+                    ".components.general.filter",
                     ".transforms",
                     ".common",
                 ]:
@@ -378,6 +380,8 @@ def decode_payload(payload, encoding, payload_format):
         isinstance(payload, bytes) or isinstance(payload, bytearray)
     ):
         payload = payload.decode("utf-8")
+    elif encoding == "unicode_escape":
+        payload = payload.decode('unicode_escape')
 
     if payload_format == "json":
         payload = json.loads(payload)
