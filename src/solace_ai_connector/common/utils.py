@@ -129,7 +129,6 @@ def import_module(module, base_path=None, component_package=None):
                     ".components.general.openai",
                     ".components.general.websearch",
                     ".components.inputs_outputs",
-                    ".components.general.filter",
                     ".transforms",
                     ".common",
                 ]:
