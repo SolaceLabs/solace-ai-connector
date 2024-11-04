@@ -47,5 +47,8 @@ class LiteLLMEmbeddings(LiteLLMBase):
                 input=items)
 
         # Extract the embedding data from the response
-        embedding_data = response['data'][0]['embedding']
-        return {"embeddings": embedding_data}
+        embeddings = []
+        for embedding in response.get("data", []):
+            embeddings.append(embedding['embedding'])
+
+        return {"embeddings": embeddings}

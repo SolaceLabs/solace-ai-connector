@@ -62,9 +62,9 @@ flows:
           payload_format: json
 
       #
-      # Do an LLM request
+      # Do an Embedding request
       #
-      - component_name: llm_request
+      - component_name: embedding_request
         component_module: litellm_embeddings
         component_config:
           load_balancer: 
