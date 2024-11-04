@@ -1,0 +1,121 @@
+# This process will establish the following flow where the LiteLLM agent retains the history of questions and answers.
+#    Solace -> LiteLLM -> Solace
+#
+# It will subscribe to `demo/question` and expect an event with the payload:
+#
+# The input message has the following schema:
+# {
+#   "text": "<question or request as text>"
+#   "session_id": "<session_id>"
+# }
+#
+# Output is published to the topic `demo/question/response`
+# 
+# It will then send an event back to Solace with the topic: `demo/question/response`
+#
+# Dependencies:
+# pip install litellm
+#
+# Required ENV variables:
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT
+# - OPENAI_MODEL_NAME
+# - ANTHROPIC_MODEL_NAME
+# - ANTHROPIC_API_KEY
+# - ANTHROPIC_API_ENDPOINT
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+#
+# Supported models: OpenAI, Anthropic, Azure, Huggingface, Ollama, Google VertexAI
+# More models are available in https://docs.litellm.ai/docs/providers
+# Note: For most models, the model provider’s name should be used as a prefix for the model name (e.g. azure/chatgpt-v-2)
+
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Take from input broker and publish back to Solace
+flows:
+  # broker input processing
+  - name: Simple template to LLM
+    components:
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: demo_question67
+          broker_subscriptions:
+            - topic: demo/question
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      #
+      # Do an LLM request
+      #
+      - component_name: llm_request
+        component_module: litellm_chat_model_with_history
+        component_config:
+          load_balancer:
+            - model_name: "gpt-4o" # model alias
+              litellm_params:
+                    model: ${OPENAI_MODEL_NAME}
+                    api_key: ${OPENAI_API_KEY}
+                    api_base: ${OPENAI_API_ENDPOINT}
+                    temperature: 0.01
+                    # add any other parameters here
+            - model_name: "claude-3-5-sonnet" # model alias
+              litellm_params:
+                    model: ${ANTHROPIC_MODEL_NAME}
+                    api_key: ${ANTHROPIC_API_KEY}
+                    api_base: ${ANTHROPIC_API_ENDPOINT}
+                    # add any other parameters here
+            # add more models here
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:You are a helpful AI assistant. Please help with the user's request below:
+              <user-question>
+              {{text://input.payload:text}}
+              </user-question>
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+          - type: copy
+            source_expression: input.payload:session_id
+            dest_expression: user_data.llm_input:session_id
+        input_selection:
+          source_expression: user_data.llm_input
+
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

@@ -17,6 +17,8 @@
 | [langchain_vector_store_delete](langchain_vector_store_delete.md) | This component allows for entries in a LangChain Vector Store to be deleted. This is needed for the continued maintenance of the vector store. Due to the nature of langchain vector stores, you need to specify an embedding component even though it is not used in this component. |
 | [langchain_vector_store_embedding_index](langchain_vector_store_embedding_index.md) | Use LangChain Vector Stores to index text for later semantic searches. This will take text, run it through an embedding model and then store it in a vector database. |
 | [langchain_vector_store_embedding_search](langchain_vector_store_embedding_search.md) | Use LangChain Vector Stores to search a vector store with a semantic search. This will take text, run it through an embedding model with a query embedding and then find the closest matches in the store. |
+| [litellm_chat_model](litellm_chat_model.md) | LiteLLM chat model component |
+| [litellm_chat_model_with_history](litellm_chat_model_with_history.md) | LiteLLM model handler component with conversation history |
 | [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
 | [openai_chat_model](openai_chat_model.md) | OpenAI chat model component |
 | [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
@@ -30,3 +32,5 @@
 | [websearch_bing](websearch_bing.md) | Perform a search query on Bing. |
 | [websearch_duckduckgo](websearch_duckduckgo.md) | Perform a search query on DuckDuckGo. |
 | [websearch_google](websearch_google.md) | Perform a search query on Google. |
+| [websocket_input](websocket_input.md) | Listen for incoming messages on a websocket connection. |
+| [websocket_output](websocket_output.md) | Send messages to a websocket connection. |

@@ -2,8 +2,8 @@
 
 import importlib
 
-from ...component_base import ComponentBase
-from ....common.utils import resolve_config_values
+from ....component_base import ComponentBase
+from .....common.utils import resolve_config_values
 
 
 class LangChainBase(ComponentBase):

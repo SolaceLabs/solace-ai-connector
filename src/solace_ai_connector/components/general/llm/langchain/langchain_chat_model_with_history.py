@@ -16,7 +16,7 @@ from langchain.schema.messages import (
     SystemMessage,
 )
 
-from ....common.message import Message
+from .....common.message import Message
 from .langchain_chat_model_base import (
     LangChainChatModelBase,
     info_base,

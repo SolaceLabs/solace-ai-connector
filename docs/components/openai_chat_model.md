@@ -56,9 +56,19 @@ component_config:
 
 ```
 {
-  content:   <string>
+  content:   <string>,
+  chunk:   <string>,
+  response_uuid:   <string>,
+  first_chunk:   <boolean>,
+  last_chunk:   <boolean>,
+  streaming:   <boolean>
 }
 ```
 | Field | Required | Description |
 | --- | --- | --- |
 | content | True | The generated response from the model |
+| chunk | False | The current chunk of the response |
+| response_uuid | False | The UUID of the response |
+| first_chunk | False | Whether this is the first chunk of the response |
+| last_chunk | False | Whether this is the last chunk of the response |
+| streaming | False | Whether this is a streaming response |

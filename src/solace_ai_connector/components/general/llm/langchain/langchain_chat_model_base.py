@@ -5,7 +5,7 @@ import yaml
 from abc import abstractmethod
 from langchain_core.output_parsers import JsonOutputParser
 
-from ....common.utils import get_obj_text
+from .....common.utils import get_obj_text
 from langchain.schema.messages import (
     HumanMessage,
     SystemMessage,

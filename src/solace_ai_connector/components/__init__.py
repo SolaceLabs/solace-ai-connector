@@ -25,13 +25,19 @@ from .general.for_testing import (
     give_ack_output,
 )
 
-from .general.langchain import (
+from .general.llm.langchain import (
     langchain_embeddings,
     langchain_vector_store_delete,
     langchain_chat_model,
     langchain_chat_model_with_history,
     langchain_vector_store_embedding_index,
     langchain_vector_store_embedding_search,
+)
+
+from .general.llm.litellm import (
+    litellm_chat_model,
+    litellm_embeddings,
+    litellm_chat_model_with_history,
 )
 
 from .general.websearch import (
@@ -57,20 +63,19 @@ from .general.delay import Delay
 from .general.iterate import Iterate
 from .general.message_filter import MessageFilter
 from .general.parser import Parser
-from .general.langchain.langchain_base import LangChainBase
-from .general.langchain.langchain_embeddings import LangChainEmbeddings
-from .general.langchain.langchain_vector_store_delete import LangChainVectorStoreDelete
-from .general.langchain.langchain_chat_model import LangChainChatModel
-from .general.langchain.langchain_chat_model_with_history import (
+from .general.llm.langchain.langchain_base import LangChainBase
+from .general.llm.langchain.langchain_embeddings import LangChainEmbeddings
+from .general.llm.langchain.langchain_vector_store_delete import LangChainVectorStoreDelete
+from .general.llm.langchain.langchain_chat_model import LangChainChatModel
+from .general.llm.langchain.langchain_chat_model_with_history import (
     LangChainChatModelWithHistory,
 )
-from .general.langchain.langchain_vector_store_embedding_index import (
+from .general.llm.langchain.langchain_vector_store_embedding_index import (
     LangChainVectorStoreEmbeddingsIndex,
 )
-from .general.langchain.langchain_vector_store_embedding_search import (
+from .general.llm.langchain.langchain_vector_store_embedding_search import (
     LangChainVectorStoreEmbeddingsSearch,
 )
 from .general.websearch.websearch_duckduckgo import WebSearchDuckDuckGo
 from .general.websearch.websearch_google import WebSearchGoogle
 from .general.websearch.websearch_bing import WebSearchBing
-

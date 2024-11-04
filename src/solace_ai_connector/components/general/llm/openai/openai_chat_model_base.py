@@ -4,9 +4,9 @@ import uuid
 import time
 
 from openai import OpenAI
-from ...component_base import ComponentBase
-from ....common.message import Message
-from ....common.log import log
+from ....component_base import ComponentBase
+from .....common.message import Message
+from .....common.log import log
 
 openai_info_base = {
     "class_name": "OpenAIChatModelBase",

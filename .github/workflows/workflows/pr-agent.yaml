@@ -1,0 +1,9 @@
+name: AI PR Agent
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+jobs:
+  pr_agent_job:
+    uses: SolaceDev/ai-build-actions/.github/workflows/ai_pr.yaml@use_sonnet_3_5
