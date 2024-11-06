@@ -91,7 +91,8 @@ class SolaceAiConnector:
 
     def wait_for_flows(self):
         """Wait for the flows to finish"""
-        while True:
+        while not self.stop_signal.is_set():
+            print("-- Press Ctrl+C to stop --")
             try:
                 for flow in self.flows:
                     flow.wait_for_threads()
@@ -216,6 +217,5 @@ class SolaceAiConnector:
         self.stop_signal.set()
         self.timer_manager.stop()  # Stop the timer manager first
         self.cache_service.stop()  # Stop the cache service
-        self.wait_for_flows()
         if self.trace_thread:
             self.trace_thread.join()

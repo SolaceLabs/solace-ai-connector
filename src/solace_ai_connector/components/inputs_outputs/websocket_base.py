@@ -1,12 +1,12 @@
 """Base class for WebSocket components."""
 
+import os
+import signal
 from abc import ABC, abstractmethod
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
-import logging
 from ...common.log import log
 from ..component_base import ComponentBase
-import copy
 from flask.logging import default_handler
 
 base_info = {
@@ -111,14 +111,21 @@ class WebsocketBase(ComponentBase, ABC):
             )
 
     def stop_server(self):
-        if self.socketio:
-            self.socketio.stop()
-        if self.app:
-            func = request.environ.get("werkzeug.server.shutdown")
+        try:
+            func = request.environ.get('werkzeug.server.shutdown')
             if func is None:
-                raise RuntimeError("Not running with the Werkzeug Server")
+                raise RuntimeError('Not running with the Werkzeug Server')
             func()
-
+        except RuntimeError:
+            # Ignore the error if the server is already shutdown
+            pass
+        try:
+            self.socketio.stop()
+        except Exception as e:
+            pass
+        # force exiting component
+        os.kill(os.getpid(), signal.SIGINT)
+ 
     def get_sockets(self):
         if not self.sockets:
             self.sockets = self.kv_store_get("websocket_connections") or {}

@@ -405,7 +405,10 @@ class ComponentBase:
     def cleanup(self):
         """Clean up resources used by the component"""
         log.debug("%sCleaning up component", self.log_identifier)
-        self.stop_component()
+        try:
+            self.stop_component()
+        except KeyboardInterrupt:
+            pass
         if hasattr(self, "input_queue"):
             while not self.input_queue.empty():
                 try:

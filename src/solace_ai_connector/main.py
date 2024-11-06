@@ -2,7 +2,8 @@ import os
 import sys
 import re
 import yaml
-from pathlib import Path
+import atexit
+
 from .solace_ai_connector import SolaceAiConnector
 
 
@@ -103,13 +104,22 @@ def main():
     # Create the application
     app = SolaceAiConnector(full_config)
 
+    def shutdown():
+        """Shutdown the application."""
+        print("Stopping Solace AI Connector")
+        app.stop()
+        app.cleanup()  
+        print("Solace AI Connector exited successfully!")
+        os._exit(0)
+    atexit.register(shutdown)
+
     # Start the application
     app.run()
 
-    app.wait_for_flows()
-
-    print("Solace AI Connector exited successfully!")
-
+    try:
+        app.wait_for_flows()
+    except KeyboardInterrupt:
+        shutdown()
 
 if __name__ == "__main__":
     # Read in the configuration yaml filenames from the args

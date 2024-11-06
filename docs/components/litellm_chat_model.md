@@ -1,6 +1,6 @@
 # LiteLLMChatModel
 
-LiteLLM chat model component
+LiteLLM chat component
 
 ## Configuration Parameters
 
@@ -8,7 +8,6 @@ LiteLLM chat model component
 component_name: <user-supplied-name>
 component_module: litellm_chat_model
 component_config:
-  action: <string>
   load_balancer: <string>
   embedding_params: <string>
   temperature: <string>
@@ -25,7 +24,6 @@ component_config:
 
 | Parameter | Required | Default | Description |
 | --- | --- | --- | --- |
-| action | True | inference | The action to perform (e.g., 'inference', 'embedding') |
 | load_balancer | False |  | Add a list of models to load balancer. |
 | embedding_params | False |  | LiteLLM model parameters. The model, api_key and base_url are mandatory.find more models at https://docs.litellm.ai/docs/providersfind more parameters at https://docs.litellm.ai/docs/completion/input |
 | temperature | False | 0.7 | Sampling temperature to use |

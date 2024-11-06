@@ -1,12 +1,12 @@
-# LiteLLMChatModelWithHistory
+# LiteLLMEmbeddings
 
-LiteLLM model handler component with conversation history
+Embed text using a LiteLLM model
 
 ## Configuration Parameters
 
 ```yaml
 component_name: <user-supplied-name>
-component_module: litellm_chat_model_with_history
+component_module: litellm_embeddings
 component_config:
   load_balancer: <string>
   embedding_params: <string>
@@ -42,41 +42,27 @@ component_config:
 
 ```
 {
-  messages: [
-    {
-      role:       <string>,
-      content:       <string>
-    },
+  items: [
+,
     ...
-  ],
-  clear_history_but_keep_depth:   <integer>
+  ]
 }
 ```
 | Field | Required | Description |
 | --- | --- | --- |
-| messages | True |  |
-| messages[].role | True |  |
-| messages[].content | True |  |
-| clear_history_but_keep_depth | False | Clear history but keep the last N messages. If 0, clear all history. If not set, do not clear history. |
+| items | True | A single element or a list of elements to embed |
 
 
 ## Component Output Schema
 
 ```
 {
-  content:   <string>,
-  chunk:   <string>,
-  response_uuid:   <string>,
-  first_chunk:   <boolean>,
-  last_chunk:   <boolean>,
-  streaming:   <boolean>
+  embeddings: [
+    <float>,
+    ...
+  ]
 }
 ```
 | Field | Required | Description |
 | --- | --- | --- |
-| content | True | The generated response from the model |
-| chunk | False | The current chunk of the response |
-| response_uuid | False | The UUID of the response |
-| first_chunk | False | Whether this is the first chunk of the response |
-| last_chunk | False | Whether this is the last chunk of the response |
-| streaming | False | Whether this is a streaming response |
+| embeddings | True | A list of floating point numbers representing the embeddings. Its length is the size of vector that the embedding model produces |
