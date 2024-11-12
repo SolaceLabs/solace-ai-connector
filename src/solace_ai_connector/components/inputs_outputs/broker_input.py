@@ -88,8 +88,9 @@ DEFAULT_TIMEOUT_MS = 1000
 
 
 class BrokerInput(BrokerBase):
-    def __init__(self, **kwargs):
-        super().__init__(info, **kwargs)
+    def __init__(self, module_info=None, **kwargs):
+        module_info = module_info or info
+        super().__init__(module_info, **kwargs)
         self.need_acknowledgement = True
         self.temporary_queue = self.get_config("temporary_queue", False)
         # If broker_queue_name is not provided, use temporary queue
