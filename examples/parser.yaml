@@ -16,10 +16,19 @@ flows:
         component_module: stdin_input
 
     # Using Custom component
-      - component_name: parser_component
+      - component_name: json_to_yaml
+        component_module: parser
+        component_config:
+          input_format: json
+          output_format: yaml
+        input_selection:
+          source_expression: previous:text
+
+      - component_name: yaml_to_dict
         component_module: parser
         component_config:
           input_format: yaml
+          output_format: dict
         input_selection:
           source_expression: previous
 

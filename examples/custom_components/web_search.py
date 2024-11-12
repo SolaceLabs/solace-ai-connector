@@ -1,4 +1,4 @@
-# A simple pass-through component - what goes in comes out
+# A component to search the web using APIs.
 import sys
 import requests
 
