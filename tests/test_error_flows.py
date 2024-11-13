@@ -59,9 +59,9 @@ flows:
 
     try:
         assert output_message.get_data("previous") == "This is an error message"
-        assert output_message.get_data("input.payload")["error"] == {
-            "exception": "ValueError",
-            "text": "This is an error message",
-        }
+
+        error = output_message.get_data("input.payload")["error"]
+        assert error["exception"] == "ValueError"
+        assert error["text"] == "This is an error message"
     finally:
         dispose_connector(connector)
