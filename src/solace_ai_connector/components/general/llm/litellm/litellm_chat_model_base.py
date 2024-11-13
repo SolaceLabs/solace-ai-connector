@@ -1,6 +1,9 @@
 """LiteLLM chat model component"""
 
+import time
+import uuid
 from .litellm_base import LiteLLMBase, litellm_info_base
+from .....common.message import Message
 from .....common.log import log
 
 litellm_chat_info_base = litellm_info_base.copy()
@@ -61,7 +64,9 @@ litellm_chat_info_base.update(
     },
 )
 
+
 class LiteLLMChatModelBase(LiteLLMBase):
+
     def __init__(self, info, **kwargs):
         super().__init__(info, **kwargs)
 
@@ -82,12 +87,12 @@ class LiteLLMChatModelBase(LiteLLMBase):
                 response = self.load_balance(messages, stream=False)
                 return {"content": response.choices[0].message.content}
             except Exception as e:
-                    log.error("Error invoking LiteLLM: %s", e)
-                    max_retries -= 1
-                    if max_retries <= 0:
-                        raise e
-                    else:
-                        time.sleep(1)
+                log.error("Error invoking LiteLLM: %s", e)
+                max_retries -= 1
+                if max_retries <= 0:
+                    raise e
+                else:
+                    time.sleep(1)
 
     def invoke_stream(self, message, messages):
         """invoke the model with streaming"""

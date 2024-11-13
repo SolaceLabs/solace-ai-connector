@@ -1,8 +1,5 @@
 """Base class for LiteLLM chat models"""
 
-import uuid
-import time
-import asyncio
 import litellm
 
 from ....component_base import ComponentBase
@@ -16,9 +13,7 @@ litellm_info_base = {
         {
             "name": "load_balancer",
             "required": False,
-            "description": (
-                "Add a list of models to load balancer."
-            ),
+            "description": ("Add a list of models to load balancer."),
             "default": "",
         },
         {
@@ -87,6 +82,7 @@ litellm_info_base = {
 
 
 class LiteLLMBase(ComponentBase):
+
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.init()
@@ -115,11 +111,12 @@ class LiteLLMBase(ComponentBase):
             log.debug("Load balancer initialized with models: %s", self.load_balancer)
         except Exception as e:
             raise ValueError(f"Error initializing load balancer: {e}")
-    
+
     def load_balance(self, messages, stream):
         """load balance the messages"""
-        response = self.router.completion(model=self.load_balancer[0]["model_name"], 
-                messages=messages, stream=stream)
+        response = self.router.completion(
+            model=self.load_balancer[0]["model_name"], messages=messages, stream=stream
+        )
         log.debug("Load balancer response: %s", response)
         return response
 
