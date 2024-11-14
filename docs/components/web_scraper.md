@@ -8,24 +8,35 @@ Scrape javascript based websites.
 component_name: <user-supplied-name>
 component_module: web_scraper
 component_config:
+  timeout: <string>
 ```
 
-No configuration parameters
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| timeout | False | 30000 | The timeout for the browser in milliseconds. |
 
 
 ## Component Input Schema
 
 ```
 {
-  <freeform-object>
+  url:   <string>
 }
 ```
+| Field | Required | Description |
+| --- | --- | --- |
+| url | False | The URL of the website to scrape. |
 
 
 ## Component Output Schema
 
 ```
 {
-  <freeform-object>
+  title:   <string>,
+  content:   <string>
 }
 ```
+| Field | Required | Description |
+| --- | --- | --- |
+| title | False | The title of the website. |
+| content | False | The content of the website. |

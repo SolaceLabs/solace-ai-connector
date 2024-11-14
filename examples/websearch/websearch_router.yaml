@@ -190,7 +190,7 @@ flows:
           search_engine_id: ${GOOGLE_ENGINE_ID}
           detail: false
         input_selection:
-          source_expression: input.payload
+          source_expression: input.payload:text
 
       # Clean results by LLM
       - component_name: cleaner_llm

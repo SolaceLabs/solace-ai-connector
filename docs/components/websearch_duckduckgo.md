@@ -10,6 +10,7 @@ component_module: websearch_duckduckgo
 component_config:
   pretty: <string>
   no_html: <string>
+  count: <string>
   skip_disambig: <string>
   detail: <string>
 ```
@@ -18,6 +19,7 @@ component_config:
 | --- | --- | --- | --- |
 | pretty | False | 1 | Beautify the search output. |
 | no_html | False | 1 | The number of output pages. |
+| count | False | 10 | Max Number of search results to return. |
 | skip_disambig | False | 1 | Skip disambiguation. |
 | detail | False | False | Return the detail. |
 
@@ -25,16 +27,24 @@ component_config:
 ## Component Input Schema
 
 ```
-{
-  <freeform-object>
-}
+<string>
 ```
 
 
 ## Component Output Schema
 
 ```
-{
-  <freeform-object>
-}
+[
+  {
+    title:     <string>,
+    snippet:     <string>,
+    url:     <string>
+  },
+  ...
+]
 ```
+| Field | Required | Description |
+| --- | --- | --- |
+| [].title | False |  |
+| [].snippet | False |  |
+| [].url | False |  |

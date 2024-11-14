@@ -27,6 +27,7 @@ info = {
 
 
 class Parser(ComponentBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
 
@@ -57,7 +58,7 @@ class Parser(ComponentBase):
         try:
             if input_format == "json" or input_format == "yaml":
                 dict_data = self.str_to_dict(data, input_format)
-            else:
+            elif input_format != "dict":
                 raise ValueError(f"Invalid input format: {input_format}")
         except Exception as e:
             raise ValueError(f"Error converting input: {str(e)}") from e

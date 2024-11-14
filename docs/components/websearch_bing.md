@@ -16,23 +16,31 @@ component_config:
 | Parameter | Required | Default | Description |
 | --- | --- | --- | --- |
 | api_key | True |  | Bing API Key. |
-| count | False | 10 | Number of search results to return. |
+| count | False | 10 | Max number of search results to return. |
 | safesearch | False | Moderate | Safe search setting: Off, Moderate, or Strict. |
 
 
 ## Component Input Schema
 
 ```
-{
-  <freeform-object>
-}
+<string>
 ```
 
 
 ## Component Output Schema
 
 ```
-{
-  <freeform-object>
-}
+[
+  {
+    title:     <string>,
+    snippet:     <string>,
+    url:     <string>
+  },
+  ...
+]
 ```
+| Field | Required | Description |
+| --- | --- | --- |
+| [].title | False |  |
+| [].snippet | False |  |
+| [].url | False |  |

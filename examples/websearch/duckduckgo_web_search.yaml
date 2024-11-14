@@ -14,14 +14,14 @@ flows:
       - component_name: stdin
         component_module: stdin_input
 
-    # Using Custom component
+      # Using web component
       - component_name: web_search_component
         component_module: websearch_duckduckgo
         component_config:
           detail: false
         input_selection:
-          source_expression: previous
+          source_expression: previous:text
 
-     # Output to a standard out
+      # Output to a standard out
       - component_name: stdout
         component_module: stdout_output

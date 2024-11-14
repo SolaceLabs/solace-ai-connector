@@ -2,6 +2,8 @@
 # The input payload is:
 # <text>
 #
+# Get API key from: https://developers.google.com/custom-search/v1/introduction
+# Create a search engine from: https://programmablesearchengine.google.com/controlpanel/create
 # Required ENV variables:
 # - Google_API_KEY
 # - GOOGLE_ENGINE_ID
@@ -18,7 +20,7 @@ flows:
       - component_name: stdin
         component_module: stdin_input
 
-    # Using Custom component
+      # Using web component
       - component_name: web_search_component
         component_module: websearch_google
         component_config:
@@ -26,8 +28,8 @@ flows:
           search_engine_id: ${GOOGLE_ENGINE_ID}
           detail: false
         input_selection:
-          source_expression: previous
+          source_expression: previous:text
 
-     # Output to a standard out
+      # Output to a standard out
       - component_name: stdout
         component_module: stdout_output

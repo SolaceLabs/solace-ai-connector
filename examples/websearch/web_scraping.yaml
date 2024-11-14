@@ -24,13 +24,17 @@ flows:
       - component_name: stdin
         component_module: stdin_input
 
-    # Using Custom component
+      # Using Custom component
       - component_name: web_scraping_component
         component_module: web_scraper
         component_config:
+        input_transforms:
+          - type: copy
+            source_expression: previous:text
+            dest_expression: user_data.scraper:url
         input_selection:
-          source_expression: previous
+          source_expression: user_data.scraper
 
-     # Output to a standard out
+      # Output to a standard out
       - component_name: stdout
         component_module: stdout_output

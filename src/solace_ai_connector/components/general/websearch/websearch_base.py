@@ -1,4 +1,5 @@
 """Base class for Web Search"""
+
 from ...component_base import ComponentBase
 
 info_base = {
@@ -9,35 +10,34 @@ info_base = {
             "name": "engine",
             "required": True,
             "description": "The type of search engine.",
-            "default": "DuckDuckGo"
+            "default": "DuckDuckGo",
         },
         {
             "name": "detail",
             "required": False,
             "description": "Return the detail.",
-            "default": False
-        }
+            "default": False,
+        },
     ],
     "input_schema": {
-        "type": "object",
-        "properties": {},
+        "type": "string",
     },
     "output_schema": {
         "type": "object",
         "properties": {},
-    }
+    },
 }
 
+
 class WebSearchBase(ComponentBase):
+
     def __init__(self, info_base, **kwargs):
         super().__init__(info_base, **kwargs)
         self.detail = self.get_config("detail")
 
     def invoke(self, message, data):
         pass
-    
+
     # Extract required data from a message
     def parse(self, message):
         pass
-
-

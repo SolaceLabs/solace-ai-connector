@@ -23,7 +23,7 @@
 | [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
 | [openai_chat_model](openai_chat_model.md) | OpenAI chat model component |
 | [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
-| [parser](parser.md) | Parse a JSON string and extract data fields. |
+| [parser](parser.md) | Parse input from the given type to output type. |
 | [pass_through](pass_through.md) | What goes in comes out |
 | [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. The component will wait for its output message to be acknowledged before prompting for the next input. |
 | [stdout_output](stdout_output.md) | STDOUT output component |
