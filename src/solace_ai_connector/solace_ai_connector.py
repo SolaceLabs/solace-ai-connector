@@ -121,7 +121,8 @@ class SolaceAiConnector:
         stdout_log_level = log_config.get("stdout_log_level", "INFO")
         log_file_level = log_config.get("log_file_level", "DEBUG")
         log_file = log_config.get("log_file", "solace_ai_connector.log")
-        setup_log(log_file, stdout_log_level, log_file_level)
+        log_format = log_config.get("log_format", "pipe-delimited")
+        setup_log(log_file, stdout_log_level, log_file_level, log_format)
 
     def setup_trace(self):
         """Setup trace"""
