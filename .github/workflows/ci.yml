@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   ci:
-    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_ci.yml@test
+    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_ci.yml@main
     with:
       min-python-version: "3.10"
     secrets:
@@ -31,7 +31,7 @@ jobs:
           ssh-key: ${{ secrets.COMMIT_KEY }}
 
       - name: Set up Hatch
-        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-setup@test
+        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-setup@main
         with:
           min-python-version: "3.10"
       - name: Set Up Docker Buildx
