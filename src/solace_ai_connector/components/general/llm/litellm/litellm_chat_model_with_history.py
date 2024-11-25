@@ -32,7 +32,9 @@ info["input_schema"]["properties"]["clear_history_but_keep_depth"] = {
     "description": "Clear history but keep the last N messages. If 0, clear all history. If not set, do not clear history.",
 }
 
+
 class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.history_max_turns = self.get_config("history_max_turns", 10)
@@ -45,7 +47,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
     def invoke(self, message, data):
         session_id = data.get("session_id")
         if not session_id:
-             raise ValueError("session_id is not provided")
+            raise ValueError("session_id is not provided")
 
         clear_history_but_keep_depth = data.get("clear_history_but_keep_depth")
         try:
@@ -55,6 +57,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
             log.error("Invalid clear_history_but_keep_depth value. Defaulting to 0.")
             clear_history_but_keep_depth = 0
         messages = data.get("messages", [])
+        stream = data.get("stream")
 
         with self.get_lock(self.history_key):
             history = self.kv_store_get(self.history_key) or {}
@@ -88,7 +91,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
             self.prune_history(session_id, history)
 
             response = super().invoke(
-                message, {"messages": history[session_id]["messages"]}
+                message, {"messages": history[session_id]["messages"], "stream": stream}
             )
 
             # Add the assistant's response to the history

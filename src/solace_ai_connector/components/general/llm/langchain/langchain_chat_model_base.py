@@ -5,6 +5,7 @@ import yaml
 from abc import abstractmethod
 from langchain_core.output_parsers import JsonOutputParser
 
+from .....common.message import Message
 from .....common.utils import get_obj_text
 from langchain.schema.messages import (
     HumanMessage,
@@ -38,6 +39,28 @@ info_base = {
             "required": True,
             "description": "Model specific configuration for the chat model. "
             "See documentation for valid parameter names.",
+        },
+        {
+            "name": "llm_mode",
+            "required": False,
+            "description": "The mode for streaming results: 'none' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response.",
+        },
+        {
+            "name": "allow_overwrite_llm_mode",
+            "required": False,
+            "description": "Whether to allow the llm_mode to be overwritten by the `stream` from the input message.",
+        },
+        {
+            "name": "stream_to_flow",
+            "required": False,
+            "description": "Name the flow to stream the output to - this must be configured for llm_mode='stream'.",
+            "default": "",
+        },
+        {
+            "name": "stream_batch_size",
+            "required": False,
+            "description": "The minimum number of words in a single streaming result. Default: 15.",
+            "default": 15,
         },
         {
             "name": "llm_response_format",
@@ -88,10 +111,18 @@ info_base = {
 
 
 class LangChainChatModelBase(LangChainBase):
+
+    def __init__(self, info, **kwargs):
+        super().__init__(info, **kwargs)
+        self.llm_mode = self.get_config("llm_mode", "none")
+        self.allow_overwrite_llm_mode = self.get_config("allow_overwrite_llm_mode")
+        self.stream_to_flow = self.get_config("stream_to_flow", "")
+        self.stream_batch_size = self.get_config("stream_batch_size", 15)
+
     def invoke(self, message, data):
         messages = []
 
-        for item in data["messages"]:
+        for item in data.get("messages"):
             if item["role"] == "system":
                 messages.append(SystemMessage(content=item["content"]))
             elif item["role"] == "user" or item["role"] == "human":
@@ -109,9 +140,22 @@ class LangChainChatModelBase(LangChainBase):
 
         session_id = data.get("session_id", None)
         clear_history = data.get("clear_history", False)
+        stream = data.get("stream")
+
+        should_stream = self.llm_mode == "stream"
+        if (
+            self.allow_overwrite_llm_mode
+            and stream is not None
+            and isinstance(stream, bool)
+        ):
+            should_stream = stream
 
         llm_res = self.invoke_model(
-            message, messages, session_id=session_id, clear_history=clear_history
+            message,
+            messages,
+            session_id=session_id,
+            clear_history=clear_history,
+            stream=should_stream,
         )
 
         res_format = self.get_config("llm_response_format", "text")
@@ -134,6 +178,32 @@ class LangChainChatModelBase(LangChainBase):
 
     @abstractmethod
     def invoke_model(
-        self, input_message, messages, session_id=None, clear_history=False
+        self,
+        input_message,
+        messages,
+        session_id=None,
+        clear_history=False,
+        stream=False,
     ):
         pass
+
+    def send_streaming_message(
+        self,
+        input_message,
+        chunk,
+        aggregate_result,
+        response_uuid,
+        first_chunk=False,
+        last_chunk=False,
+    ):
+        message = Message(
+            payload={
+                "chunk": chunk,
+                "content": aggregate_result,
+                "response_uuid": response_uuid,
+                "first_chunk": first_chunk,
+                "last_chunk": last_chunk,
+            },
+            user_properties=input_message.get_user_properties(),
+        )
+        self.send_to_flow(self.stream_to_flow, message)

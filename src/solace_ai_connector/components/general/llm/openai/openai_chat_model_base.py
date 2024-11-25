@@ -56,11 +56,16 @@ openai_info_base = {
             "name": "llm_mode",
             "required": False,
             "description": (
-                "The mode for streaming results: 'sync' or 'stream'. 'stream' "
+                "The mode for streaming results: 'none' or 'stream'. 'stream' "
                 "will just stream the results to the named flow. 'none' will "
                 "wait for the full response."
             ),
             "default": "none",
+        },
+        {
+            "name": "allow_overwrite_llm_mode",
+            "required": False,
+            "description": "Whether to allow the llm_mode to be overwritten by the `stream` from the input message.",
         },
         {
             "name": "stream_batch_size",
@@ -96,6 +101,10 @@ openai_info_base = {
                     },
                     "required": ["role", "content"],
                 },
+            },
+            "stream": {
+                "type": "boolean",
+                "description": "Whether to stream the response - overwrites llm_mode",
             },
         },
         "required": ["messages"],
@@ -134,6 +143,7 @@ openai_info_base = {
 
 
 class OpenAIChatModelBase(ComponentBase):
+
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.init()
@@ -144,6 +154,7 @@ class OpenAIChatModelBase(ComponentBase):
         self.stream_to_flow = self.get_config("stream_to_flow")
         self.stream_to_next_component = self.get_config("stream_to_next_component")
         self.llm_mode = self.get_config("llm_mode")
+        self.allow_overwrite_llm_mode = self.get_config("allow_overwrite_llm_mode")
         self.stream_batch_size = self.get_config("stream_batch_size")
         self.response_format = self.get_config("response_format", "text")
         self.set_response_uuid_in_user_properties = self.get_config(
@@ -156,12 +167,21 @@ class OpenAIChatModelBase(ComponentBase):
 
     def invoke(self, message, data):
         messages = data.get("messages", [])
+        stream = data.get("stream")
 
         client = OpenAI(
             api_key=self.get_config("api_key"), base_url=self.get_config("base_url")
         )
 
-        if self.llm_mode == "stream":
+        should_stream = self.llm_mode == "stream"
+        if (
+            self.allow_overwrite_llm_mode
+            and stream is not None
+            and isinstance(stream, bool)
+        ):
+            should_stream = stream
+
+        if should_stream:
             return self.invoke_stream(client, message, messages)
         else:
             max_retries = 3
@@ -171,7 +191,7 @@ class OpenAIChatModelBase(ComponentBase):
                         messages=messages,
                         model=self.model,
                         temperature=self.temperature,
-                        response_format={"type": self.response_format}
+                        response_format={"type": self.response_format},
                     )
                     return {"content": response.choices[0].message.content}
                 except Exception as e:
