@@ -35,6 +35,7 @@ info["input_schema"]["properties"]["clear_history_but_keep_depth"] = {
 
 
 class OpenAIChatModelWithHistory(OpenAIChatModelBase, ChatHistoryHandler):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.history_max_turns = self.get_config("history_max_turns", 10)
@@ -47,8 +48,8 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase, ChatHistoryHandler):
     def invoke(self, message, data):
         session_id = data.get("session_id")
         if not session_id:
-             raise ValueError("session_id is not provided")
-        
+            raise ValueError("session_id is not provided")
+
         clear_history_but_keep_depth = data.get("clear_history_but_keep_depth")
         try:
             if clear_history_but_keep_depth is not None:
@@ -56,6 +57,7 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase, ChatHistoryHandler):
         except (TypeError, ValueError):
             clear_history_but_keep_depth = 0
         messages = data.get("messages", [])
+        stream = data.get("stream")
 
         with self.get_lock(self.history_key):
             history = self.kv_store_get(self.history_key) or {}
@@ -89,7 +91,7 @@ class OpenAIChatModelWithHistory(OpenAIChatModelBase, ChatHistoryHandler):
             self.prune_history(session_id, history)
 
             response = super().invoke(
-                message, {"messages": history[session_id]["messages"]}
+                message, {"messages": history[session_id]["messages"], "stream": stream}
             )
 
             # Add the assistant's response to the history

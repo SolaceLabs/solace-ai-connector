@@ -16,7 +16,6 @@ from langchain.schema.messages import (
     SystemMessage,
 )
 
-from .....common.message import Message
 from .langchain_chat_model_base import (
     LangChainChatModelBase,
     info_base,
@@ -79,23 +78,6 @@ info["config_parameters"].extend(
             "type": "object",
         },
         {
-            "name": "stream_to_flow",
-            "required": False,
-            "description": "Name the flow to stream the output to - this must be configured for llm_mode='stream'.",
-            "default": "",
-        },
-        {
-            "name": "llm_mode",
-            "required": False,
-            "description": "The mode for streaming results: 'sync' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response.",
-        },
-        {
-            "name": "stream_batch_size",
-            "required": False,
-            "description": "The minimum number of words in a single streaming result. Default: 15.",
-            "default": 15,
-        },
-        {
             "name": "set_response_uuid_in_user_properties",
             "required": False,
             "description": "Whether to set the response_uuid in the user_properties of the input_message. This will allow other components to correlate streaming chunks with the full response.",
@@ -128,15 +110,17 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         )
         self.history_max_tokens = self.get_config("history_max_tokens", 8000)
         self.history_max_time = self.get_config("history_max_time", None)
-        self.stream_to_flow = self.get_config("stream_to_flow", "")
-        self.llm_mode = self.get_config("llm_mode", "none")
-        self.stream_batch_size = self.get_config("stream_batch_size", 15)
         self.set_response_uuid_in_user_properties = self.get_config(
             "set_response_uuid_in_user_properties", False
         )
 
     def invoke_model(
-        self, input_message, messages, session_id=None, clear_history=False
+        self,
+        input_message,
+        messages,
+        session_id=None,
+        clear_history=False,
+        stream=False,
     ):
 
         if clear_history:
@@ -171,7 +155,7 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
             history_messages_key="chat_history",
         )
 
-        if self.llm_mode == "none":
+        if not stream:
             return runnable.invoke(
                 {"input": human_message},
                 config={
@@ -220,27 +204,6 @@ class LangChainChatModelWithHistory(LangChainChatModelBase):
         self.prune_large_message_from_history(session_id)
 
         return result
-
-    def send_streaming_message(
-        self,
-        input_message,
-        chunk,
-        aggregate_result,
-        response_uuid,
-        first_chunk=False,
-        last_chunk=False,
-    ):
-        message = Message(
-            payload={
-                "chunk": chunk,
-                "content": aggregate_result,
-                "response_uuid": response_uuid,
-                "first_chunk": first_chunk,
-                "last_chunk": last_chunk,
-            },
-            user_properties=input_message.get_user_properties(),
-        )
-        self.send_to_flow(self.stream_to_flow, message)
 
     def create_history(self):
 

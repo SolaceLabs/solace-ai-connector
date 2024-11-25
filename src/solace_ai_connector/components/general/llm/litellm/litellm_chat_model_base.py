@@ -28,6 +28,10 @@ litellm_chat_info_base.update(
                         "required": ["role", "content"],
                     },
                 },
+                "stream": {
+                    "type": "boolean",
+                    "description": "Whether to stream the response - overwrites llm_mode",
+                },
             },
             "required": ["messages"],
         },
@@ -63,18 +67,75 @@ litellm_chat_info_base.update(
         },
     },
 )
+litellm_chat_info_base["config_parameters"].extend(
+    [
+        {
+            "name": "stream_to_flow",
+            "required": False,
+            "description": (
+                "Name the flow to stream the output to - this must be configured for "
+                "llm_mode='stream'. This is mutually exclusive with stream_to_next_component."
+            ),
+            "default": "",
+        },
+        {
+            "name": "stream_to_next_component",
+            "required": False,
+            "description": (
+                "Whether to stream the output to the next component in the flow. "
+                "This is mutually exclusive with stream_to_flow."
+            ),
+            "default": False,
+        },
+        {
+            "name": "llm_mode",
+            "required": False,
+            "description": (
+                "The mode for streaming results: 'none' or 'stream'. 'stream' "
+                "will just stream the results to the named flow. 'none' will "
+                "wait for the full response."
+            ),
+            "default": "none",
+        },
+        {
+            "name": "allow_overwrite_llm_mode",
+            "required": False,
+            "description": "Whether to allow the llm_mode to be overwritten by the `stream` from the input message.",
+        },
+        {
+            "name": "stream_batch_size",
+            "required": False,
+            "description": "The minimum number of words in a single streaming result. Default: 15.",
+            "default": 15,
+        },
+    ]
+)
 
 
 class LiteLLMChatModelBase(LiteLLMBase):
 
     def __init__(self, info, **kwargs):
         super().__init__(info, **kwargs)
+        self.stream_to_flow = self.get_config("stream_to_flow")
+        self.stream_to_next_component = self.get_config("stream_to_next_component")
+        self.llm_mode = self.get_config("llm_mode")
+        self.allow_overwrite_llm_mode = self.get_config("allow_overwrite_llm_mode")
+        self.stream_batch_size = self.get_config("stream_batch_size")
 
     def invoke(self, message, data):
         """invoke the model"""
         messages = data.get("messages", [])
+        stream = data.get("stream")
 
-        if self.llm_mode == "stream":
+        should_stream = self.llm_mode == "stream"
+        if (
+            self.allow_overwrite_llm_mode
+            and stream is not None
+            and isinstance(stream, bool)
+        ):
+            should_stream = stream
+
+        if should_stream:
             return self.invoke_stream(message, messages)
         else:
             return self.invoke_non_stream(messages)
