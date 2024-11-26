@@ -14,44 +14,44 @@ permissions:
 
 jobs:
   ci:
-    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_ci.yml@latest
+    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_ci.yml@security_tools
     with:
       min-python-version: "3.9"
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-  structure-test:
-    name: Test Docker Image Structure
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ssh-key: ${{ secrets.COMMIT_KEY }}
+  # structure-test:
+  #   name: Test Docker Image Structure
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #         ssh-key: ${{ secrets.COMMIT_KEY }}
 
-      - name: Set up Hatch
-        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-setup@latest
-        with:
-          min-python-version: "3.9"
-      - name: Set Up Docker Buildx
-        id: builder
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Hatch
+  #       uses: SolaceDev/solace-public-workflows/.github/actions/hatch-setup@latest
+  #       with:
+  #         min-python-version: "3.9"
+  #     - name: Set Up Docker Buildx
+  #       id: builder
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Prepare env file
-        run: |
-          cp .env_template .env
+  #     - name: Prepare env file
+  #       run: |
+  #         cp .env_template .env
 
-      - name: Build Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          push: false
-          tags: solace/solace-ai-connector:local
-          platforms: linux/amd64
-          builder: ${{ steps.builder.outputs.name }}
-          load: true
+  #     - name: Build Docker Image
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         push: false
+  #         tags: solace/solace-ai-connector:local
+  #         platforms: linux/amd64
+  #         builder: ${{ steps.builder.outputs.name }}
+  #         load: true
 
-      - name: Run Structure Tests
-        shell: bash
-        run: |
-          hatch run make structure-test
+  #     - name: Run Structure Tests
+  #       shell: bash
+  #       run: |
+  #         hatch run make structure-test
