@@ -30,6 +30,7 @@ from ..common.event import Event, EventType
 
 # This is a very basic component which will be stitched onto the final component in the flow
 class RequestResponseControllerOuputComponent:
+
     def __init__(self, controller):
         self.controller = controller
 
@@ -39,6 +40,7 @@ class RequestResponseControllerOuputComponent:
 
 # This is the main class that will be used to send messages to a flow and receive the response
 class RequestResponseFlowController:
+
     def __init__(self, config: Dict[str, Any], connector):
         self.config = config
         self.connector = connector
@@ -55,14 +57,15 @@ class RequestResponseFlowController:
         self.flow.run()
 
     def create_broker_request_response_flow(self):
-        self.broker_config["request_expiry_ms"] = self.request_expiry_ms
+        full_config = self.broker_config.copy()
+        full_config.update(self.config)
         config = {
             "name": "_internal_broker_request_response_flow",
             "components": [
                 {
                     "component_name": "_internal_broker_request_response",
                     "component_module": "broker_request_response",
-                    "component_config": self.broker_config,
+                    "component_config": full_config,
                 }
             ],
         }

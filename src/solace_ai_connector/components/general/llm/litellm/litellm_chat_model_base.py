@@ -98,11 +98,6 @@ litellm_chat_info_base["config_parameters"].extend(
             "default": "none",
         },
         {
-            "name": "allow_overwrite_llm_mode",
-            "required": False,
-            "description": "Whether to allow the llm_mode to be overwritten by the `stream` from the input message.",
-        },
-        {
             "name": "stream_batch_size",
             "required": False,
             "description": "The minimum number of words in a single streaming result. Default: 15.",
@@ -119,23 +114,19 @@ class LiteLLMChatModelBase(LiteLLMBase):
         self.stream_to_flow = self.get_config("stream_to_flow")
         self.stream_to_next_component = self.get_config("stream_to_next_component")
         self.llm_mode = self.get_config("llm_mode")
-        self.allow_overwrite_llm_mode = self.get_config("allow_overwrite_llm_mode")
         self.stream_batch_size = self.get_config("stream_batch_size")
+
+        if self.stream_to_flow and self.stream_to_next_component:
+            raise ValueError(
+                "stream_to_flow and stream_to_next_component are mutually exclusive"
+            )
 
     def invoke(self, message, data):
         """invoke the model"""
         messages = data.get("messages", [])
-        stream = data.get("stream")
+        stream = data.get("stream", self.llm_mode == "stream")
 
-        should_stream = self.llm_mode == "stream"
-        if (
-            self.allow_overwrite_llm_mode
-            and stream is not None
-            and isinstance(stream, bool)
-        ):
-            should_stream = stream
-
-        if should_stream:
+        if stream:
             return self.invoke_stream(message, messages)
         else:
             return self.invoke_non_stream(messages)

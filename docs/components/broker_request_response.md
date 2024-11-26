@@ -17,7 +17,7 @@ component_config:
   payload_format: <string>
   response_topic_prefix: <string>
   response_topic_suffix: <string>
-  reply_queue_prefix: <string>
+  response_queue_prefix: <string>
   request_expiry_ms: <integer>
   streaming: <string>
   streaming_complete_expression: <string>
@@ -34,7 +34,7 @@ component_config:
 | payload_format | False | json | Format for the payload (json, yaml, text) |
 | response_topic_prefix | False | reply | Prefix for reply topics |
 | response_topic_suffix | False |  | Suffix for reply topics |
-| reply_queue_prefix | False | reply-queue | Prefix for reply queues |
+| response_queue_prefix | False | reply-queue | Prefix for reply queues |
 | request_expiry_ms | False | 60000 | Expiry time for cached requests in milliseconds |
 | streaming | False |  | The response will arrive in multiple pieces. If True, the streaming_complete_expression must be set and will be used to determine when the last piece has arrived. |
 | streaming_complete_expression | False |  | The source expression to determine when the last piece of a streaming response has arrived. |
