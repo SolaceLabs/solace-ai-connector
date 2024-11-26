@@ -68,7 +68,6 @@ flows:
             model: ${MODEL_NAME}
             temperature: 0.01
           llm_mode: stream
-          allow_overwrite_llm_mode: true
           stream_to_flow: stream_output
         input_transforms:
           - type: copy

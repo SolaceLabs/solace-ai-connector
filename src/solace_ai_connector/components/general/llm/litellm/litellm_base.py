@@ -3,7 +3,6 @@
 import litellm
 
 from ....component_base import ComponentBase
-from .....common.message import Message
 from .....common.log import log
 
 litellm_info_base = {
@@ -60,10 +59,6 @@ class LiteLLMBase(ComponentBase):
         self.set_response_uuid_in_user_properties = self.get_config(
             "set_response_uuid_in_user_properties"
         )
-        if self.stream_to_flow and self.stream_to_next_component:
-            raise ValueError(
-                "stream_to_flow and stream_to_next_component are mutually exclusive"
-            )
         self.router = None
 
     def init_load_balancer(self):

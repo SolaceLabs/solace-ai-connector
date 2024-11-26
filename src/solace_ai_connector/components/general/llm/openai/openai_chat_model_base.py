@@ -63,11 +63,6 @@ openai_info_base = {
             "default": "none",
         },
         {
-            "name": "allow_overwrite_llm_mode",
-            "required": False,
-            "description": "Whether to allow the llm_mode to be overwritten by the `stream` from the input message.",
-        },
-        {
             "name": "stream_batch_size",
             "required": False,
             "description": "The minimum number of words in a single streaming result. Default: 15.",
@@ -104,7 +99,8 @@ openai_info_base = {
             },
             "stream": {
                 "type": "boolean",
-                "description": "Whether to stream the response - overwrites llm_mode",
+                "description": "Whether to stream the response. It is is not provided, it will default to the value of llm_mode.",
+                "required": False,
             },
         },
         "required": ["messages"],
@@ -154,9 +150,7 @@ class OpenAIChatModelBase(ComponentBase):
         self.stream_to_flow = self.get_config("stream_to_flow")
         self.stream_to_next_component = self.get_config("stream_to_next_component")
         self.llm_mode = self.get_config("llm_mode")
-        self.allow_overwrite_llm_mode = self.get_config("allow_overwrite_llm_mode")
         self.stream_batch_size = self.get_config("stream_batch_size")
-        self.response_format = self.get_config("response_format", "text")
         self.set_response_uuid_in_user_properties = self.get_config(
             "set_response_uuid_in_user_properties"
         )
@@ -167,21 +161,13 @@ class OpenAIChatModelBase(ComponentBase):
 
     def invoke(self, message, data):
         messages = data.get("messages", [])
-        stream = data.get("stream")
+        stream = data.get("stream", self.llm_mode == "stream")
 
         client = OpenAI(
             api_key=self.get_config("api_key"), base_url=self.get_config("base_url")
         )
 
-        should_stream = self.llm_mode == "stream"
-        if (
-            self.allow_overwrite_llm_mode
-            and stream is not None
-            and isinstance(stream, bool)
-        ):
-            should_stream = stream
-
-        if should_stream:
+        if stream:
             return self.invoke_stream(client, message, messages)
         else:
             max_retries = 3
@@ -191,7 +177,6 @@ class OpenAIChatModelBase(ComponentBase):
                         messages=messages,
                         model=self.model,
                         temperature=self.temperature,
-                        response_format={"type": self.response_format},
                     )
                     return {"content": response.choices[0].message.content}
                 except Exception as e:

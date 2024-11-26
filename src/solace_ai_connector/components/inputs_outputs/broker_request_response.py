@@ -73,7 +73,7 @@ info = {
             "default": "",
         },
         {
-            "name": "reply_queue_prefix",
+            "name": "response_queue_prefix",
             "required": False,
             "description": "Prefix for reply queues",
             "default": "reply-queue",
@@ -168,11 +168,11 @@ class BrokerRequestResponse(BrokerBase):
         self.response_topic_suffix = ensure_slash_on_start(
             self.get_config("response_topic_suffix")
         )
-        self.reply_queue_prefix = ensure_slash_on_end(
-            self.get_config("reply_queue_prefix")
+        self.response_queue_prefix = ensure_slash_on_end(
+            self.get_config("response_queue_prefix")
         )
         self.requestor_id = str(uuid.uuid4())
-        self.reply_queue_name = f"{self.reply_queue_prefix}{self.requestor_id}"
+        self.reply_queue_name = f"{self.response_queue_prefix}{self.requestor_id}"
         self.response_topic = f"{self.response_topic_prefix}{self.requestor_id}{self.response_topic_suffix}"
         self.response_thread = None
         self.streaming = self.get_config("streaming")

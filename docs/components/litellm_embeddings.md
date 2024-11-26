@@ -20,6 +20,10 @@ component_config:
   history_max_time: <string>
   history_max_turns: <string>
   history_max_time: <string>
+  stream_to_flow: <string>
+  stream_to_next_component: <string>
+  llm_mode: <string>
+  stream_batch_size: <string>
 ```
 
 | Parameter | Required | Default | Description |
@@ -36,6 +40,10 @@ component_config:
 | history_max_time | False | 3600 | Maximum time to keep conversation history (in seconds) |
 | history_max_turns | False | 10 | Maximum number of conversation turns to keep in history |
 | history_max_time | False | 3600 | Maximum time to keep conversation history (in seconds) |
+| stream_to_flow | False |  | Name the flow to stream the output to - this must be configured for llm_mode='stream'. This is mutually exclusive with stream_to_next_component. |
+| stream_to_next_component | False | False | Whether to stream the output to the next component in the flow. This is mutually exclusive with stream_to_flow. |
+| llm_mode | False | none | The mode for streaming results: 'none' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
+| stream_batch_size | False | 15 | The minimum number of words in a single streaming result. Default: 15. |
 
 
 ## Component Input Schema
