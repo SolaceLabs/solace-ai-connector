@@ -2,15 +2,19 @@ import os
 import sys
 import re
 import yaml
+import atexit
+
 from .solace_ai_connector import SolaceAiConnector
 
 
 def load_config(file):
     """Load configuration from a YAML file."""
     try:
-        # Load the YAML file as a string
-        with open(file, "r", encoding="utf8") as f:
-            yaml_str = f.read()
+        # Get the directory of the current file
+        file_dir = os.path.dirname(os.path.abspath(file))
+
+        # Load the YAML file as a string, processing includes
+        yaml_str = process_includes(file, file_dir)
 
         # Substitute the environment variables using os.environ
         yaml_str = expandvars_with_defaults(yaml_str)
@@ -21,6 +25,31 @@ def load_config(file):
     except Exception as e:  # pylint: disable=locally-disabled, broad-exception-caught
         print(f"Error loading configuration file: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def process_includes(file_path, base_dir):
+    """Process #include directives in the given file."""
+    with open(file_path, "r", encoding="utf8") as f:
+        content = f.read()
+
+    def include_repl(match):
+        indent = match.group(1)  # Capture the leading spaces
+        indent = indent.replace("\n", "")  # Remove newlines
+        include_path = match.group(2).strip("'\"")
+        full_path = os.path.join(base_dir, include_path)
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Included file not found: {full_path}")
+        included_content = process_includes(full_path, os.path.dirname(full_path))
+        # Indent each line of the included content
+        indented_content = "\n".join(
+            indent + line for line in included_content.splitlines()
+        )
+        return indented_content
+
+    include_pattern = re.compile(
+        r'^(\s*)!include\s+(["\']?[^"\s\']+)["\']?', re.MULTILINE
+    )
+    return include_pattern.sub(include_repl, content)
 
 
 def expandvars_with_defaults(text):
@@ -75,13 +104,22 @@ def main():
     # Create the application
     app = SolaceAiConnector(full_config)
 
+    def shutdown():
+        """Shutdown the application."""
+        print("Stopping Solace AI Connector")
+        app.stop()
+        app.cleanup()  
+        print("Solace AI Connector exited successfully!")
+        os._exit(0)
+    atexit.register(shutdown)
+
     # Start the application
     app.run()
 
-    app.wait_for_flows()
-
-    print("Solace AI Connector exited successfully!")
-
+    try:
+        app.wait_for_flows()
+    except KeyboardInterrupt:
+        shutdown()
 
 if __name__ == "__main__":
     # Read in the configuration yaml filenames from the args

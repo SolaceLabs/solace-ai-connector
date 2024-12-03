@@ -16,13 +16,14 @@ To get started with creating a solace PubSub+ event broker follow the instructio
 
 ### Install the connector
 
-Optionally create a virtual environment:
+(Optional) Create a virtual environment:
 
 ```sh
 python3 -m venv env
 source env/bin/activate
 ```
 
+Set up the connector package
 ```sh
 pip install solace-ai-connector
 ```
@@ -51,6 +52,12 @@ export SOLACE_BROKER_URL=ws://localhost:8008
 export SOLACE_BROKER_USERNAME=default
 export SOLACE_BROKER_PASSWORD=default
 export SOLACE_BROKER_VPN=default
+```
+
+(Optional) Store the environment variables permanently in ~/.profile file and activate them by:
+
+```sh
+source ~/.profile
 ```
 
 Run the connector:
@@ -83,10 +90,9 @@ export OPENAI_API_ENDPOINT=<base url of your OpenAI endpoint>
 export MODEL_NAME=<model name>
 ```
 
-Note that if you want to use the default OpenAI endpoint, just delete that line from the openai_chat.yaml file.
+Note that if you want to use the default OpenAI endpoint, just delete that line from the langchain_openai_with_history_chat.yaml file.
 
 Install the langchain openai dependencies:
-
 ```sh
 pip install langchain_openai openai 
 ```
@@ -113,7 +119,7 @@ Payload:
 In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the response
 
 
-## Installation
+## Running From Source Code
 
 
 1. Clone the repository and enter its directory:
@@ -123,7 +129,7 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
     cd solace-ai-connector
     ```
     
-2. Optionally create a virtual environment:
+2. (Optional) Create a virtual environment:
 
     ```sh
     python -m venv .venv
@@ -136,11 +142,13 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
     pip install -r requirements.txt
     ```
 
-## Configuration
+### Configuration
 
-1. Edit the example configuration file at the root of the repository:
+1. (Optional) Edit the example configuration file at the root of the repository:
 
+    ```sh
     config.yaml
+    ```
 
 2. Set up the environment variables that you need for the config.yaml file. The default one requires the following variables:
 
@@ -152,7 +160,7 @@ In the "Try Me!" also subscribe to `demo/joke/subject/response` to see the respo
     ```
 
 
-## Running the AI Event Connector
+### Running the AI Event Connector
 
 1. Start the AI Event Connector:
 
@@ -176,4 +184,4 @@ make build
 
 ---
 
-Checkout [configuration.md](configuration.md) or [overview.md](overview.md) next
+Checkout [configuration](configuration.md) or [overview](overview.md) next

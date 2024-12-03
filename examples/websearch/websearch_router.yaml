@@ -1,0 +1,361 @@
+# This is a router that search either a LLM or web search engine
+#    Flow 1: Interprets a query and route the next flow (#2 or #3). It gets requests from Solace broker on search/query topic and forward the request to either search/query/llm or search/query/web_search topic.
+#    Flow 2: Listens to the search/query/web_search topic and uses the Google API to answer the query. It cleans the result by a LLM agent, and finally returns the response to search/query/web_search/response topic.
+#    Flow 3: Listens to the search/query/llm topic and uses the LLM agent to answer the query. It cleans the result by a LLM agent, and finally returns the response to search/query/llm/response topic.
+#
+# It will subscribe to `search/query` and expect an event with the payload:
+#
+# {
+#   "text": "<query>"
+# }
+#
+# It will then send an event back to Solace with the topics: `search/query/web_search/response` or `search/query/llm/response`
+#
+# Dependencies:
+# pip install -U langchain_openai openai
+#
+# required ENV variables:
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT - optional
+# - MODEL_NAME
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# - GOOGLE_API_KEY
+# - GOOGLE_ENGINE_ID
+
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Take from input broker and publish back to Solace
+flows:
+  # Flow 1: Route a request
+  - name: Router
+    components:
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: web_search_broker1
+          broker_subscriptions:
+            - topic: search/query
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Go to the LLM and keep history
+      - component_name: chat_request_llm
+        component_module: langchain_chat_model_with_history
+        component_config:
+          langchain_module: langchain_openai
+          langchain_class: ChatOpenAI
+          langchain_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${MODEL_NAME}
+            temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 0
+          history_max_length: 1
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template: You are a helpful AI assistant tasked with selecting the most suitable agent to respond to the user's query. Based on the nature of the question, determine whether the query requires searching external web sources or if it can be answered using an internal knowledge model. Return ONLY the agent name (web_search or LLM) that is most appropriate for the given query.
+              <agents>
+              {
+              name: LLM
+              description: Use for retrieving general knowledge, answering questions that do not require up-to-date data, performing analysis, creative tasks, or providing explanations based on established information. This agent is suitable for queries about historical events, scientific concepts, literary analysis, mathematical calculations, coding help, or general advice that doesn't depend on current events.
+              }
+              {
+              name: web_search
+              description: Use for searching real-time, current or up-to-date information, recent events, latest news, up-to-date statistics, current prices, weather forecasts, ongoing developments, or any query that requires the most recent data. This agent is also suitable for fact-checking or verifying claims about recent occurrences.
+              }
+              </agents>
+
+              Guidelines for selection:
+              1. If the query explicitly mentions needing the latest information or current data, choose web_search.
+              2. For questions about historical events, established scientific facts, or timeless concepts, choose LLM.
+              3. If the query is about a potentially evolving situation but doesn't specifically request current information, lean towards web_search to ensure accuracy.
+              4. For tasks involving analysis, creative writing, or explanation of concepts, choose LLM.
+              5. If unsure, select web_search to provide the most up-to-date information.
+
+              Examples:
+              1. Query: "What is the current stock price of Apple?"
+                Agent: web_search
+
+              2. Query: "Explain the process of photosynthesis in plants."
+                Agent: LLM
+
+              3. Query: "Who won the last presidential election in France?"
+                Agent: web_search
+
+              4. Query: "Can you help me write a short story about a time traveler?"
+                Agent: LLM
+
+              5. Query: "What were the major causes of World War I?"
+                Agent: LLM
+
+              6. Query: "What are the latest developments in the Israel-Palestine conflict?"
+                Agent: web_search
+
+              7. Query: "How do I calculate the area of a circle?"
+                Agent: LLM
+
+              8. Query: "What's the weather forecast for New York City tomorrow?"
+                Agent: web_search
+
+              9. Query: "Can you explain the theory of relativity?"
+                Agent: LLM
+
+              10. Query: "What are the current COVID-19 restrictions in California?"
+                  Agent: web_search
+
+              Respond ONLY with the name of the chosen agent: either "LLM" or "web_search". Do not include any explanation or additional text in your response.
+
+              <user-question>
+                {{text://input.payload:text}}
+              </user-question>
+            dest_expression: user_data.input:messages.0.content
+          - type: copy
+            source_value: user
+            dest_expression: user_data.input:messages.0.role
+        input_selection:
+          source_expression: user_data.input
+
+      # Route a request
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_value:
+              invoke:
+                module: invoke_functions
+                function: if_else
+                params:
+                  positional:
+                    - invoke:
+                        module: invoke_functions
+                        function: equal
+                        params:
+                          positional:
+                            - evaluate_expression(previous, text)
+                            - "LLM"
+                    - search/query/llm
+                    - search/query/web_search
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output
+
+  # Flow 2: Web search flow
+  - name: web_search
+    components:
+      # Agent broker input configuration
+      - agent_broker_input: &agent_broker_input
+        component_name: solace_agent_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_subscriptions:
+            - topic: search/query/web_search
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Using Custom component
+      - component_name: web_search_component
+        component_module: websearch_google
+        component_config:
+          api_key: ${GOOGLE_API_KEY}
+          search_engine_id: ${GOOGLE_ENGINE_ID}
+          detail: false
+        input_selection:
+          source_expression: input.payload:text
+
+      # Clean results by LLM
+      - component_name: cleaner_llm
+        component_module: langchain_chat_model_with_history
+        component_config:
+          langchain_module: langchain_openai
+          langchain_class: ChatOpenAI
+          langchain_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${MODEL_NAME}
+            temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 0
+          history_max_length: 1
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.input:payload
+          - type: copy
+            source_expression: |
+              template: You are an AI assistant specialized in cleaning and formatting JSON data. Your task is to clean the text content within a JSON object while preserving its structure. Given a JSON object of any structure, perform the following cleaning operations on all string values throughout the object:
+              Convert all Unicode escape sequences (e.g., \u03c0) to their corresponding characters.
+              Remove any HTML entities (e.g.,  , &) and replace them with their corresponding characters.
+              Remove any trailing ellipsis (...) at the end of text fields.
+              Trim leading and trailing whitespace from all string values.
+              Replace multiple consecutive spaces with a single space.
+              Ensure proper capitalization for title-like fields (use your judgment based on the field name or content).
+              For URL-like fields, ensure they are in a valid URL format and remove any unnecessary query parameters or fragments.
+              Remove any control characters or invisible formatting characters.
+              Maintain the overall JSON structure, including all keys and nested objects or arrays. Apply these cleaning operations recursively to all levels of the JSON object.
+              Return the cleaned JSON object as plain text, without any code block formatting (such as ```json). Do not add any additional text before or after the JSON object.
+              Here is the JSON data to clean:
+              {{text://user_data.input:payload}}
+            dest_expression: user_data.input:messages.0.content
+          - type: copy
+            source_value: user
+            dest_expression: user_data.input:messages.0.role
+        input_selection:
+          source_expression: user_data.input
+
+      # Send response back to broker with completion and retrieved data
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload.response
+          - type: copy
+            source_expression: input.payload:query
+            dest_expression: user_data.output:payload.query
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output
+
+  # Flow 3: LLM
+  - name: LLM
+    components:
+      # Agent broker input configuration
+      - agent_broker_input: &llm_agent_broker_input
+        component_name: solace_agent_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_subscriptions:
+            - topic: search/query/llm
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Request from LLM
+      - component_name: llm
+        component_module: langchain_chat_model_with_history
+        component_config:
+          langchain_module: langchain_openai
+          langchain_class: ChatOpenAI
+          langchain_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${MODEL_NAME}
+            temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 0
+          history_max_length: 1
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:You are a helpful AI assistant. Please help with the user's request below:
+              <user-question>
+              {{text://input.payload:text}}
+              </user-question>
+            dest_expression: user_data.input:messages.0.content
+          - type: copy
+            source_value: user
+            dest_expression: user_data.input:messages.0.role
+        input_selection:
+          source_expression: user_data.input
+
+      # Clean results by LLM
+      - component_name: cleaner_llm
+        component_module: langchain_chat_model_with_history
+        component_config:
+          langchain_module: langchain_openai
+          langchain_class: ChatOpenAI
+          langchain_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: ${MODEL_NAME}
+            temperature: 0.01
+          history_module: langchain_core.chat_history
+          history_class: InMemoryChatMessageHistory
+          history_max_turns: 0
+          history_max_length: 1
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.input:payload
+          - type: copy
+            source_expression: |
+              template: You are an AI assistant specialized in cleaning and formatting JSON data. Your task is to clean the text content within a JSON object while preserving its structure. Given a JSON object of any structure, perform the following cleaning operations on all string values throughout the object:
+              Convert all Unicode escape sequences (e.g., \u03c0) to their corresponding characters.
+              Remove any HTML entities (e.g.,  , &) and replace them with their corresponding characters.
+              Remove any trailing ellipsis (...) at the end of text fields.
+              Trim leading and trailing whitespace from all string values.
+              Replace multiple consecutive spaces with a single space.
+              Ensure proper capitalization for title-like fields (use your judgment based on the field name or content).
+              For URL-like fields, ensure they are in a valid URL format and remove any unnecessary query parameters or fragments.
+              Remove any control characters or invisible formatting characters.
+              Maintain the overall JSON structure, including all keys and nested objects or arrays. Apply these cleaning operations recursively to all levels of the JSON object.
+              Return the cleaned JSON object as plain text, without any code block formatting (such as ```json). Do not add any additional text before or after the JSON object.
+              Here is the JSON data to clean:
+              {{text://user_data.input:payload}}
+            dest_expression: user_data.input:messages.0.content
+          - type: copy
+            source_value: user
+            dest_expression: user_data.input:messages.0.role
+        input_selection:
+          source_expression: user_data.input
+
+      # Send response back to broker with completion and retrieved data
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload.response
+          - type: copy
+            source_expression: input.payload:query
+            dest_expression: user_data.output:payload.query
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

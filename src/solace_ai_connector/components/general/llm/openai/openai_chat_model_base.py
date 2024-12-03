@@ -1,10 +1,12 @@
 """Base class for OpenAI chat models"""
 
 import uuid
+import time
 
 from openai import OpenAI
-from ...component_base import ComponentBase
-from ....common.message import Message
+from ....component_base import ComponentBase
+from .....common.message import Message
+from .....common.log import log
 
 openai_info_base = {
     "class_name": "OpenAIChatModelBase",
@@ -54,7 +56,7 @@ openai_info_base = {
             "name": "llm_mode",
             "required": False,
             "description": (
-                "The mode for streaming results: 'sync' or 'stream'. 'stream' "
+                "The mode for streaming results: 'none' or 'stream'. 'stream' "
                 "will just stream the results to the named flow. 'none' will "
                 "wait for the full response."
             ),
@@ -95,6 +97,11 @@ openai_info_base = {
                     "required": ["role", "content"],
                 },
             },
+            "stream": {
+                "type": "boolean",
+                "description": "Whether to stream the response. It is is not provided, it will default to the value of llm_mode.",
+                "required": False,
+            },
         },
         "required": ["messages"],
     },
@@ -104,7 +111,27 @@ openai_info_base = {
             "content": {
                 "type": "string",
                 "description": "The generated response from the model",
-            }
+            },
+            "chunk": {
+                "type": "string",
+                "description": "The current chunk of the response",
+            },
+            "response_uuid": {
+                "type": "string",
+                "description": "The UUID of the response",
+            },
+            "first_chunk": {
+                "type": "boolean",
+                "description": "Whether this is the first chunk of the response",
+            },
+            "last_chunk": {
+                "type": "boolean",
+                "description": "Whether this is the last chunk of the response",
+            },
+            "streaming": {
+                "type": "boolean",
+                "description": "Whether this is a streaming response",
+            },
         },
         "required": ["content"],
     },
@@ -112,6 +139,7 @@ openai_info_base = {
 
 
 class OpenAIChatModelBase(ComponentBase):
+
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.init()
@@ -133,18 +161,31 @@ class OpenAIChatModelBase(ComponentBase):
 
     def invoke(self, message, data):
         messages = data.get("messages", [])
+        stream = data.get("stream", self.llm_mode == "stream")
 
         client = OpenAI(
             api_key=self.get_config("api_key"), base_url=self.get_config("base_url")
         )
 
-        if self.llm_mode == "stream":
+        if stream:
             return self.invoke_stream(client, message, messages)
         else:
-            response = client.chat.completions.create(
-                messages=messages, model=self.model, temperature=self.temperature
-            )
-            return {"content": response.choices[0].message.content}
+            max_retries = 3
+            while max_retries > 0:
+                try:
+                    response = client.chat.completions.create(
+                        messages=messages,
+                        model=self.model,
+                        temperature=self.temperature,
+                    )
+                    return {"content": response.choices[0].message.content}
+                except Exception as e:
+                    log.error("Error invoking OpenAI: %s", e)
+                    max_retries -= 1
+                    if max_retries <= 0:
+                        raise e
+                    else:
+                        time.sleep(1)
 
     def invoke_stream(self, client, message, messages):
         response_uuid = str(uuid.uuid4())
@@ -155,44 +196,57 @@ class OpenAIChatModelBase(ComponentBase):
         current_batch = ""
         first_chunk = True
 
-        for chunk in client.chat.completions.create(
-            messages=messages,
-            model=self.model,
-            temperature=self.temperature,
-            stream=True,
-        ):
-            if chunk.choices[0].delta.content is not None:
-                content = chunk.choices[0].delta.content
-                aggregate_result += content
-                current_batch += content
-                if len(current_batch.split()) >= self.stream_batch_size:
-                    if self.stream_to_flow:
-                        self.send_streaming_message(
-                            message,
-                            current_batch,
-                            aggregate_result,
-                            response_uuid,
-                            first_chunk,
-                            False,
-                        )
-                    elif self.stream_to_next_component:
-                        self.send_to_next_component(
-                            message,
-                            current_batch,
-                            aggregate_result,
-                            response_uuid,
-                            first_chunk,
-                            False,
-                        )
-                    current_batch = ""
-                    first_chunk = False
+        max_retries = 3
+        while max_retries > 0:
+            try:
+                for chunk in client.chat.completions.create(
+                    messages=messages,
+                    model=self.model,
+                    temperature=self.temperature,
+                    stream=True,
+                ):
+                    # If we get any response, then don't retry
+                    max_retries = 0
+                    if chunk.choices[0].delta.content is not None:
+                        content = chunk.choices[0].delta.content
+                        aggregate_result += content
+                        current_batch += content
+                        if len(current_batch.split()) >= self.stream_batch_size:
+                            if self.stream_to_flow:
+                                self.send_streaming_message(
+                                    message,
+                                    current_batch,
+                                    aggregate_result,
+                                    response_uuid,
+                                    first_chunk,
+                                    False,
+                                )
+                            elif self.stream_to_next_component:
+                                self.send_to_next_component(
+                                    message,
+                                    current_batch,
+                                    aggregate_result,
+                                    response_uuid,
+                                    first_chunk,
+                                    False,
+                                )
+                            current_batch = ""
+                            first_chunk = False
+            except Exception as e:
+                log.error("Error invoking OpenAI: %s", e)
+                max_retries -= 1
+                if max_retries <= 0:
+                    raise e
+                else:
+                    # Small delay before retrying
+                    time.sleep(1)
 
         if self.stream_to_next_component:
             # Just return the last chunk
             return {
                 "content": aggregate_result,
                 "chunk": current_batch,
-                "uuid": response_uuid,
+                "response_uuid": response_uuid,
                 "first_chunk": first_chunk,
                 "last_chunk": True,
                 "streaming": True,
@@ -208,7 +262,7 @@ class OpenAIChatModelBase(ComponentBase):
                 True,
             )
 
-        return {"content": aggregate_result, "uuid": response_uuid}
+        return {"content": aggregate_result, "response_uuid": response_uuid}
 
     def send_streaming_message(
         self,
@@ -222,10 +276,11 @@ class OpenAIChatModelBase(ComponentBase):
         message = Message(
             payload={
                 "chunk": chunk,
-                "aggregate_result": aggregate_result,
+                "content": aggregate_result,
                 "response_uuid": response_uuid,
                 "first_chunk": first_chunk,
                 "last_chunk": last_chunk,
+                "streaming": True,
             },
             user_properties=input_message.get_user_properties(),
         )
@@ -243,18 +298,19 @@ class OpenAIChatModelBase(ComponentBase):
         message = Message(
             payload={
                 "chunk": chunk,
-                "aggregate_result": aggregate_result,
+                "content": aggregate_result,
                 "response_uuid": response_uuid,
                 "first_chunk": first_chunk,
                 "last_chunk": last_chunk,
+                "streaming": True,
             },
             user_properties=input_message.get_user_properties(),
         )
 
         result = {
-            "content": aggregate_result,
             "chunk": chunk,
-            "uuid": response_uuid,
+            "content": aggregate_result,
+            "response_uuid": response_uuid,
             "first_chunk": first_chunk,
             "last_chunk": last_chunk,
             "streaming": True,

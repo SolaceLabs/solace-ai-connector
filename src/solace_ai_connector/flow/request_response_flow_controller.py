@@ -55,14 +55,15 @@ class RequestResponseFlowController:
         self.flow.run()
 
     def create_broker_request_response_flow(self):
-        self.broker_config["request_expiry_ms"] = self.request_expiry_ms
+        full_config = self.broker_config.copy()
+        full_config.update(self.config)
         config = {
             "name": "_internal_broker_request_response_flow",
             "components": [
                 {
                     "component_name": "_internal_broker_request_response",
                     "component_module": "broker_request_response",
-                    "component_config": self.broker_config,
+                    "component_config": full_config,
                 }
             ],
         }

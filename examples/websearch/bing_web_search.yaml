@@ -1,0 +1,33 @@
+# This is a Bing search engine workflow
+# The input payload is:
+# <text>
+#
+# Required ENV variables:
+# - BING_API_KEY
+
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+flows:
+  - name: google_web_search_flow
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+      # Using web component
+      - component_name: web_search_component
+        component_module: websearch_bing
+        component_config:
+          api_key: ${BING_API_KEY}
+          safesearch: Moderate
+          count: 2
+          detail: false
+        input_selection:
+          source_expression: previous:text
+
+      # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output

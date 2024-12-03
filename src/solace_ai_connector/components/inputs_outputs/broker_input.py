@@ -88,8 +88,9 @@ DEFAULT_TIMEOUT_MS = 1000
 
 
 class BrokerInput(BrokerBase):
-    def __init__(self, **kwargs):
-        super().__init__(info, **kwargs)
+    def __init__(self, module_info=None, **kwargs):
+        module_info = module_info or info
+        super().__init__(module_info, **kwargs)
         self.need_acknowledgement = True
         self.temporary_queue = self.get_config("temporary_queue", False)
         # If broker_queue_name is not provided, use temporary queue
@@ -110,16 +111,18 @@ class BrokerInput(BrokerBase):
     def get_next_message(self, timeout_ms=None):
         if timeout_ms is None:
             timeout_ms = DEFAULT_TIMEOUT_MS
-        broker_message = self.messaging_service.receive_message(timeout_ms)
+        broker_message = self.messaging_service.receive_message(
+            timeout_ms, self.broker_properties["queue_name"]
+        )
         if not broker_message:
             return None
         self.current_broker_message = broker_message
-        payload = broker_message.get_payload_as_string()
-        topic = broker_message.get_destination_name()
-        if payload is None:
-            payload = broker_message.get_payload_as_bytes()
+
+        payload = broker_message.get("payload")
         payload = self.decode_payload(payload)
-        user_properties = broker_message.get_properties()
+
+        topic = broker_message.get("topic")
+        user_properties = broker_message.get("user_properties", {})
         log.debug(
             "Received message from broker: topic=%s, user_properties=%s, payload length=%d",
             topic,

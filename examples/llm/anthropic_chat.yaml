@@ -5,7 +5,8 @@
 #
 # The input message has the following schema:
 # {
-#   "text": "<question or request as text>"
+#   "query": "<question or request as text>",
+#   "stream": false
 # }
 #
 # It will then send an event back to Solace with the topic: `demo/question/response`
@@ -66,17 +67,22 @@ flows:
             base_url: ${ANTHROPIC_API_ENDPOINT}
             model: ${MODEL_NAME}
             temperature: 0.01
+          llm_mode: stream
+          stream_to_flow: stream_output
         input_transforms:
           - type: copy
             source_expression: |
               template:You are a helpful AI assistant. Please help with the user's request below:
               <user-question>
-              {{text://input.payload:text}}
+              {{text://input.payload:query}}
               </user-question>
             dest_expression: user_data.llm_input:messages.0.content
           - type: copy
             source_expression: static:user
             dest_expression: user_data.llm_input:messages.0.role
+          - type: copy
+            source_expression: input.payload:stream
+            dest_expression: user_data.llm_input:stream
         input_selection:
           source_expression: user_data.llm_input
 
@@ -94,6 +100,26 @@ flows:
             dest_expression: user_data.output:payload
           - type: copy
             source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output
+
+  - name: stream_output
+    components:
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_value: demo/question/stream
             dest_expression: user_data.output:topic
         input_selection:
           source_expression: user_data.output

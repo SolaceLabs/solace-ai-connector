@@ -63,6 +63,7 @@ flows:
           base_url: ${OPENAI_API_ENDPOINT}
           model: ${OPENAI_MODEL_NAME}
           temperature: 0.01
+          response_format: text # options: text, json_object, or json_schema
         input_transforms:
           - type: copy
             source_expression: |

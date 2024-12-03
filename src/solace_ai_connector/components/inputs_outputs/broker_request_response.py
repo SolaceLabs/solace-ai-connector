@@ -11,6 +11,7 @@ from copy import deepcopy
 from ...common.log import log
 from .broker_base import BrokerBase
 from ...common.message import Message
+from ...common.utils import ensure_slash_on_end, ensure_slash_on_start
 
 # from ...common.event import Event, EventType
 
@@ -60,10 +61,55 @@ info = {
             "default": "json",
         },
         {
+            "name": "response_topic_prefix",
+            "required": False,
+            "description": "Prefix for reply topics",
+            "default": "reply",
+        },
+        {
+            "name": "response_topic_suffix",
+            "required": False,
+            "description": "Suffix for reply topics",
+            "default": "",
+        },
+        {
+            "name": "response_queue_prefix",
+            "required": False,
+            "description": "Prefix for reply queues",
+            "default": "reply-queue",
+        },
+        {
             "name": "request_expiry_ms",
             "required": False,
             "description": "Expiry time for cached requests in milliseconds",
             "default": 60000,
+            "type": "integer",
+        },
+        {
+            "name": "streaming",
+            "required": False,
+            "description": "The response will arrive in multiple pieces. If True, "
+            "the streaming_complete_expression must be set and will be used to "
+            "determine when the last piece has arrived.",
+        },
+        {
+            "name": "streaming_complete_expression",
+            "required": False,
+            "description": "The source expression to determine when the last piece of a "
+            "streaming response has arrived.",
+        },
+        {
+            "name": "streaming",
+            "required": False,
+            "description": "The response will arrive in multiple pieces. If True, "
+            "the streaming_complete_expression must be set and will be used to "
+            "determine when the last piece has arrived.",
+        },
+        {
+            "name": "streaming_complete_expression",
+            "required": False,
+            "description": "The source expression to determine when the last piece of a "
+            "streaming response has arrived.",
         },
         {
             "name": "streaming",
@@ -93,6 +139,10 @@ info = {
             "user_properties": {
                 "type": "object",
                 "description": "User properties to send with the request message",
+            },
+            "response_topic_suffix": {
+                "type": "string",
+                "description": "Suffix for the reply topic",
             },
             "stream": {
                 "type": "boolean",
@@ -133,12 +183,23 @@ info = {
 
 
 class BrokerRequestResponse(BrokerBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.need_acknowledgement = False
         self.request_expiry_ms = self.get_config("request_expiry_ms")
-        self.reply_queue_name = f"reply-queue-{uuid.uuid4()}"
-        self.reply_topic = f"reply/{uuid.uuid4()}"
+        self.response_topic_prefix = ensure_slash_on_end(
+            self.get_config("response_topic_prefix")
+        )
+        self.response_topic_suffix = ensure_slash_on_start(
+            self.get_config("response_topic_suffix")
+        )
+        self.response_queue_prefix = ensure_slash_on_end(
+            self.get_config("response_queue_prefix")
+        )
+        self.requestor_id = str(uuid.uuid4())
+        self.reply_queue_name = f"{self.response_queue_prefix}{self.requestor_id}"
+        self.response_topic = f"{self.response_topic_prefix}{self.requestor_id}{self.response_topic_suffix}"
         self.response_thread = None
         self.streaming = self.get_config("streaming")
         self.streaming_complete_expression = self.get_config(
@@ -149,17 +210,22 @@ class BrokerRequestResponse(BrokerBase):
         self.broker_properties["queue_name"] = self.reply_queue_name
         self.broker_properties["subscriptions"] = [
             {
-                "topic": self.reply_topic,
+                "topic": self.response_topic,
                 "qos": 1,
-            }
+            },
+            {
+                "topic": self.response_topic + "/>",
+                "qos": 1,
+            },
         ]
         self.test_mode = False
 
-        if self.broker_type == "solace":
-            self.connect()
-        elif self.broker_type == "test" or self.broker_type == "test_streaming":
+        if self.broker_type == "test" or self.broker_type == "test_streaming":
             self.test_mode = True
             self.setup_test_pass_through()
+        else:
+            self.connect()
+
         self.start()
 
     def start(self):
@@ -168,7 +234,7 @@ class BrokerRequestResponse(BrokerBase):
 
     def setup_reply_queue(self):
         self.messaging_service.bind_to_queue(
-            self.reply_queue_name, [self.reply_topic], temporary=True
+            self.reply_queue_name, [self.response_topic], temporary=True
         )
 
     def setup_test_pass_through(self):
@@ -186,7 +252,9 @@ class BrokerRequestResponse(BrokerBase):
     def handle_responses(self):
         while not self.stop_signal.is_set():
             try:
-                broker_message = self.messaging_service.receive_message(1000)
+                broker_message = self.messaging_service.receive_message(
+                    1000, self.reply_queue_name
+                )
                 if broker_message:
                     self.process_response(broker_message)
             except Exception as e:
@@ -210,13 +278,12 @@ class BrokerRequestResponse(BrokerBase):
             topic = broker_message.get_topic()
             user_properties = broker_message.get_user_properties()
         else:
-            payload = broker_message.get_payload_as_string()
-            if payload is None:
-                payload = broker_message.get_payload_as_bytes()
+            payload = broker_message.get("payload")
             payload = self.decode_payload(payload)
-            topic = broker_message.get_destination_name()
-            user_properties = broker_message.get_properties()
+            topic = broker_message.get("topic")
+            user_properties = broker_message.get("user_properties", {})
 
+        streaming_complete_expression = None
         metadata_json = user_properties.get(
             "__solace_ai_connector_broker_request_reply_metadata__"
         )
@@ -269,15 +336,15 @@ class BrokerRequestResponse(BrokerBase):
             ] = json.dumps(metadata_stack)
             # Put the last reply topic back in the user properties
             response["user_properties"][
-                "__solace_ai_connector_broker_request_reply_topic__"
-            ] = metadata_stack[-1]["reply_topic"]
+                "__solace_ai_connector_broker_request_response_topic__"
+            ] = metadata_stack[-1]["response_topic"]
         else:
             # Remove the metadata and reply topic from the user properties
             response["user_properties"].pop(
                 "__solace_ai_connector_broker_request_reply_metadata__", None
             )
             response["user_properties"].pop(
-                "__solace_ai_connector_broker_request_reply_topic__", None
+                "__solace_ai_connector_broker_request_response_topic__", None
             )
 
         message = Message(
@@ -307,10 +374,15 @@ class BrokerRequestResponse(BrokerBase):
         stream = False
         if "stream" in data:
             stream = data["stream"]
+        streaming_complete_expression = None
         if "streaming_complete_expression" in data:
             streaming_complete_expression = data["streaming_complete_expression"]
 
-        metadata = {"request_id": request_id, "reply_topic": self.reply_topic}
+        topic = self.response_topic
+        if "response_topic_suffix" in data:
+            topic = f"{topic}/{data['response_topic_suffix']}"
+
+        metadata = {"request_id": request_id, "response_topic": topic}
 
         if (
             "__solace_ai_connector_broker_request_reply_metadata__"
@@ -343,8 +415,8 @@ class BrokerRequestResponse(BrokerBase):
             "__solace_ai_connector_broker_request_reply_metadata__"
         ] = json.dumps(metadata)
         data["user_properties"][
-            "__solace_ai_connector_broker_request_reply_topic__"
-        ] = self.reply_topic
+            "__solace_ai_connector_broker_request_response_topic__"
+        ] = self.response_topic
 
         if self.test_mode:
             if self.broker_type == "test_streaming":

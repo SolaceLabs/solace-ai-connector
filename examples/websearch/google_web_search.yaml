@@ -1,0 +1,35 @@
+# This is a Google search engine workflow
+# The input payload is:
+# <text>
+#
+# Get API key from: https://developers.google.com/custom-search/v1/introduction
+# Create a search engine from: https://programmablesearchengine.google.com/controlpanel/create
+# Required ENV variables:
+# - Google_API_KEY
+# - GOOGLE_ENGINE_ID
+
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+flows:
+  - name: google_web_search_flow
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+      # Using web component
+      - component_name: web_search_component
+        component_module: websearch_google
+        component_config:
+          api_key: ${GOOGLE_API_KEY}
+          search_engine_id: ${GOOGLE_ENGINE_ID}
+          detail: false
+        input_selection:
+          source_expression: previous:text
+
+      # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output
