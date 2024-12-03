@@ -33,16 +33,16 @@ info = {
     "input_schema": {
         "type": "object",
         "properties": {
-            "text": {
-                "type": "string",
-                "description": "The text to embed",
+            "items": {
+                "type": "array",
+                "description": "A single element or a list of elements to embed",
             },
             "type": {
-                "type": "string",  # This is document or query
-                "description": "The type of embedding to use: 'document' or 'query' - default is 'document'",
+                "type": "string",  # This is document, query, or image
+                "description": "The type of embedding to use: 'document', 'query', or 'image' - default is 'document'",
             },
         },
-        "required": ["text"],
+        "required": ["items"],
     },
     "output_schema": {
         "type": "object",
@@ -66,13 +66,28 @@ class LangChainEmbeddings(LangChainBase):
         super().__init__(info, **kwargs)
 
     def invoke(self, message, data):
-        text = data["text"]
+        items = data["items"]
         embedding_type = data.get("type", "document")
 
-        embeddings = None
-        if embedding_type == "document":
-            embeddings = self.component.embed_documents([text])
-        elif embedding_type == "query":
-            embeddings = [self.component.embed_query(text)]
+        items = [items] if type(items) != list else items
 
-        return {"embedding": embeddings[0]}
+        if embedding_type == "document":
+            return self.embed_documents(items)
+        elif embedding_type == "query":
+            return self.embed_queries(items)
+        elif embedding_type == "image":
+            return self.embed_images(items)
+
+    def embed_documents(self, documents):
+        embeddings = self.component.embed_documents(documents)
+        return {"embeddings": embeddings}
+    
+    def embed_queries(self, queries):
+        embeddings = []
+        for query in queries:
+            embeddings.append(self.component.embed_query(query))
+        return {"embeddings": embeddings}
+
+    def embed_images(self, images):
+        embeddings = self.component.embed_images(images)
+        return {"embeddings": embeddings}

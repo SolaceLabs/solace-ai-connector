@@ -12,11 +12,12 @@ from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
 from ..flow.request_response_flow_controller import RequestResponseFlowController
 
-DEFAULT_QUEUE_TIMEOUT_MS = 200
+DEFAULT_QUEUE_TIMEOUT_MS = 1000
 DEFAULT_QUEUE_MAX_DEPTH = 5
 
 
 class ComponentBase:
+
     def __init__(self, module_info, **kwargs):
         self.module_info = module_info
         self.config = kwargs.pop("config", {})
@@ -33,6 +34,7 @@ class ComponentBase:
         self.connector = kwargs.pop("connector", None)
         self.timer_manager = kwargs.pop("timer_manager", None)
         self.cache_service = kwargs.pop("cache_service", None)
+        self.put_errors_in_error_queue = kwargs.pop("put_errors_in_error_queue", True)
 
         self.component_config = self.config.get("component_config") or {}
         self.broker_request_response_config = self.config.get(
@@ -68,22 +70,27 @@ class ComponentBase:
             try:
                 event = self.get_next_event()
                 if event is not None:
-                    if self.trace_queue:
-                        self.trace_event(event)
-                    self.process_event(event)
+                    self.process_event_with_tracing(event)
             except AssertionError as e:
                 raise e
             except Exception as e:
-                log.error(
-                    "%sComponent has crashed: %s\n%s",
-                    self.log_identifier,
-                    e,
-                    traceback.format_exc(),
-                )
-                if self.error_queue:
-                    self.handle_error(e, event)
+                self.handle_component_error(e, event)
 
         self.stop_component()
+
+    def process_event_with_tracing(self, event):
+        if self.trace_queue:
+            self.trace_event(event)
+        self.process_event(event)
+
+    def handle_component_error(self, e, event):
+        log.error(
+            "%sComponent has crashed: %s\n%s",
+            self.log_identifier,
+            e,
+            traceback.format_exc(),
+        )
+        self.handle_error(e, event)
 
     def get_next_event(self):
         # Check if there is a get_next_message defined by a
@@ -296,6 +303,16 @@ class ComponentBase:
             "broker_config": broker_config,
             "request_expiry_ms": request_expiry_ms,
         }
+
+        if "response_topic_prefix" in self.broker_request_response_config:
+            rrc_config["response_topic_prefix"] = self.broker_request_response_config[
+                "response_topic_prefix"
+            ]
+        if "response_queue_prefix" in self.broker_request_response_config:
+            rrc_config["response_queue_prefix"] = self.broker_request_response_config[
+                "response_queue_prefix"
+            ]
+
         self.broker_request_response_controller = RequestResponseFlowController(
             config=rrc_config, connector=self.connector
         )
@@ -347,10 +364,13 @@ class ComponentBase:
         )
 
     def handle_error(self, exception, event):
+        if self.error_queue is None or not self.put_errors_in_error_queue:
+            return
         error_message = {
             "error": {
                 "text": str(exception),
                 "exception": type(exception).__name__,
+                "traceback": traceback.format_exc(),
             },
             "location": {
                 "instance": self.instance_name,
@@ -399,7 +419,10 @@ class ComponentBase:
     def cleanup(self):
         """Clean up resources used by the component"""
         log.debug("%sCleaning up component", self.log_identifier)
-        self.stop_component()
+        try:
+            self.stop_component()
+        except KeyboardInterrupt:
+            pass
         if hasattr(self, "input_queue"):
             while not self.input_queue.empty():
                 try:

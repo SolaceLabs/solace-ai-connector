@@ -7,6 +7,11 @@ import re
 import builtins
 import subprocess
 import types
+import base64
+import gzip
+import json
+import yaml
+
 
 from .log import log
 
@@ -120,8 +125,10 @@ def import_module(module, base_path=None, component_package=None):
                     ".components",
                     ".components.general",
                     ".components.general.for_testing",
-                    ".components.general.langchain",
-                    ".components.general.openai",
+                    ".components.general.llm.langchain",
+                    ".components.general.llm.openai",
+                    ".components.general.llm.litellm",
+                    ".components.general.websearch",
                     ".components.inputs_outputs",
                     ".transforms",
                     ".common",
@@ -134,8 +141,13 @@ def import_module(module, base_path=None, component_package=None):
                             )
                         else:
                             return importlib.import_module(full_name)
-                    except ModuleNotFoundError:
-                        pass
+                    except ModuleNotFoundError as e:
+                        name = str(e.name)
+                        if (
+                            name != "solace_ai_connector"
+                            and name.split(".")[-1] != full_name.split(".")[-1]
+                        ):
+                            raise e
                     except Exception as e:
                         raise ImportError(
                             f"Module load error for {full_name}: {e}"
@@ -205,7 +217,10 @@ def call_function(function, params, allow_source_expression):
     if positional:
         for index, value in enumerate(positional):
             # source_expression check for backwards compatibility
-            if isinstance(value, str) and (value.startswith("evaluate_expression(") or value.startswith("source_expression(")): 
+            if isinstance(value, str) and (
+                value.startswith("evaluate_expression(")
+                or value.startswith("source_expression(")
+            ):
                 # if not allow_source_expression:
                 #     raise ValueError(
                 #         "evaluate_expression() is not allowed in this context"
@@ -220,7 +235,10 @@ def call_function(function, params, allow_source_expression):
     if keyword:
         for key, value in keyword.items():
             # source_expression check for backwards compatibility
-            if isinstance(value, str) and (value.startswith("evaluate_expression(") or value.startswith("source_expression(")): 
+            if isinstance(value, str) and (
+                value.startswith("evaluate_expression(")
+                or value.startswith("source_expression(")
+            ):
                 if not allow_source_expression:
                     raise ValueError(
                         "evaluate_expression() is not allowed in this context"
@@ -257,7 +275,7 @@ def install_package(package_name):
 def extract_evaluate_expression(se_call):
     # First remove the evaluate_expression( and the trailing )
     # Account for possible whitespace
-    if (se_call.startswith("evaluate_expression(")):
+    if se_call.startswith("evaluate_expression("):
         expression = se_call.split("evaluate_expression(")[1].split(")")[0].strip()
     else:
         # For backwards compatibility
@@ -313,3 +331,61 @@ def get_obj_text(block_format, text):
     if f"```{block_format}" in text:
         return text.split(f"```{block_format}")[1].split("```")[0]
     return text
+
+
+def ensure_slash_on_end(string):
+    if not string:
+        return ""
+    if not string.endswith("/"):
+        return string + "/"
+    return string
+
+
+def ensure_slash_on_start(string):
+    if not string:
+        return ""
+    if not string.startswith("/"):
+        return "/" + string
+    return string
+
+
+def encode_payload(payload, encoding, payload_format):
+    # First, format the payload
+    if payload_format == "json":
+        formatted_payload = json.dumps(payload)
+    elif payload_format == "yaml":
+        formatted_payload = yaml.dump(payload)
+    elif isinstance(payload, bytes) or isinstance(payload, bytearray):
+        formatted_payload = payload
+    else:
+        formatted_payload = str(payload)
+
+    # Then, encode the formatted payload
+    if encoding == "utf-8":
+        return formatted_payload.encode("utf-8")
+    elif encoding == "base64":
+        return base64.b64encode(formatted_payload.encode("utf-8"))
+    elif encoding == "gzip":
+        return gzip.compress(formatted_payload.encode("utf-8"))
+    else:
+        return formatted_payload
+
+
+def decode_payload(payload, encoding, payload_format):
+    if encoding == "base64":
+        payload = base64.b64decode(payload)
+    elif encoding == "gzip":
+        payload = gzip.decompress(payload)
+    elif encoding == "utf-8" and (
+        isinstance(payload, bytes) or isinstance(payload, bytearray)
+    ):
+        payload = payload.decode("utf-8")
+    elif encoding == "unicode_escape":
+        payload = payload.decode('unicode_escape')
+
+    if payload_format == "json":
+        payload = json.loads(payload)
+    elif payload_format == "yaml":
+        payload = yaml.safe_load(payload)
+
+    return payload

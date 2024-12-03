@@ -11,7 +11,7 @@ authors = [
 ]
 description = "Solace AI Connector - make it easy to connect Solace PubSub+ Event Brokers to AI/ML frameworks"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -24,6 +24,10 @@ dependencies = [
     "PyYAML~=6.0.1",
     "Requests~=2.32.3",
     "solace_pubsubplus>=1.8.0",
+    "litellm~=1.51.3",
+    "Flask~=3.0.3",
+    "Flask-SocketIO~=5.4.1",
+    "build~=1.2.2.post1",
 ]
 
 [project.urls]
@@ -35,6 +39,13 @@ documentation = "https://github.com/SolaceLabs/solace-ai-connector/blob/main/doc
 [project.scripts]
 solace-ai-connector = "solace_ai_connector.main:main"
 solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:main"
+
+[tool.hatch.envs.hatch-test]
+installer = "pip"
+
+# # Specify minimum and maximum Python versions to test
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.12"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]

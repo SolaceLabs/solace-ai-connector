@@ -29,4 +29,4 @@ Contributions are encouraged! Please read [CONTRIBUTING](CONTRIBUTING.md) for de
 
 ## License
 
-See the LICENSE file for details.
+See the [LICENSE](LICENSE) file for details.

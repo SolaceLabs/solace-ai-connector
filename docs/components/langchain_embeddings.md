@@ -24,14 +24,17 @@ component_config:
 
 ```
 {
-  text:   <string>,
+  items: [
+,
+    ...
+  ],
   type:   <string>
 }
 ```
 | Field | Required | Description |
 | --- | --- | --- |
-| text | True | The text to embed |
-| type | False | The type of embedding to use: 'document' or 'query' - default is 'document' |
+| items | True | A single element or a list of elements to embed |
+| type | False | The type of embedding to use: 'document', 'query', or 'image' - default is 'document' |
 
 
 ## Component Output Schema

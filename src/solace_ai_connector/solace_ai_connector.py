@@ -35,7 +35,7 @@ class SolaceAiConnector:
 
     def run(self):
         """Run the Solace AI Event Connector"""
-        log.debug("Starting Solace AI Event Connector")
+        log.info("Starting Solace AI Event Connector")
         try:
             self.create_flows()
 
@@ -44,6 +44,7 @@ class SolaceAiConnector:
             if on_flow_creation:
                 on_flow_creation(self.flows)
 
+            log.info("Solace AI Event Connector started successfully")
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
             self.stop()
@@ -53,7 +54,7 @@ class SolaceAiConnector:
     def create_flows(self):
         """Loop through the flows and create them"""
         for index, flow in enumerate(self.config.get("flows", [])):
-            log.debug("Creating flow %s", flow.get("name"))
+            log.info("Creating flow %s", flow.get("name"))
             num_instances = flow.get("num_instances", 1)
             if num_instances < 1:
                 num_instances = 1
@@ -90,7 +91,7 @@ class SolaceAiConnector:
 
     def wait_for_flows(self):
         """Wait for the flows to finish"""
-        while True:
+        while not self.stop_signal.is_set():
             try:
                 for flow in self.flows:
                     flow.wait_for_threads()
@@ -118,9 +119,10 @@ class SolaceAiConnector:
         """Setup logging"""
         log_config = self.config.get("log", {})
         stdout_log_level = log_config.get("stdout_log_level", "INFO")
-        file_log_level = log_config.get("file_log_level", "DEBUG")
+        log_file_level = log_config.get("log_file_level", "DEBUG")
         log_file = log_config.get("log_file", "solace_ai_connector.log")
-        setup_log(log_file, stdout_log_level, file_log_level)
+        log_format = log_config.get("log_format", "pipe-delimited")
+        setup_log(log_file, stdout_log_level, log_file_level, log_format)
 
     def setup_trace(self):
         """Setup trace"""
@@ -215,6 +217,5 @@ class SolaceAiConnector:
         self.stop_signal.set()
         self.timer_manager.stop()  # Stop the timer manager first
         self.cache_service.stop()  # Stop the cache service
-        self.wait_for_flows()
         if self.trace_thread:
             self.trace_thread.join()

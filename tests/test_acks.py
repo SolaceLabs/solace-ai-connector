@@ -54,10 +54,8 @@ flows:
             "component": "give_ack_output",
             "component_index": 0,
         }
-        assert payload["error"] == {
-            "text": "This is an ack message",
-            "exception": "Exception",
-        }
+        assert payload["error"]["text"] == "This is an ack message"
+        assert payload["error"]["exception"] == "Exception"
         assert payload["message"]["payload"] == {"text": "Hello, World!"}
     finally:
         dispose_connector(connector)

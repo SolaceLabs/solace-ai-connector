@@ -1,0 +1,106 @@
+# This below flow embeds the input text and sends it back to the Solace broker.
+#    Solace -> LiteLLM -> Solace
+#
+# It will subscribe to `demo/question` and expect an event with the payload:
+#
+# The input message has the following schema:
+# {
+#   "items": ["item1", "item2", ...]
+# }
+#
+# Output is published to the topic `demo/question/response`
+# 
+# It will then send an event back to Solace with the topic: `demo/question/response`
+#
+# Dependencies:
+# pip install litellm
+#
+# required ENV variables:
+# - OPENAI_EMBEDDING_MODEL_NAME
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT
+# - AZURE_EMBEDDING_MODEL_NAME
+# - AZURE_API_KEY
+# - AZURE_API_ENDPOINT
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+#
+# Supported models: OpenAI, Azure and Huggingface
+# More models are available in https://docs.litellm.ai/docs/providers
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+# Take from input broker and publish back to Solace
+flows:
+  # broker input processing
+  - name: Simple template to LLM
+    components:
+      # Input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: demo_question434
+          broker_subscriptions:
+            - topic: demo/question
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      #
+      # Do an Embedding request
+      #
+      - component_name: embedding_request
+        component_module: litellm_embeddings
+        component_config:
+          load_balancer: 
+            - model_name: "text-embedding-ada-002" # model alias
+              litellm_params:
+                    model: ${OPENAI_EMBEDDING_MODEL_NAME}
+                    api_key: ${OPENAI_API_KEY}
+                    api_base: ${OPENAI_API_ENDPOINT}
+                    # add any other parameters here
+            - model_name: "text-embedding-3-large" # model alias
+              itellm_params:
+                     model: ${AZURE_EMBEDDING_MODEL_NAME}
+                     api_key: ${AZURE_API_KEY}
+                     api_base: ${AZURE_API_ENDPOINT}
+                    # add any other parameters here
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.llm_input:items
+        input_selection:
+          source_expression: user_data.llm_input:items
+
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

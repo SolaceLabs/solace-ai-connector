@@ -3,7 +3,7 @@
 # as well, so the configuration for this component will also include the
 # embedding model configuration
 
-from ....common.log import log
+from .....common.log import log
 from .langchain_vector_store_embedding_base import (
     LangChainVectorStoreEmbeddingsBase,
 )

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+ <html lang="en">
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>WebSocket Example App</title>
+     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+     <style>
+         :root {
+             --bg-color: #e6f3ff;
+             --container-bg: #ffffff;
+             --text-color: #333333;
+             --header-color: #3498db;
+             --input-bg: #f8f9fa;
+             --input-border: #ced4da;
+             --button-bg: #3498db;
+             --button-color: #ffffff;
+             --button-hover: #2980b9;
+             --message-bg: #ffffff;
+             --message-border: #e9ecef;
+             --message-alt-bg: #f8f9fa;
+             --timestamp-color: #6c757d;
+             --error-color: #dc3545;
+             --shadow-color: rgba(0, 0, 0, 0.1);
+         }
+
+         @media (prefers-color-scheme: dark) {
+             :root {
+                 --bg-color: #1a1a1a;
+                 --container-bg: #2c2c2c;
+                 --text-color: #e0e0e0;
+                 --header-color: #4fa3d1;
+                 --input-bg: #3a3a3a;
+                 --input-border: #555555;
+                 --button-bg: #4fa3d1;
+                 --button-color: #ffffff;
+                 --button-hover: #3a7ca5;
+                 --message-bg: #2c2c2c;
+                 --message-border: #444444;
+                 --message-alt-bg: #333333;
+                 --timestamp-color: #a0a0a0;
+                 --error-color: #ff6b6b;
+                 --shadow-color: rgba(0, 0, 0, 0.3);
+             }
+         }
+
+         body {
+             font-family: 'Roboto', Arial, sans-serif;
+             background-color: var(--bg-color);
+             color: var(--text-color);
+             line-height: 1.6;
+             padding: 20px;
+             transition: background-color 0.3s, color 0.3s;
+         }
+
+         .container {
+             max-width: 800px;
+             margin: 0 auto;
+             background-color: var(--container-bg);
+             padding: 20px 30px;
+             border-radius: 8px;
+             box-shadow: 0 2px 10px var(--shadow-color);
+             transition: background-color 0.3s, box-shadow 0.3s;
+         }
+
+         h1, h2 {
+             margin-top: 0;
+             color: var(--header-color);
+             margin-bottom: 20px;
+             transition: color 0.3s;
+         }
+
+         #connection-section, #input-section, #output-section {
+             background-color: var(--input-bg);
+             padding: 20px;
+             margin-bottom: 30px;
+             border-radius: 8px;
+             box-shadow: 0 1px 3px var(--shadow-color);
+             transition: background-color 0.3s, box-shadow 0.3s;
+         }
+
+         input[type="text"], #json-input {
+             width: calc(100% - 20px);  /* Subtract 20px to account for padding */
+             padding: 10px;
+             border: 1px solid var(--input-border);
+             border-radius: 4px;
+             font-size: 16px;
+             background-color: var(--input-bg);
+             color: var(--text-color);
+             transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+             margin-bottom: 10px;  /* Add space below inputs */
+         }
+
+         button {
+             margin-top: 5px;  /* Add space above buttons */
+             background-color: var(--button-bg);
+             color: var(--button-color);
+             border: none;
+             padding: 10px 20px;
+             border-radius: 4px;
+             cursor: pointer;
+             transition: background-color 0.3s, color 0.3s;
+         }
+
+         button:hover {
+             background-color: var(--button-hover);
+         }
+
+         #status {
+             font-weight: bold;
+             margin-left: 10px;
+             color: var(--header-color);
+             transition: color 0.3s;
+         }
+
+         .message {
+             background-color: var(--message-bg);
+             border: 1px solid var(--message-border);
+             border-radius: 4px;
+             padding: 15px;
+             margin-bottom: 15px;
+             transition: background-color 0.3s, border-color 0.3s;
+         }
+
+         .message:nth-child(even) {
+             background-color: var(--message-alt-bg);
+         }
+
+         .timestamp {
+             font-size: 0.8em;
+             color: var(--timestamp-color);
+             transition: color 0.3s;
+         }
+
+         .error {
+             color: var(--error-color);
+             margin-top: 5px;
+             transition: color 0.3s;
+         }
+
+         @media (max-width: 600px) {
+             body {
+                 padding: 10px;
+             }
+
+             .container {
+                 padding: 15px;
+             }
+
+             input[type="text"], #json-input, button {
+                 font-size: 14px;
+             }
+         }
+     </style>
+ </head>
+ <body>
+     <div class="container">
+         <h1>WebSocket Example App</h1>
+         <p>This is a simple app to show how JSON can be sent into a solace-ai-connector flow and how to receive output from it. Just hit connect to connect to the flow, type in some JSON and hit send. Your JSON should be echoed back to you.</p>
+
+         <div id="connection-section">
+             <input type="text" id="url-input" value="ws://localhost:5000">
+             <button id="connect-button">Connect</button>
+             <span id="status">Disconnected</span>
+         </div>
+
+         <div id="input-section">
+             <textarea id="json-input" placeholder="Enter JSON here"></textarea>
+             <button id="send-button">Send</button>
+             <div id="input-error" class="error"></div>
+         </div>
+
+         <div id="output-section">
+             <h2>Received Messages</h2>
+             <div id="messages"></div>
+             <button id="clear-button">Clear Messages</button>
+         </div>
+     </div>
+
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+     <script>
+         const urlInput = document.getElementById('url-input');
+         const connectButton = document.getElementById('connect-button');
+         const status = document.getElementById('status');
+         const jsonInput = document.getElementById('json-input');
+         const sendButton = document.getElementById('send-button');
+         const inputError = document.getElementById('input-error');
+         const messagesDiv = document.getElementById('messages');
+         const clearButton = document.getElementById('clear-button');
+
+         let socket;
+
+         function connect() {
+             socket = io(urlInput.value);
+
+             socket.on('connect', () => {
+                 status.textContent = 'Connected';
+                 connectButton.textContent = 'Disconnect';
+             });
+
+             socket.on('disconnect', () => {
+                 status.textContent = 'Disconnected';
+                 connectButton.textContent = 'Connect';
+             });
+
+             socket.on('message', (data) => {
+                 const messageDiv = document.createElement('div');
+                 messageDiv.className = 'message';
+                 const timestamp = new Date().toLocaleString();
+                 messageDiv.innerHTML = `
+                     <div class="timestamp">${timestamp}</div>
+                     <pre>${JSON.stringify(JSON.parse(data), null, 2)}</pre>
+                 `;
+                 messagesDiv.appendChild(messageDiv);
+             });
+         }
+
+         function disconnect() {
+             if (socket) {
+                 socket.disconnect();
+                 socket = null;
+             }
+         }
+
+         connectButton.addEventListener('click', () => {
+             if (socket && socket.connected) {
+                 disconnect();
+             } else {
+                 connect();
+             }
+         });
+
+         function sendMessage() {
+             const jsonString = jsonInput.value.trim();
+             try {
+                 const jsonObject = JSON.parse(jsonString);
+                 socket.emit('message', JSON.stringify(jsonObject));
+                 jsonInput.value = '';
+                 inputError.textContent = '';
+             } catch (error) {
+                 inputError.textContent = 'Invalid JSON: ' + error.message;
+             }
+         }
+
+         sendButton.addEventListener('click', sendMessage);
+
+         jsonInput.addEventListener('keypress', (event) => {
+             if (event.key === 'Enter' && !event.shiftKey) {
+                 event.preventDefault();
+                 sendMessage();
+             }
+         });
+
+         clearButton.addEventListener('click', () => {
+             messagesDiv.innerHTML = '';
+         });
+
+         // Info icon functionality
+         const infoIcon = document.getElementById('info-icon');
+         const infoPopup = document.getElementById('info-popup');
+         let isInfoPopupVisible = false;
+
+
+     </script>
+ </body>
+ </html>

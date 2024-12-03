@@ -1,4 +1,4 @@
-# messaging.py - Base class for EDA messaging services
+from typing import Any, Dict
 
 
 class Messaging:
@@ -11,14 +11,14 @@ class Messaging:
     def disconnect(self):
         raise NotImplementedError
 
-    def receive_message(self, timeout_ms):
+    def receive_message(self, timeout_ms, queue_id: str):
         raise NotImplementedError
 
-    # def is_connected(self):
-    #     raise NotImplementedError
-
-    # def send_message(self, destination_name: str, message: str):
-    #     raise NotImplementedError
-
-    # def subscribe(self, subscription: str, message_handler): #: MessageHandler):
-    #     raise NotImplementedError
+    def send_message(
+        self,
+        destination_name: str,
+        payload: Any,
+        user_properties: Dict = None,
+        user_context: Dict = None,
+    ):
+        raise NotImplementedError

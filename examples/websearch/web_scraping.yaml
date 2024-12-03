@@ -1,0 +1,40 @@
+# This example gets a url and scrapes the website.
+#
+# The input payload is:
+# <url>
+#
+# Ensure that the playwright package and the browser binaries are installed. If not, install them by:
+# ```sh
+#    pip install playwright
+# ```
+# and then run:
+# ```sh
+#     playwright install
+# ```
+
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+flows:
+  - name: web_scraping_flow
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+      # Using Custom component
+      - component_name: web_scraping_component
+        component_module: web_scraper
+        component_config:
+        input_transforms:
+          - type: copy
+            source_expression: previous:text
+            dest_expression: user_data.scraper:url
+        input_selection:
+          source_expression: user_data.scraper
+
+      # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output

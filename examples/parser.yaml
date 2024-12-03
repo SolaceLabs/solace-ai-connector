@@ -1,0 +1,37 @@
+# This is a simple parser workflow
+# The input payload is:
+# <text>
+#
+
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+flows:
+  - name: parser
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+    # Using Custom component
+      - component_name: json_to_yaml
+        component_module: parser
+        component_config:
+          input_format: json
+          output_format: yaml
+        input_selection:
+          source_expression: previous:text
+
+      - component_name: yaml_to_dict
+        component_module: parser
+        component_config:
+          input_format: yaml
+          output_format: dict
+        input_selection:
+          source_expression: previous
+
+     # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output

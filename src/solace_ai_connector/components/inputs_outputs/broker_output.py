@@ -93,8 +93,9 @@ info = {
 
 
 class BrokerOutput(BrokerBase):
-    def __init__(self, **kwargs):
-        super().__init__(info, **kwargs)
+    def __init__(self, module_info=None, **kwargs):
+        module_info = module_info or info
+        super().__init__(module_info, **kwargs)
         self.needs_acknowledgement = False
         self.propagate_acknowledgements = self.get_config("propagate_acknowledgements")
         self.copy_user_properties = self.get_config("copy_user_properties")

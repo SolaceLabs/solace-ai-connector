@@ -127,13 +127,23 @@ A flow is an instance of a pipeline that processes events in a sequential manner
 
 Flows can be communicating together if programmed to do so. For example, a flow can send a message to a broker and another flow can subscribe to the same topic to receive the message.
 
-flows can be spread across multiple configuration files. The connector will merge the flows from all the files and run them together.
+Flows can be spread across multiple configuration files. The connector will merge the flows from all the files and run them together.
 
 The `flows` section is a list of flow configurations. Each flow configuration is a dictionary with the
 following keys:
 
 - `name`: <string> - The unique name of the flow
 - `components`: A list of component configurations. Check [Component Configuration](#component-configuration) for more details
+
+```yaml
+  flows:
+  - name: <flow name>
+    components:
+      - component_name: <component name>
+  - name: <flow name>
+    components:
+      - component_name: <component name>
+```
 
 ## Message Data
 
@@ -153,7 +163,7 @@ This data type is available only after a topic subscription and then it will be 
 
 - `previous`: The complete output of the previous component in the flow. This can be used to completely forward the output of the previous component as an input to the next component or be modified in the `input_transforms` section of the next component.
 
-- transform specific variables: Some transforms function will add specific variables to the message object that are ONLY accessible in that transform. For example, the [`map` transform](./transforms/map.md) will add `item`, `index`, and `source_list` to the message object or the [`reduce` transform](./transforms/reduce.md) will add `accumulated_value`, `current_value`, and `source_list` to the message object. You can find these details in each transform documentation.
+- Transform specific variables: Some transforms function will add specific variables to the message object that are ONLY accessible in that transform. For example, the [`map` transform](./transforms/map.md) will add `item`, `index`, and `source_list` to the message object or the [`reduce` transform](./transforms/reduce.md) will add `accumulated_value`, `current_value`, and `source_list` to the message object. You can find these details in each [transform](transforms/index.md) documentation.
 
 ## Expression Syntax
 
@@ -601,4 +611,4 @@ You can find various usecase examples in the [examples directory](../examples/)
 
 ---
 
-Checkout [components.md](./components/index.md), [transforms.md](./transforms/index.md), or [tips_and_tricks](tips_and_tricks.md) next.
+Checkout [components](./components/index.md), [transforms](./transforms/index.md), or [tips_and_tricks](tips_and_tricks.md) next.
