@@ -28,6 +28,15 @@ info = {
             ),
             "default": None,
         },
+        {
+            "name": "max_queue_depth",
+            "required": False,
+            "description": (
+                "Maximum number of messages that can be queued in the input queue."
+                "If the queue is full, the new message is dropped."
+            ),
+            "default": 1000,
+        },
     ],
     "output_schema": {
         "type": "object",
@@ -100,9 +109,11 @@ info = {
 
 
 class ErrorInput(ComponentBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.max_rate = self.get_config("max_rate")
+        self.max_queue_depth = self.get_config("max_queue_depth")
         self.error_count_in_last_second = 0
         self.error_count_start_time = time.time()
 
@@ -112,7 +123,10 @@ class ErrorInput(ComponentBase):
         self.error_queue = None
 
     def invoke(self, message, data):
-        if self.discard_message_due_to_input_rate():
+        if (
+            self.discard_message_due_to_input_rate()
+            or self.discard_message_due_to_full_queue()
+        ):
             return None
         return data
 
@@ -134,6 +148,17 @@ class ErrorInput(ComponentBase):
                 )
                 return True
         return False
+
+    def discard_message_due_to_full_queue(self):
+        if self.input_queue.qsize() < self.max_queue_depth:
+            return False
+
+        log.warning(
+            "Discarding error message due to queue size. "
+            "Error queue reached max queue depth of %d.",
+            self.max_queue_depth,
+        )
+        return True
 
     def get_input_data(self, message):
         return message.get_data("input.payload")

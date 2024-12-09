@@ -10,6 +10,8 @@
 # }
 # If value is not a number, the error will be caught, logged to file and send back to the Solace broker.
 # 
+# Subscribe to `ai_connector_error/*/*/*` to see the error messages.
+#
 # required ENV variables:
 # - SOLACE_BROKER_URL
 # - SOLACE_BROKER_USERNAME
@@ -38,6 +40,7 @@ flows:
       - component_name: error_input
         component_module: error_input
         component_config:
+          max_queue_depth: 100
       - component_name: error_logger
         component_module: file_output
         input_transforms:
