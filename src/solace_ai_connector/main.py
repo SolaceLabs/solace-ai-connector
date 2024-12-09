@@ -108,20 +108,24 @@ def main():
         """Shutdown the application."""
         print("Stopping Solace AI Connector")
         app.stop()
-        app.cleanup()  
+        app.cleanup()
         print("Solace AI Connector exited successfully!")
         os._exit(0)
+
     atexit.register(shutdown)
 
     # Start the application
-    app.run()
+    try:
+        app.run()
+    except KeyboardInterrupt:
+        shutdown()
 
     try:
         app.wait_for_flows()
     except KeyboardInterrupt:
         shutdown()
 
+
 if __name__ == "__main__":
     # Read in the configuration yaml filenames from the args
-
     main()

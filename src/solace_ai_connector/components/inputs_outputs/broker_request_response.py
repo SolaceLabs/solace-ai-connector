@@ -98,6 +98,32 @@ info = {
             "description": "The source expression to determine when the last piece of a "
             "streaming response has arrived.",
         },
+        {
+            "name": "streaming",
+            "required": False,
+            "description": "The response will arrive in multiple pieces. If True, "
+            "the streaming_complete_expression must be set and will be used to "
+            "determine when the last piece has arrived.",
+        },
+        {
+            "name": "streaming_complete_expression",
+            "required": False,
+            "description": "The source expression to determine when the last piece of a "
+            "streaming response has arrived.",
+        },
+        {
+            "name": "streaming",
+            "required": False,
+            "description": "The response will arrive in multiple pieces. If True, "
+            "the streaming_complete_expression must be set and will be used to "
+            "determine when the last piece has arrived.",
+        },
+        {
+            "name": "streaming_complete_expression",
+            "required": False,
+            "description": "The source expression to determine when the last piece of a "
+            "streaming response has arrived.",
+        },
     ],
     "input_schema": {
         "type": "object",
