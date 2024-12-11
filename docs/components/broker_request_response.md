@@ -21,6 +21,10 @@ component_config:
   request_expiry_ms: <integer>
   streaming: <string>
   streaming_complete_expression: <string>
+  streaming: <string>
+  streaming_complete_expression: <string>
+  streaming: <string>
+  streaming_complete_expression: <string>
 ```
 
 | Parameter | Required | Default | Description |
@@ -36,6 +40,10 @@ component_config:
 | response_topic_suffix | False |  | Suffix for reply topics |
 | response_queue_prefix | False | reply-queue | Prefix for reply queues |
 | request_expiry_ms | False | 60000 | Expiry time for cached requests in milliseconds |
+| streaming | False |  | The response will arrive in multiple pieces. If True, the streaming_complete_expression must be set and will be used to determine when the last piece has arrived. |
+| streaming_complete_expression | False |  | The source expression to determine when the last piece of a streaming response has arrived. |
+| streaming | False |  | The response will arrive in multiple pieces. If True, the streaming_complete_expression must be set and will be used to determine when the last piece has arrived. |
+| streaming_complete_expression | False |  | The source expression to determine when the last piece of a streaming response has arrived. |
 | streaming | False |  | The response will arrive in multiple pieces. If True, the streaming_complete_expression must be set and will be used to determine when the last piece has arrived. |
 | streaming_complete_expression | False |  | The source expression to determine when the last piece of a streaming response has arrived. |
 
