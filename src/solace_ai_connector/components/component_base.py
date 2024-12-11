@@ -304,14 +304,9 @@ class ComponentBase:
             "request_expiry_ms": request_expiry_ms,
         }
 
-        if "response_topic_prefix" in self.broker_request_response_config:
-            rrc_config["response_topic_prefix"] = self.broker_request_response_config[
-                "response_topic_prefix"
-            ]
-        if "response_queue_prefix" in self.broker_request_response_config:
-            rrc_config["response_queue_prefix"] = self.broker_request_response_config[
-                "response_queue_prefix"
-            ]
+        for key in ["response_topic_prefix", "response_queue_prefix", "response_topic_insertion_expression"]:
+            if key in self.broker_request_response_config:
+                rrc_config[key] = self.broker_request_response_config[key]
 
         self.broker_request_response_controller = RequestResponseFlowController(
             config=rrc_config, connector=self.connector
