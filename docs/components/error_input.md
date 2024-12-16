@@ -9,11 +9,13 @@ component_name: <user-supplied-name>
 component_module: error_input
 component_config:
   max_rate: <string>
+  max_queue_depth: <string>
 ```
 
 | Parameter | Required | Default | Description |
 | --- | --- | --- | --- |
 | max_rate | False | None | Maximum rate of errors to process per second. Any errors above this rate will be dropped. If not set, all errors will be processed. |
+| max_queue_depth | False | 1000 | Maximum number of messages that can be queued in the input queue.If the queue is full, the new message is dropped. |
 
 
 

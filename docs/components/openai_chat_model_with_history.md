@@ -29,7 +29,7 @@ component_config:
 | base_url | False | None | Base URL for OpenAI API |
 | stream_to_flow | False |  | Name the flow to stream the output to - this must be configured for llm_mode='stream'. This is mutually exclusive with stream_to_next_component. |
 | stream_to_next_component | False | False | Whether to stream the output to the next component in the flow. This is mutually exclusive with stream_to_flow. |
-| llm_mode | False | none | The mode for streaming results: 'sync' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
+| llm_mode | False | none | The mode for streaming results: 'none' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
 | stream_batch_size | False | 15 | The minimum number of words in a single streaming result. Default: 15. |
 | set_response_uuid_in_user_properties | False | False | Whether to set the response_uuid in the user_properties of the input_message. This will allow other components to correlate streaming chunks with the full response. |
 | history_max_turns | False | 10 | Maximum number of conversation turns to keep in history |
@@ -47,6 +47,7 @@ component_config:
     },
     ...
   ],
+  stream:   <boolean>,
   clear_history_but_keep_depth:   <integer>
 }
 ```
@@ -55,6 +56,7 @@ component_config:
 | messages | True |  |
 | messages[].role | True |  |
 | messages[].content | True |  |
+| stream | False | Whether to stream the response. It is is not provided, it will default to the value of llm_mode. |
 | clear_history_but_keep_depth | False | Clear history but keep the last N messages. If 0, clear all history. If not set, do not clear history. |
 
 

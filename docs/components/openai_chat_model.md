@@ -27,7 +27,7 @@ component_config:
 | base_url | False | None | Base URL for OpenAI API |
 | stream_to_flow | False |  | Name the flow to stream the output to - this must be configured for llm_mode='stream'. This is mutually exclusive with stream_to_next_component. |
 | stream_to_next_component | False | False | Whether to stream the output to the next component in the flow. This is mutually exclusive with stream_to_flow. |
-| llm_mode | False | none | The mode for streaming results: 'sync' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
+| llm_mode | False | none | The mode for streaming results: 'none' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
 | stream_batch_size | False | 15 | The minimum number of words in a single streaming result. Default: 15. |
 | set_response_uuid_in_user_properties | False | False | Whether to set the response_uuid in the user_properties of the input_message. This will allow other components to correlate streaming chunks with the full response. |
 
@@ -42,7 +42,8 @@ component_config:
       content:       <string>
     },
     ...
-  ]
+  ],
+  stream:   <boolean>
 }
 ```
 | Field | Required | Description |
@@ -50,6 +51,7 @@ component_config:
 | messages | True |  |
 | messages[].role | True |  |
 | messages[].content | True |  |
+| stream | False | Whether to stream the response. It is is not provided, it will default to the value of llm_mode. |
 
 
 ## Component Output Schema

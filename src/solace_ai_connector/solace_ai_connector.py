@@ -2,6 +2,7 @@
 
 import threading
 import queue
+import traceback
 
 from datetime import datetime
 from typing import List
@@ -47,6 +48,7 @@ class SolaceAiConnector:
             log.info("Solace AI Event Connector started successfully")
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
+            log.error("Traceback: %s", traceback.format_exc())
             self.stop()
             self.cleanup()
             raise
