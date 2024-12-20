@@ -22,6 +22,9 @@
 | [litellm_chat_model_with_history](litellm_chat_model_with_history.md) | LiteLLM model handler component with conversation history |
 | [litellm_embeddings](litellm_embeddings.md) | Embed text using a LiteLLM model |
 | [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
+| [mongo_base](mongo_base.md) | Base MongoDB database component |
+| [mongo_insert](mongo_insert.md) | Inserts data into a MongoDB database. |
+| [mongo_search](mongo_search.md) | Searches a MongoDB database. |
 | [openai_chat_model](openai_chat_model.md) | OpenAI chat model component |
 | [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
 | [parser](parser.md) | Parse input from the given type to output type. |

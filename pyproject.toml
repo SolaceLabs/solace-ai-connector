@@ -28,6 +28,7 @@ dependencies = [
     "Flask~=3.0.3",
     "Flask-SocketIO~=5.4.1",
     "build~=1.2.2.post1",
+    "pymongo~=4.10.1",
 ]
 
 [project.urls]
