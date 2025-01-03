@@ -7,6 +7,7 @@ import queue
 from copy import deepcopy
 
 from ...common.log import log
+from ...common.utils import set_data_value, get_data_value, remove_data_value
 from .broker_base import BrokerBase
 from ...common.message import Message
 from ...common.utils import ensure_slash_on_end, ensure_slash_on_start
@@ -89,6 +90,18 @@ info = {
             "required": False,
             "description": "Prefix for reply queues",
             "default": "reply-queue",
+        },
+        {
+            "name": "user_properties_reply_topic_key",
+            "required": False,
+            "description": "Key to store the reply topic in the user properties. Start with : for nested object",
+            "default": "__solace_ai_connector_broker_request_response_topic__",
+        },
+        {
+            "name": "user_properties_reply_metadata_key",
+            "required": False,
+            "description": "Key to store the reply metadata in the user properties. Start with : for nested object",
+            "default": "__solace_ai_connector_broker_request_reply_metadata__",
         },
         {
             "name": "request_expiry_ms",
@@ -193,6 +206,9 @@ info = {
     },
 }
 
+DEFAULT_REPLY_TOPIC_KEY = "__solace_ai_connector_broker_request_response_topic__"
+DEFAULT_REPLY_METADATA_KEY = "__solace_ai_connector_broker_request_reply_metadata__"
+
 
 class BrokerRequestResponse(BrokerBase):
     """Request-Response broker component for the Solace AI Event Connector"""
@@ -209,6 +225,12 @@ class BrokerRequestResponse(BrokerBase):
         )
         self.response_queue_prefix = ensure_slash_on_end(
             self.get_config("response_queue_prefix")
+        )
+        self.user_properties_reply_topic_key = self.get_config(
+            "user_properties_reply_topic_key", DEFAULT_REPLY_TOPIC_KEY
+        )
+        self.user_properties_reply_metadata_key = self.get_config(
+            "user_properties_reply_metadata_key", DEFAULT_REPLY_METADATA_KEY
         )
         self.requestor_id = str(uuid.uuid4())
         self.reply_queue_name = f"{self.response_queue_prefix}{self.requestor_id}"
@@ -310,9 +332,7 @@ class BrokerRequestResponse(BrokerBase):
             return
 
         streaming_complete_expression = None
-        metadata_json = user_properties.get(
-            "__solace_ai_connector_broker_request_reply_metadata__"
-        )
+        metadata_json = get_data_value(user_properties, self.user_properties_reply_metadata_key, True)
         if not metadata_json:
             log.error("Received response without metadata: %s", payload)
             return
@@ -357,21 +377,21 @@ class BrokerRequestResponse(BrokerBase):
 
         # Update the metadata in the response
         if metadata_stack:
-            response["user_properties"][
-                "__solace_ai_connector_broker_request_reply_metadata__"
-            ] = json.dumps(metadata_stack)
+            set_data_value(
+                response["user_properties"],
+                self.user_properties_reply_metadata_key,
+                json.dumps(metadata_stack),
+            )
             # Put the last reply topic back in the user properties
-            response["user_properties"][
-                "__solace_ai_connector_broker_request_response_topic__"
-            ] = metadata_stack[-1]["response_topic"]
+            set_data_value(
+                response["user_properties"],
+                self.user_properties_reply_topic_key,
+                metadata_stack[-1]["response_topic"],
+            )
         else:
             # Remove the metadata and reply topic from the user properties
-            response["user_properties"].pop(
-                "__solace_ai_connector_broker_request_reply_metadata__", None
-            )
-            response["user_properties"].pop(
-                "__solace_ai_connector_broker_request_response_topic__", None
-            )
+            remove_data_value(response["user_properties"], self.user_properties_reply_metadata_key)
+            remove_data_value(response["user_properties"], self.user_properties_reply_topic_key)
 
         message = Message(
             payload=payload,
@@ -410,16 +430,14 @@ class BrokerRequestResponse(BrokerBase):
 
         metadata = {"request_id": request_id, "response_topic": topic}
 
-        if (
-            "__solace_ai_connector_broker_request_reply_metadata__"
-            in data["user_properties"]
-        ):
+        existing_metadata_json = get_data_value(
+            data["user_properties"],
+            self.user_properties_reply_metadata_key,
+            True
+        )
+        if existing_metadata_json:
             try:
-                existing_metadata = json.loads(
-                    data["user_properties"][
-                        "__solace_ai_connector_broker_request_reply_metadata__"
-                    ]
-                )
+                existing_metadata = json.loads(existing_metadata_json)
                 if isinstance(existing_metadata, list):
                     existing_metadata.append(metadata)
                     metadata = existing_metadata
@@ -430,19 +448,17 @@ class BrokerRequestResponse(BrokerBase):
             except json.JSONDecodeError:
                 log.warning(
                     "Failed to decode existing metadata JSON: %s",
-                    data["user_properties"][
-                        "__solace_ai_connector_broker_request_reply_metadata__"
-                    ],
+                    existing_metadata_json,
                 )
         else:
             metadata = [metadata]
 
-        data["user_properties"][
-            "__solace_ai_connector_broker_request_reply_metadata__"
-        ] = json.dumps(metadata)
-        data["user_properties"][
-            "__solace_ai_connector_broker_request_response_topic__"
-        ] = topic
+        set_data_value(
+            data["user_properties"], self.user_properties_reply_metadata_key, json.dumps(metadata)
+        )
+        set_data_value(
+            data["user_properties"], self.user_properties_reply_topic_key, topic
+        )
 
         # If we are configured to also insert the response topic into the request message
         # then create a temporary message to do so

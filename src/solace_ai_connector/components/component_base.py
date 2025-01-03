@@ -304,7 +304,15 @@ class ComponentBase:
             "request_expiry_ms": request_expiry_ms,
         }
 
-        for key in ["response_topic_prefix", "response_queue_prefix", "response_topic_insertion_expression"]:
+        optional_keys = [
+            "response_topic_prefix",
+            "response_queue_prefix",
+            "user_properties_reply_topic_key",
+            "user_properties_reply_metadata_key",
+            "response_topic_insertion_expression",
+        ]
+
+        for key in optional_keys:
             if key in self.broker_request_response_config:
                 rrc_config[key] = self.broker_request_response_config[key]
 

@@ -8,7 +8,7 @@ import pprint
 
 from .log import log
 from .trace_message import TraceMessage
-
+from .utils import set_data_value, get_data_value
 
 class Message:
     def __init__(self, payload=None, topic=None, user_properties=None):
@@ -59,7 +59,7 @@ class Message:
         if expression.startswith("static:"):
             return expression.split(":", 1)[1]
         data_object = self.get_data_object(expression, calling_object=calling_object)
-        data = self.get_data_value(data_object, expression)
+        data = get_data_value(data_object, expression)
 
         if data_type:
             data = self.convert_data_type(data, data_type)
@@ -89,7 +89,7 @@ class Message:
                 create_if_not_exists=True,
                 create_value={} if not first_part.isdigit() else [],
             )
-            self.set_data_value(data_object, expression, value)
+            set_data_value(data_object, expression, value)
 
     def get_data_object(
         self,
@@ -157,120 +157,6 @@ class Message:
             raise ValueError(
                 f"Unknown data type '{data_type}' in expression '{expression}'"
             )
-
-    def get_data_value(self, data_object, expression):
-        if ":" not in expression:
-            return data_object
-
-        # If the data_object is a value, return it
-        if (
-            not isinstance(data_object, dict)
-            and not isinstance(data_object, list)
-            and not isinstance(data_object, object)
-        ):
-            return data_object
-
-        data_name = expression.split(":")[1]
-
-        if data_name == "":
-            return data_object
-
-        # Split the data_name by dots to get the path
-        path_parts = data_name.split(".")
-
-        # Start with the entire data_object
-        current_data = data_object
-
-        # Traverse the path
-        for part in path_parts:
-            # If the current data is a dictionary, get the value with the key 'part'
-            if isinstance(current_data, dict):
-                current_data = current_data.get(part)
-            # If the current data is a list and 'part' is a number, get the value at
-            # the index 'part'
-            elif isinstance(current_data, list) and part.isdigit():
-                current_data = current_data[int(part)]
-            # If the current data is neither a dictionary nor a list, or if 'part' is
-            # not a number, return None
-            elif isinstance(current_data, object):
-                current_data = getattr(current_data, part, None)
-            else:
-                raise ValueError(
-                    f"Could not get data value for expression '{expression}' - data "
-                    "is not a dictionary or list"
-                )
-
-            # If at any point we get None, stop and return None
-            if current_data is None:
-                return None
-
-        # Return the final data
-        return current_data
-
-    # Similar to get_data_value, we need to use the expression to find the place to set the value
-    # except that we will create objects along the way if they don't exist
-    def set_data_value(self, data_object, expression, value):
-        data_name = expression.split(":")[1]
-
-        # It is an error if the data_object is None or not a dictionary or list
-        if data_object is None:
-            raise ValueError(
-                f"Could not set data value for expression '{expression}' - data_object is None"
-            )
-        if not isinstance(data_object, dict) and not isinstance(data_object, list):
-            raise ValueError(
-                f"Could not set data value for expression '{expression}' - data_object "
-                "is not a dictionary or list"
-            )
-
-        # It is an error if the data_name is empty
-        if data_name == "":
-            raise ValueError(
-                f"Could not set data value for expression '{expression}' - data_name is empty"
-            )
-
-        # Split the data_name by dots to get the path
-        path_parts = data_name.split(".")
-
-        # Start with the entire data_object
-        current_data = data_object
-
-        # Traverse the path
-        for i, part in enumerate(path_parts):
-            # If we're at the last part of the path, set the value
-            if i == len(path_parts) - 1:
-                if isinstance(current_data, dict):
-                    current_data[part] = value
-                elif isinstance(current_data, list) and part.isdigit():
-                    while len(current_data) <= int(part):
-                        current_data.append(None)
-                    current_data[int(part)] = value
-                else:
-                    log.error(
-                        "Could not set data value for expression '%s' - "
-                        "data is not a dictionary or list",
-                        expression,
-                    )
-            # If we're not at the last part of the path, move to the next part
-            else:
-                next_part_is_digit = path_parts[i + 1].isdigit()
-                if isinstance(current_data, dict):
-                    current_data = current_data.setdefault(
-                        part, [] if next_part_is_digit else {}
-                    )
-                elif isinstance(current_data, list) and part.isdigit():
-                    while len(current_data) <= int(part):
-                        current_data.append(None)
-                    if current_data[int(part)] is None:
-                        current_data[int(part)] = [] if next_part_is_digit else {}
-                    current_data = current_data[int(part)]
-                else:
-                    log.error(
-                        "Could not set data value for expression '%s' - data "
-                        "is not a dictionary or list",
-                        expression,
-                    )
-                    return
 
     def set_iteration_data(self, item, index):
         self.iteration_data["item"] = item
