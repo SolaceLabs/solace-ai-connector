@@ -17,6 +17,7 @@ component_config:
   payload_format: <string>
   response_topic_prefix: <string>
   response_topic_suffix: <string>
+  response_topic_insertion_expression: <string>
   response_queue_prefix: <string>
   request_expiry_ms: <integer>
   streaming: <string>
@@ -38,6 +39,7 @@ component_config:
 | payload_format | False | json | Format for the payload (json, yaml, text) |
 | response_topic_prefix | False | reply | Prefix for reply topics |
 | response_topic_suffix | False |  | Suffix for reply topics |
+| response_topic_insertion_expression | False |  | Expression to insert the reply topic into the request message. If not set, the reply topic will only be added to the request_response_metadata. The expression uses the same format as other data expressions: (e.g input.payload:myObj.replyTopic). If there is no object type in the expression, it will default to 'input.payload'. |
 | response_queue_prefix | False | reply-queue | Prefix for reply queues |
 | request_expiry_ms | False | 60000 | Expiry time for cached requests in milliseconds |
 | streaming | False |  | The response will arrive in multiple pieces. If True, the streaming_complete_expression must be set and will be used to determine when the last piece has arrived. |
