@@ -130,15 +130,59 @@ class SolaceMessaging(Messaging):
             or os.path.dirname(certifi.where())
             or "/usr/share/ca-certificates/mozilla/",
         }
-        # print (f"Broker Properties: {self.broker_properties}")
-        self.messaging_service = (
-            MessagingService.builder()
-            .from_properties(broker_props)
-            .with_reconnection_retry_strategy(
-                RetryStrategy.parametrized_retry(20, 3000)
+        strategy = self.broker_properties.get("reconnection_strategy")
+        if strategy and strategy == "forever_retry":
+            retry_interval = self.broker_properties.get("retry_interval")
+            if not retry_interval:
+                log.warning("retry_interval not provided, using default value of 3000")
+                retry_interval = 3000
+            self.messaging_service = (
+                MessagingService.builder()
+                .from_properties(broker_props)
+                .with_reconnection_retry_strategy(
+                    RetryStrategy.forever_retry(retry_interval)
+                )
+                .with_connection_retry_strategy(
+                    RetryStrategy.forever_retry(retry_interval)
+                )
+                .build()
             )
-            .build()
-        )
+        elif strategy and strategy == "parametrized_retry":
+            retry_count = self.broker_properties.get("retry_count")
+            retry_wait = self.broker_properties.get("retry_wait")
+            if not retry_count:
+                log.warning("retry_count not provided, using default value of 20")
+                retry_count = 20
+            if not retry_wait:
+                log.warning("retry_wait not provided, using default value of 3000")
+                retry_wait = 3000
+            self.messaging_service = (
+                MessagingService.builder()
+                .from_properties(broker_props)
+                .with_reconnection_retry_strategy(
+                    RetryStrategy.parametrized_retry(retry_count, retry_wait)
+                )
+                .with_connection_retry_strategy(
+                    RetryStrategy.parametrized_retry(retry_count, retry_wait)
+                )
+                .build()
+            )
+        else:
+            # default
+            log.info(
+                "Using default reconnection strategy. 20 retries with 3000ms interval"
+            )
+            self.messaging_service = (
+                MessagingService.builder()
+                .from_properties(broker_props)
+                .with_reconnection_retry_strategy(
+                    RetryStrategy.parametrized_retry(20, 3000)
+                )
+                .with_connection_retry_strategy(
+                    RetryStrategy.parametrized_retry(20, 3000)
+                )
+                .build()
+            )
 
         # Blocking connect thread
         self.messaging_service.connect()

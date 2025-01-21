@@ -28,8 +28,59 @@ from ...common.utils import encode_payload, decode_payload
 #    queue binding and that object is used to retrieve the next message rather than
 #    the message_service object.
 
+base_info = {
+    "class_name": "BrokerBase",
+    "description": "Base class for broker input/output components",
+    "config_parameters": [
+        {
+            "name": "broker_type",
+            "required": True,
+            "description": "Type of broker (Solace, MQTT, etc.)",
+        },
+        {
+            "name": "broker_url",
+            "required": True,
+            "description": "Broker URL (e.g. tcp://localhost:55555)",
+        },
+        {
+            "name": "broker_username",
+            "required": True,
+            "description": "Client username for broker",
+        },
+        {
+            "name": "broker_password",
+            "required": True,
+            "description": "Client password for broker",
+        },
+        {
+            "name": "broker_vpn",
+            "required": True,
+            "description": "Client VPN for broker",
+        },
+        {
+            "name": "reconnection_strategy",
+            "required": False,
+            "description": "Reconnection strategy for the broker (forever_retry, parametrized_retry)",
+            "default": "forever_retry",
+        },
+        {
+            "name": "retry_interval",
+            "required": False,
+            "description": "Reconnection retry interval in seconds for the broker",
+            "default": 10000,  # in milliseconds
+        },
+        {
+            "name": "retry_count",
+            "required": False,
+            "description": "Number of reconnection retries. Only used if reconnection_strategy is parametrized_retry",
+            "default": 10,
+        },
+    ],
+}
+
 
 class BrokerBase(ComponentBase):
+
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.broker_properties = self.get_broker_properties()
@@ -43,6 +94,7 @@ class BrokerBase(ComponentBase):
         self.messages_to_ack = []
         self.connected = False
         self.needs_acknowledgement = True
+        self.connection_repeat_sleep_time = 5
 
     @abstractmethod
     def invoke(self, message, data):
@@ -51,12 +103,12 @@ class BrokerBase(ComponentBase):
     def connect(self):
         if not self.connected:
             self.messaging_service.connect()
-            self.connected = True
+            self.connected = self.messaging_service.is_connected
 
     def disconnect(self):
         if self.connected:
             self.messaging_service.disconnect()
-            self.connected = False
+            self.connected = self.messaging_service.is_connected
 
     def stop_component(self):
         self.disconnect()
@@ -94,6 +146,10 @@ class BrokerBase(ComponentBase):
             "subscriptions": self.get_config("broker_subscriptions"),
             "trust_store_path": self.get_config("trust_store_path"),
             "temporary_queue": self.get_config("temporary_queue"),
+            "reconnection_strategy": self.get_config("reconnection_strategy"),
+            "retry_interval": self.get_config("retry_interval"),
+            "retry_count": self.get_config("retry_count"),
+            "retry_interval": self.get_config("retry_interval"),
         }
         return broker_properties
 

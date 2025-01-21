@@ -1,98 +1,80 @@
 """Output broker component for sending messages from the Solace AI Event Connector to a broker"""
 
+import copy
 from ...common.log import log
-from .broker_base import (
-    BrokerBase,
-)
+from .broker_base import BrokerBase
+from .broker_base import base_info
 from ...common.message import Message
 
-info = {
-    "class_name": "BrokerOutput",
-    "description": (
-        "Connect to a messaging broker and send messages to it. "
-        "Note that this component requires that the data is transformed into the input schema."
-    ),
-    "config_parameters": [
-        {
-            "name": "broker_type",
-            "required": True,
-            "description": "Type of broker (Solace, MQTT, etc.)",
-        },
-        {
-            "name": "broker_url",
-            "required": True,
-            "description": "Broker URL (e.g. tcp://localhost:55555)",
-        },
-        {
-            "name": "broker_username",
-            "required": True,
-            "description": "Client username for broker",
-        },
-        {
-            "name": "broker_password",
-            "required": True,
-            "description": "Client password for broker",
-        },
-        {
-            "name": "broker_vpn",
-            "required": True,
-            "description": "Client VPN for broker",
-        },
-        {
-            "name": "payload_encoding",
-            "required": False,
-            "description": "Encoding for the payload (utf-8, base64, gzip, none)",
-            "default": "utf-8",
-        },
-        {
-            "name": "payload_format",
-            "required": False,
-            "description": "Format for the payload (json, yaml, text)",
-            "default": "json",
-        },
-        {
-            "name": "propagate_acknowledgements",
-            "required": False,
-            "description": "Propagate acknowledgements from the broker to the previous components",
-            "default": True,
-        },
-        {
-            "name": "copy_user_properties",
-            "required": False,
-            "description": "Copy user properties from the input message",
-            "default": False,
-        },
-        {
-            "name": "decrement_ttl",
-            "required": False,
-            "description": "If present, decrement the user_properties.ttl by 1",
-        },
-        {
-            "name": "discard_on_ttl_expiration",
-            "required": False,
-            "description": "If present, discard the message when the user_properties.ttl is 0",
-            "default": False,
-        },
-    ],
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "payload": {
-                "type": "any",
-                "description": "Payload of the message sent to the broker",
+info = copy.deepcopy(base_info)
+info.update(
+    {
+        "class_name": "BrokerOutput",
+        "description": (
+            "Connect to a messaging broker and send messages to it. "
+            "Note that this component requires that the data is transformed into the input schema."
+        ),
+        "config_parameters": [
+            {
+                "name": "payload_encoding",
+                "required": False,
+                "description": "Encoding for the payload (utf-8, base64, gzip, none)",
+                "default": "utf-8",
             },
-            "topic": {"type": "string", "description": "Topic to send the message to"},
-            "user_properties": {
-                "type": "object",
-                "description": "User properties to send with the message",
+            {
+                "name": "payload_format",
+                "required": False,
+                "description": "Format for the payload (json, yaml, text)",
+                "default": "json",
             },
+            {
+                "name": "propagate_acknowledgements",
+                "required": False,
+                "description": "Propagate acknowledgements from the broker to the previous components",
+                "default": True,
+            },
+            {
+                "name": "copy_user_properties",
+                "required": False,
+                "description": "Copy user properties from the input message",
+                "default": False,
+            },
+            {
+                "name": "decrement_ttl",
+                "required": False,
+                "description": "If present, decrement the user_properties.ttl by 1",
+            },
+            {
+                "name": "discard_on_ttl_expiration",
+                "required": False,
+                "description": "If present, discard the message when the user_properties.ttl is 0",
+                "default": False,
+            },
+        ],
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "payload": {
+                    "type": "any",
+                    "description": "Payload of the message sent to the broker",
+                },
+                "topic": {
+                    "type": "string",
+                    "description": "Topic to send the message to",
+                },
+                "user_properties": {
+                    "type": "object",
+                    "description": "User properties to send with the message",
+                },
+            },
+            "required": ["payload", "topic"],
         },
-        "required": ["payload", "topic"],
-    },
-}
+    }
+)
 
 
 class BrokerOutput(BrokerBase):
+
     def __init__(self, module_info=None, **kwargs):
         module_info = module_info or info
         super().__init__(module_info, **kwargs)
