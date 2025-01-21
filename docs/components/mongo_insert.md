@@ -14,6 +14,7 @@ component_config:
   database_password: <string>
   database_name: <string>
   database_collection: <string>
+  data_types: <string>
 ```
 
 | Parameter | Required | Default | Description |
@@ -24,6 +25,7 @@ component_config:
 | database_password | False |  | MongoDB password |
 | database_name | True |  | Database name |
 | database_collection | False |  | Collection name - if not provided, all collections will be used |
+| data_types | False |  | An array of key value pairs to specify the data types for each field in the data. Used for non-JSON types like Date. Supports nested dotted names |
 
 
 ## Component Input Schema
