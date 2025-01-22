@@ -1,10 +1,13 @@
 """Input broker component for the Solace AI Event Connector"""
 
 import copy
+from solace.messaging.utils.manageable import ApiMetrics, Metric as SolaceMetrics
 from ...common.log import log
 from .broker_base import BrokerBase
 from .broker_base import base_info
 from ...common.message import Message
+from ...common.monitoring import Metrics
+
 
 info = copy.deepcopy(base_info)
 info.update(
@@ -104,12 +107,7 @@ class BrokerInput(BrokerBase):
 
         topic = broker_message.get("topic")
         user_properties = broker_message.get("user_properties", {})
-        log.debug(
-            "Received message from broker: topic=%s, user_properties=%s, payload length=%d",
-            topic,
-            user_properties,
-            len(payload) if payload is not None else 0,
-        )
+        log.debug("Received message from broker: topic=%s", topic)
         return Message(payload=payload, topic=topic, user_properties=user_properties)
 
     def acknowledge_message(self, broker_message):
@@ -118,3 +116,19 @@ class BrokerInput(BrokerBase):
     def get_acknowledgement_callback(self):
         current_broker_message = self.current_broker_message
         return lambda: self.acknowledge_message(current_broker_message)
+
+    def get_connection_status(self):
+        return self.messaging_service.get_connection_status()
+
+    def get_metrics(self):
+        required_metrics = [
+            Metrics.SOLCLIENT_STATS_RX_SETTLE_ACCEPTED,
+            Metrics.SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS,
+        ]
+        stats_dict = {}
+        metrics: "ApiMetrics" = self.messaging_service.messaging_service.metrics()
+        for metric_key in required_metrics:
+            metric = SolaceMetrics(metric_key.value)
+            stats_dict[metric_key] = metrics.get_value(SolaceMetrics(metric))
+
+        return stats_dict

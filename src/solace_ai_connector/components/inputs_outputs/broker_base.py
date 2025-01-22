@@ -1,11 +1,13 @@
 """Base class for broker input/output components for the Solace AI Event Connector"""
 
 import uuid
+from typing import List
 
 from abc import abstractmethod
 
 from ..component_base import ComponentBase
 from ...common.message import Message
+from ...common.messaging.solace_messaging import ConnectionStatus
 from ...common.messaging.messaging_builder import MessagingServiceBuilder
 from ...common.utils import encode_payload, decode_payload
 
@@ -86,29 +88,33 @@ class BrokerBase(ComponentBase):
         self.broker_properties = self.get_broker_properties()
         if self.broker_properties["broker_type"] not in ["test", "test_streaming"]:
             self.messaging_service = (
-                MessagingServiceBuilder(self.flow_lock_manager, self.flow_kv_store)
+                MessagingServiceBuilder(
+                    self.flow_lock_manager,
+                    self.flow_kv_store,
+                    self.name,
+                    self.stop_signal,
+                )
                 .from_properties(self.broker_properties)
                 .build()
             )
         self.current_broker_message = None
         self.messages_to_ack = []
-        self.connected = False
+        self.connected = ConnectionStatus.DISCONNECTED
         self.needs_acknowledgement = True
-        self.connection_repeat_sleep_time = 5
 
     @abstractmethod
     def invoke(self, message, data):
         pass
 
     def connect(self):
-        if not self.connected:
+        if self.connected == ConnectionStatus.DISCONNECTED:
             self.messaging_service.connect()
-            self.connected = self.messaging_service.is_connected
+            self.connected = ConnectionStatus.CONNECTED
 
     def disconnect(self):
-        if self.connected:
+        if self.connected == ConnectionStatus.CONNECTED:
             self.messaging_service.disconnect()
-            self.connected = self.messaging_service.is_connected
+            self.connected = ConnectionStatus.DISCONNECTED
 
     def stop_component(self):
         self.disconnect()

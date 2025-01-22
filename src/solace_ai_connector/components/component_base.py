@@ -2,15 +2,20 @@ import threading
 import queue
 import traceback
 import pprint
+import time
 from abc import abstractmethod
+from typing import Any
 from ..common.log import log
 from ..common.utils import resolve_config_values
 from ..common.utils import get_source_expression
 from ..transforms.transforms import Transforms
 from ..common.message import Message
+from ..common.messaging.solace_messaging import ConnectionStatus
 from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
 from ..flow.request_response_flow_controller import RequestResponseFlowController
+from ..common.monitoring import Monitoring
+from ..common.monitoring import Metrics
 
 DEFAULT_QUEUE_TIMEOUT_MS = 1000
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -51,6 +56,7 @@ class ComponentBase:
         self.stop_thread_event = threading.Event()
         self.current_message = None
         self.current_message_has_been_discarded = False
+        self.event_message_repeat_sleep_time = 1
 
         self.log_identifier = f"[{self.instance_name}.{self.flow_name}.{self.name}] "
 
@@ -59,24 +65,56 @@ class ComponentBase:
         self.setup_communications()
         self.setup_broker_request_response()
 
+        self.monitoring = Monitoring()
+
+    def grow_sleep_time(self):
+        if self.event_message_repeat_sleep_time < 60:
+            self.event_message_repeat_sleep_time *= 2
+
+    def reset_sleep_time(self):
+        self.event_message_repeat_sleep_time = 1
+
     def create_thread_and_run(self):
-        self.thread = threading.Thread(target=self.run)
+        self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
         return self.thread
 
     def run(self):
+        # Start the micro monitoring thread
+        monitoring_thread = threading.Thread(
+            target=self.run_micro_monitoring, daemon=True
+        )
+        connection_status_thread = threading.Thread(
+            target=self.run_connection_status_monitoring, daemon=True
+        )
+        monitoring_thread.start()
+        connection_status_thread.start()
+        # Process events until the stop signal is set
         while not self.stop_signal.is_set():
             event = None
             try:
                 event = self.get_next_event()
                 if event is not None:
                     self.process_event_with_tracing(event)
+                self.reset_sleep_time()
             except AssertionError as e:
-                raise e
+                try:
+                    self.stop_signal.wait(timeout=self.event_message_repeat_sleep_time)
+                except KeyboardInterrupt:
+                    self.handle_component_error(e, event)
+                self.grow_sleep_time()
+                self.handle_component_error(e, event)
             except Exception as e:
+                try:
+                    self.stop_signal.wait(timeout=self.event_message_repeat_sleep_time)
+                except KeyboardInterrupt:
+                    self.handle_component_error(e, event)
+                self.grow_sleep_time()
                 self.handle_component_error(e, event)
 
         self.stop_component()
+        monitoring_thread.join()
+        connection_status_thread.join()
 
     def process_event_with_tracing(self, event):
         if self.trace_queue:
@@ -109,9 +147,7 @@ class ComponentBase:
                 timeout = self.queue_timeout_ms or DEFAULT_QUEUE_TIMEOUT_MS
                 event = self.input_queue.get(timeout=timeout / 1000)
                 log.debug(
-                    "%sComponent received event %s from input queue",
-                    self.log_identifier,
-                    event,
+                    "%sComponent received event from input queue", self.log_identifier
                 )
                 return event
             except queue.Empty:
@@ -161,9 +197,7 @@ class ComponentBase:
 
         # Finally send the message to the next component - or if this is the last component,
         # the component will override send_message and do whatever it needs to do with the message
-        log.debug(
-            "%sSending message from %s: %s", self.log_identifier, self.name, message
-        )
+        log.debug("%sSending message from %s", self.log_identifier, self.name)
         self.send_message(message)
 
     @abstractmethod
@@ -455,3 +489,70 @@ class ComponentBase:
         raise ValueError(
             f"Broker request response controller not found for component {self.name}"
         )
+
+    def get_metrics_with_header(self) -> dict[dict[Metrics, Any], Any]:
+        metrics = {}
+        required_metrics = self.monitoring.get_required_metrics()
+
+        pure_metrics = self.get_metrics()
+        for metric, value in pure_metrics.items():
+            # filter metrics
+            if metric in required_metrics:
+                key = tuple(
+                    [
+                        ("flow", self.flow_name),
+                        ("flow_index", self.index),
+                        ("component", self.name),
+                        ("component_module", self.config.get("component_module")),
+                        ("component_index", self.component_index),
+                        ("metric", metric),
+                    ]
+                )
+
+                value = {"value": value, "timestamp": int(time.time())}
+
+                metrics[key] = value
+        return metrics
+
+    def get_metrics(self) -> dict[Metrics, Any]:
+        return {}
+
+    def get_connection_status(self) -> ConnectionStatus:
+        pass
+
+    def run_connection_status_monitoring(self) -> None:
+        """
+        Get connection status
+        """
+        try:
+            if self.config.get("component_module") in {"broker_input", "broker_output"}:
+                while not self.stop_signal.is_set():
+                    key = tuple(
+                        [
+                            ("flow", self.flow_name),
+                            ("flow_index", self.index),
+                            ("component", self.name),
+                            ("component_index", self.component_index),
+                        ]
+                    )
+                    value = self.get_connection_status()
+                    self.monitoring.set_connection_status(key, value)
+                    # Wait 1 second for the next interval
+                    self.stop_signal.wait(timeout=1)
+        except KeyboardInterrupt:
+            log.info("Monitoring connection status stopped.")
+
+    def run_micro_monitoring(self) -> None:
+        """
+        Start the metric collection process in a loop.
+        """
+        try:
+            while not self.stop_signal.is_set():
+                # Collect metrics
+                metrics = self.get_metrics_with_header()
+                self.monitoring.collect_metrics(metrics)
+                # Wait for the next interval
+                sleep_interval = self.monitoring.get_interval()
+                self.stop_signal.wait(timeout=sleep_interval)
+        except KeyboardInterrupt:
+            log.info("Monitoring stopped.")

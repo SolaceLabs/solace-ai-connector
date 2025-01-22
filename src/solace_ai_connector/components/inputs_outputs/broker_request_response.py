@@ -287,10 +287,12 @@ class BrokerRequestResponse(BrokerBase):
     def start_response_thread(self):
         if self.test_mode:
             self.response_thread = threading.Thread(
-                target=self.handle_test_pass_through
+                target=self.handle_test_pass_through, daemon=True
             )
         else:
-            self.response_thread = threading.Thread(target=self.handle_responses)
+            self.response_thread = threading.Thread(
+                target=self.handle_responses, daemon=True
+            )
         self.response_thread.start()
 
     def handle_responses(self):
@@ -332,7 +334,9 @@ class BrokerRequestResponse(BrokerBase):
             return
 
         streaming_complete_expression = None
-        metadata_json = get_data_value(user_properties, self.user_properties_reply_metadata_key, True)
+        metadata_json = get_data_value(
+            user_properties, self.user_properties_reply_metadata_key, True
+        )
         if not metadata_json:
             log.error("Received response without metadata: %s", payload)
             return
@@ -390,8 +394,12 @@ class BrokerRequestResponse(BrokerBase):
             )
         else:
             # Remove the metadata and reply topic from the user properties
-            remove_data_value(response["user_properties"], self.user_properties_reply_metadata_key)
-            remove_data_value(response["user_properties"], self.user_properties_reply_topic_key)
+            remove_data_value(
+                response["user_properties"], self.user_properties_reply_metadata_key
+            )
+            remove_data_value(
+                response["user_properties"], self.user_properties_reply_topic_key
+            )
 
         message = Message(
             payload=payload,
@@ -431,9 +439,7 @@ class BrokerRequestResponse(BrokerBase):
         metadata = {"request_id": request_id, "response_topic": topic}
 
         existing_metadata_json = get_data_value(
-            data["user_properties"],
-            self.user_properties_reply_metadata_key,
-            True
+            data["user_properties"], self.user_properties_reply_metadata_key, True
         )
         if existing_metadata_json:
             try:
@@ -454,7 +460,9 @@ class BrokerRequestResponse(BrokerBase):
             metadata = [metadata]
 
         set_data_value(
-            data["user_properties"], self.user_properties_reply_metadata_key, json.dumps(metadata)
+            data["user_properties"],
+            self.user_properties_reply_metadata_key,
+            json.dumps(metadata),
         )
         set_data_value(
             data["user_properties"], self.user_properties_reply_topic_key, topic
@@ -521,3 +529,7 @@ class BrokerRequestResponse(BrokerBase):
         if self.response_thread:
             self.response_thread.join()
         super().cleanup()
+
+    def get_metrics(self):
+        # override because it removes messaging_service from the BrokerBase
+        return {}

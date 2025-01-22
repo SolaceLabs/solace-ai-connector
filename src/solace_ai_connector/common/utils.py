@@ -73,7 +73,7 @@ def get_subdirectories(path=None):
 
 def resolve_config_values(config, allow_source_expression=False):
     """Resolve any config module values in the config by processing 'invoke' entries"""
-    log.debug("Resolving config values in %s", config)
+    # log.debug("Resolving config values in %s", config)
     if not isinstance(config, (dict, list)):
         return config
     if isinstance(config, list):
@@ -382,7 +382,7 @@ def decode_payload(payload, encoding, payload_format):
     ):
         payload = payload.decode("utf-8")
     elif encoding == "unicode_escape":
-        payload = payload.decode('unicode_escape')
+        payload = payload.decode("unicode_escape")
 
     if payload_format == "json":
         payload = json.loads(payload)
