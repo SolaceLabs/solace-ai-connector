@@ -11,7 +11,7 @@
 # }
 # 
 # Dependencies:
-# pip install langchain_aws
+# pip install langchain_aws langchain-core~=0.3.0 langchain~=0.3.0
 # 
 # required ENV variables:
 # - AWS_BEDROCK_ANTHROPIC_CLAUDE_MODEL_ID

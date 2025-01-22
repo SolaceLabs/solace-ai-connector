@@ -11,6 +11,7 @@ from ..common.log import log
 
 
 class CacheStorageBackend(ABC):
+
     @abstractmethod
     def get(self, key: str, include_meta=False) -> Any:
         pass
@@ -35,6 +36,7 @@ class CacheStorageBackend(ABC):
 
 
 class InMemoryStorage(CacheStorageBackend):
+
     def __init__(self):
         self.store: Dict[str, Dict[str, Any]] = {}
         self.lock = Lock()
@@ -97,6 +99,7 @@ class CacheItem(Base):
 
 
 class SQLAlchemyStorage(CacheStorageBackend):
+
     def __init__(self, connection_string: str):
         self.engine = create_engine(connection_string)
         Base.metadata.create_all(self.engine)
@@ -112,12 +115,16 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 session.delete(item)
                 session.commit()
                 return None
-            if include_meta: 
+            if include_meta:
                 return {
                     "value": pickle.loads(item.value),
-                    "metadata": pickle.loads(item.item_metadata) if item.item_metadata else None,
+                    "metadata": pickle.loads(item.item_metadata)
+                    if item.item_metadata
+                    else None,
                     "expiry": item.expiry,
-                    "component": self._get_component_from_reference(item.component_reference),
+                    "component": self._get_component_from_reference(
+                        item.component_reference
+                    ),
                 }
             return pickle.loads(item.value), (
                 pickle.loads(item.item_metadata) if item.item_metadata else None
@@ -191,12 +198,15 @@ class SQLAlchemyStorage(CacheStorageBackend):
 
 
 class CacheService:
+
     def __init__(self, storage_backend: CacheStorageBackend):
         self.storage = storage_backend
         self.next_expiry = None
         self.expiry_event = threading.Event()
         self.stop_event = threading.Event()
-        self.expiry_thread = threading.Thread(target=self._expiry_check_loop)
+        self.expiry_thread = threading.Thread(
+            target=self._expiry_check_loop, daemon=True
+        )
         self.expiry_thread.start()
         self.lock = Lock()
 
@@ -269,11 +279,12 @@ class CacheService:
                 self.storage.delete(key)
 
             self.next_expiry = next_expiry
-        
+
         for key, metadata, component, value in expired_keys:
             if component:
                 event = Event(
-                    EventType.CACHE_EXPIRY, {"key": key, "metadata": metadata, "expired_data": value}
+                    EventType.CACHE_EXPIRY,
+                    {"key": key, "metadata": metadata, "expired_data": value},
                 )
                 component.enqueue(event)
 

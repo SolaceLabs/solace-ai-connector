@@ -12,6 +12,7 @@ from .flow.flow import Flow
 from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
+from .common.monitoring import Monitoring
 
 
 class SolaceAiConnector:
@@ -33,6 +34,7 @@ class SolaceAiConnector:
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.timer_manager = TimerManager(self.stop_signal)
         self.cache_service = self.setup_cache_service()
+        self.monitoring = Monitoring(config)
 
     def run(self):
         """Run the Solace AI Event Connector"""
@@ -107,24 +109,52 @@ class SolaceAiConnector:
         """Clean up resources and ensure all threads are properly joined"""
         log.info("Cleaning up Solace AI Event Connector")
         for flow in self.flows:
-            flow.cleanup()
+            try:
+                flow.cleanup()
+            except Exception as e:
+                log.error(f"Error cleaning up flow: {e}")
         self.flows.clear()
+
+        # Clean up queues
+        for queue_name, queue in self.flow_input_queues.items():
+            try:
+                while not queue.empty():
+                    queue.get_nowait()
+            except Exception as e:
+                log.error(f"Error cleaning queue {queue_name}: {e}")
+        self.flow_input_queues.clear()
+
         if hasattr(self, "trace_queue") and self.trace_queue:
             self.trace_queue.put(None)  # Signal the trace thread to stop
         if self.trace_thread:
             self.trace_thread.join()
         if hasattr(self, "cache_check_thread"):
             self.cache_check_thread.join()
+        if hasattr(self, "error_queue"):
+            self.error_queue.put(None)
+
         self.timer_manager.cleanup()
+        log.info("Cleanup completed")
 
     def setup_logging(self):
         """Setup logging"""
+
         log_config = self.config.get("log", {})
         stdout_log_level = log_config.get("stdout_log_level", "INFO")
-        log_file_level = log_config.get("log_file_level", "DEBUG")
+        log_file_level = log_config.get("log_file_level", "INFO")
         log_file = log_config.get("log_file", "solace_ai_connector.log")
         log_format = log_config.get("log_format", "pipe-delimited")
-        setup_log(log_file, stdout_log_level, log_file_level, log_format)
+
+        # Get logback values
+        logback = log_config.get("logback", {})
+
+        setup_log(
+            log_file,
+            stdout_log_level,
+            log_file_level,
+            log_format,
+            logback,
+        )
 
     def setup_trace(self):
         """Setup trace"""
@@ -136,7 +166,7 @@ class SolaceAiConnector:
             self.trace_queue = queue.Queue()
             # Start a new thread to handle trace messages
             self.trace_thread = threading.Thread(
-                target=self.handle_trace, args=(trace_file,)
+                target=self.handle_trace, args=(trace_file,), daemon=True
             )
             self.trace_thread.start()
 
@@ -217,7 +247,10 @@ class SolaceAiConnector:
         """Stop the Solace AI Event Connector"""
         log.info("Stopping Solace AI Event Connector")
         self.stop_signal.set()
+
+        # Stop core services first
         self.timer_manager.stop()  # Stop the timer manager first
         self.cache_service.stop()  # Stop the cache service
+
         if self.trace_thread:
             self.trace_thread.join()

@@ -30,6 +30,7 @@ info.update(
 
 
 class WebsocketOutput(WebsocketBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.payload_encoding = self.get_config("payload_encoding")
@@ -38,7 +39,7 @@ class WebsocketOutput(WebsocketBase):
 
     def run(self):
         if self.listen_port:
-            self.server_thread = threading.Thread(target=self.run_server)
+            self.server_thread = threading.Thread(target=self.run_server, daemon=True)
             self.server_thread.start()
         super().run()
 

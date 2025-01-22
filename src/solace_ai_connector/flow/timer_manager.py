@@ -6,6 +6,7 @@ from ..common.log import log
 
 
 class Timer:
+
     def __init__(self, expiration, interval, component, timer_id, payload=None):
         self.expiration = expiration
         self.interval = interval
@@ -18,12 +19,13 @@ class Timer:
 
 
 class TimerManager:
+
     def __init__(self, stop_signal):
         self.timers = []
         self.lock = threading.Lock()
         self.stop_signal = stop_signal
         self.event = threading.Event()
-        self.thread = threading.Thread(target=self.run)
+        self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
     def add_timer(self, delay_ms, component, timer_id, interval_ms=None, payload=None):
