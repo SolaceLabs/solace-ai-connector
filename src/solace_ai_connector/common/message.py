@@ -5,17 +5,20 @@ import json
 import yaml
 import pprint
 
-
 from .log import log
 from .trace_message import TraceMessage
 from .utils import set_data_value, get_data_value
+from ..common import Message_NACK_Outcome
+
 
 class Message:
+
     def __init__(self, payload=None, topic=None, user_properties=None):
         self.payload = payload
         self.topic = topic
         self.user_properties = user_properties or {}
         self.ack_callbacks = []
+        self.nack_callbacks = []
         self.topic_delimiter = "/"
         self.private_data = {}
         self.iteration_data = {}
@@ -274,6 +277,9 @@ class Message:
     def add_acknowledgement(self, callback):
         self.ack_callbacks.append(callback)
 
+    def add_negative_acknowledgements(self, callback):
+        self.nack_callbacks.append(callback)
+
     def call_acknowledgements(self):
         """Call all the ack callbacks. This is used to notify the previous components that the
         message has been acknowledged."""
@@ -281,6 +287,14 @@ class Message:
         self.ack_callbacks = []
         for callback in ack_callbacks:
             callback()
+
+    def call_negative_acknowledgements(self, nack=Message_NACK_Outcome.REJECTED):
+        """Call all the ack callbacks. This is used to notify the previous components that the
+        message has been acknowledged."""
+        nack_callbacks = self.nack_callbacks
+        self.nack_callbacks = []
+        for callback in nack_callbacks:
+            callback(nack)
 
     def set_topic_delimiter(self, topic_delimiter):
         self.topic_delimiter = topic_delimiter

@@ -5,6 +5,7 @@ import pprint
 import time
 from abc import abstractmethod
 from typing import Any
+
 from ..common.log import log
 from ..common.utils import resolve_config_values
 from ..common.utils import get_source_expression
@@ -16,6 +17,7 @@ from ..common.event import Event, EventType
 from ..flow.request_response_flow_controller import RequestResponseFlowController
 from ..common.monitoring import Monitoring
 from ..common.monitoring import Metrics
+from ..common import Message_NACK_Outcome
 
 DEFAULT_QUEUE_TIMEOUT_MS = 1000
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -167,7 +169,14 @@ class ComponentBase:
                 self.trace_data(data)
 
             self.current_message_has_been_discarded = False
-            result = self.invoke(message, data)
+            try:
+                result = self.invoke(message, data)
+            except Exception as e:
+                self.current_message = None
+                self.handle_negative_acknowledgements(message, e)
+                raise e
+            finally:
+                self.current_message = None
 
             if self.current_message_has_been_discarded:
                 message.call_acknowledgements()
@@ -184,6 +193,11 @@ class ComponentBase:
             )
 
     def process_pre_invoke(self, message):
+        # add nack callback to the message
+        callback = self.get_negative_acknowledgement_callback()  # pylint: disable=assignment-from-none
+        if callback is not None:
+            message.add_negative_acknowledgements(callback)
+
         self.apply_input_transforms(message)
         return self.get_input_data(message)
 
@@ -489,6 +503,29 @@ class ComponentBase:
         raise ValueError(
             f"Broker request response controller not found for component {self.name}"
         )
+
+    def handle_negative_acknowledgements(self, message, exception):
+        """Handle NACK for the message."""
+        log.error(
+            "%sComponent failed to process message: %s\n%s",
+            self.log_identifier,
+            exception,
+            traceback.format_exc(),
+        )
+        nack = self.nack_reaction_to_exception(type(exception))
+        message.call_negative_acknowledgements(nack)
+        self.handle_error(exception, Event(EventType.MESSAGE, message))
+
+    @abstractmethod
+    def get_negative_acknowledgement_callback(self):
+        """This should be overridden by the component if it needs to NACK messages."""
+        return None
+
+    @abstractmethod
+    def nack_reaction_to_exception(self, exception_type):
+        """This should be overridden by the component if it needs to determine
+        NACK reaction regarding the exception type."""
+        return Message_NACK_Outcome.REJECTED
 
     def get_metrics_with_header(self) -> dict[dict[Metrics, Any], Any]:
         metrics = {}

@@ -78,6 +78,20 @@ flows:
         component_module: litellm_chat_model
         component_config:
           llm_mode: none # options: none or stream
+          retry_policy: # retry the request per error type
+            ContentPolicyViolationErrorRetries: 1
+            AuthenticationErrorRetries: 1
+            BadRequestErrorRetries: 1
+            TimeoutErrorRetries: 1
+            RateLimitErrorRetries: 1
+            InternalServerErrorRetries: 1    
+          allowed_fails_policy: # allow X failures per minute before cooling down
+            ContentPolicyViolationErrorAllowedFails: 1000
+            RateLimitErrorAllowedFails: 1000
+            AuthenticationErrorAllowedFails: 1000
+            TimeoutErrorAllowedFails: 1000
+            InternalServerErrorAllowedFails: 1000
+          timeout: 10 # in second
           load_balancer:
             - model_name: "gpt-4o" # model alias
               litellm_params:
