@@ -34,6 +34,7 @@ from solace import SOLACE_LOGGING_CONFIG
 
 from .messaging import Messaging
 from ..log import log
+from ...common import Message_NACK_Outcome
 
 
 class ConnectionStatus(Enum):
@@ -362,6 +363,9 @@ class SolaceMessaging(Messaging):
                 .with_missing_resources_creation_strategy(
                     MissingResourcesCreationStrategy.CREATE_ON_START
                 )
+                .with_required_message_outcome_support(
+                    Message_NACK_Outcome.FAILED, Message_NACK_Outcome.REJECTED
+                )
                 .build(queue)
             )
             self.persistent_receiver.start()
@@ -456,4 +460,25 @@ class SolaceMessaging(Messaging):
         else:
             log.warning(
                 f"{self.error_prefix} Cannot acknowledge message: original Solace message not found"
+            )
+
+    def nack_message(self, broker_message, outcome: Message_NACK_Outcome):
+        """
+        This method handles the negative acknowledgment (nack) of a broker message.
+        If the broker message contains an "_original_message" key, it settles the message
+        with the given outcome using the persistent receiver. If the "_original_message"
+        key is not found, it logs a warning indicating that the original Solace message
+        could not be found and therefore cannot be dropped.
+
+        Args:
+            broker_message (dict): The broker message to be nacked.
+            outcome (Message_NACK_Outcome): The outcome to be used for settling the message.
+        """
+        if "_original_message" in broker_message:
+            self.persistent_receiver.settle(
+                broker_message["_original_message"], outcome
+            )
+        else:
+            log.warning(
+                f"{self.error_prefix} Cannot drop message: original Solace message not found"
             )

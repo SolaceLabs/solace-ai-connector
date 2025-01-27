@@ -141,6 +141,9 @@ class BrokerBase(ComponentBase):
     def acknowledge_message(self, broker_message):
         pass
 
+    def negative_acknowledge_message(self, broker_message, nack):
+        pass
+
     def get_broker_properties(self):
         broker_properties = {
             "broker_type": self.get_config("broker_type"),
@@ -161,6 +164,11 @@ class BrokerBase(ComponentBase):
 
     def get_acknowledgement_callback(self):
         pass
+
+    @abstractmethod
+    def get_negative_acknowledgement_callback(self):
+        """Base method for getting NACK callback"""
+        return None
 
     def start(self):
         pass
