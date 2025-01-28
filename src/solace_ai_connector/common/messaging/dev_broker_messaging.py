@@ -5,10 +5,24 @@ from typing import Dict, List, Any
 import queue
 import re
 from copy import deepcopy
+from enum import Enum
 
 from .messaging import Messaging
 from ...common import Message_NACK_Outcome
 
+class DevConnectionStatus(Enum):
+    CONNECTED = "CONNECTED"
+    DISCONNECTED = "DISCONNECTED"
+
+class DevMetricValue:
+    def get_value(self, metric_name):
+        # Return 0 for all metrics
+        return 0
+
+class DevMessagingService:
+
+    def metrics(self):
+        return DevMetricValue()
 
 class DevBroker(Messaging):
 
@@ -17,6 +31,7 @@ class DevBroker(Messaging):
         self.flow_lock_manager = flow_lock_manager
         self.flow_kv_store = flow_kv_store
         self.connected = False
+        self.messaging_service = DevMessagingService()
         self.subscriptions_lock = self.flow_lock_manager.get_lock("subscriptions")
         with self.subscriptions_lock:
             self.subscriptions = self.flow_kv_store.get("dev_broker:subscriptions")
@@ -39,6 +54,9 @@ class DevBroker(Messaging):
 
     def disconnect(self):
         self.connected = False
+
+    def get_connection_status(self):
+        return DevConnectionStatus.CONNECTED if self.connected else DevConnectionStatus.DISCONNECTED
 
     def receive_message(self, timeout_ms, queue_name: str):
         if not self.connected:
