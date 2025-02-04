@@ -311,6 +311,7 @@ class SolaceMessaging(Messaging):
             log.error(f"{self.error_prefix} Failed to connect to broker")
             return False
         self.stop_connection_log.set()
+        log.info(f"{self.error_prefix} Successfully connected to broker.")
 
         change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
 
