@@ -14,6 +14,7 @@
 | [langchain_chat_model](langchain_chat_model.md) | Provide access to all the LangChain chat models via configuration |
 | [langchain_chat_model_with_history](langchain_chat_model_with_history.md) | A chat model based on LangChain that includes keeping per-session history of the conversation. Note that this component will only take the first system message and the first human message in the messages array. |
 | [langchain_embeddings](langchain_embeddings.md) | Provide access to all the LangChain Text Embeddings components via configuration |
+| [langchain_split_text](langchain_split_text.md) | Split a long text into smaller parts using the LangChain text splitter module |
 | [langchain_vector_store_delete](langchain_vector_store_delete.md) | This component allows for entries in a LangChain Vector Store to be deleted. This is needed for the continued maintenance of the vector store. Due to the nature of langchain vector stores, you need to specify an embedding component even though it is not used in this component. |
 | [langchain_vector_store_embedding_index](langchain_vector_store_embedding_index.md) | Use LangChain Vector Stores to index text for later semantic searches. This will take text, run it through an embedding model and then store it in a vector database. |
 | [langchain_vector_store_embedding_search](langchain_vector_store_embedding_search.md) | Use LangChain Vector Stores to search a vector store with a semantic search. This will take text, run it through an embedding model with a query embedding and then find the closest matches in the store. |
@@ -21,6 +22,9 @@
 | [litellm_chat_model_with_history](litellm_chat_model_with_history.md) | LiteLLM model handler component with conversation history |
 | [litellm_embeddings](litellm_embeddings.md) | Embed text using a LiteLLM model |
 | [message_filter](message_filter.md) | A filtering component. This will apply a user configurable expression. If the expression evaluates to True, the message will be passed on. If the expression evaluates to False, the message will be discarded. If the message is discarded, any previous components that require an acknowledgement will be acknowledged. |
+| [mongo_base](mongo_base.md) | Base MongoDB database component |
+| [mongo_insert](mongo_insert.md) | Inserts data into a MongoDB database. |
+| [mongo_search](mongo_search.md) | Searches a MongoDB database. |
 | [openai_chat_model](openai_chat_model.md) | OpenAI chat model component |
 | [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
 | [parser](parser.md) | Parse input from the given type to output type. |

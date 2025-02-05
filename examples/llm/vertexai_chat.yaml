@@ -11,7 +11,7 @@
 # It will then send an event back to Solace with the topic: `demo/question/response`
 #
 # Dependencies:
-# pip install -U langchain-google-vertexai
+# pip install -U langchain-google-vertexai langchain-core~=0.3.0 langchain~=0.3.0
 #
 # required ENV variables:
 # - GOOGLE_APPLICATION_CREDENTIALS: the path to a service account JSON file

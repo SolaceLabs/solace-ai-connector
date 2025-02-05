@@ -36,6 +36,7 @@ info = {
 
 
 class TimerInput(ComponentBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.interval_ms = self.get_config("interval_ms")
@@ -61,7 +62,7 @@ class TimerInput(ComponentBase):
         else:
             # Sleep for the remaining time
             sleep_time = (self.interval_ms - delta_time) / 1000
-            time.sleep(sleep_time)
+            self.stop_signal.wait(timeout=sleep_time)
             self.last_message_time = self.get_current_time()
 
         return Message(payload={})

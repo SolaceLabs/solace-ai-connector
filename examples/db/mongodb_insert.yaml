@@ -1,0 +1,56 @@
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+trace:
+  trace_file: solace_ai_connector_trace.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+flows:
+  # Data ingestion to MongoDB for context mesh
+  - name: real_time_data_ingest
+    components:
+      # Data Input from Solace broker
+      - component_name: solace_data_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: demo_data_ingest
+          broker_subscriptions:
+            - topic: data/ingest
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Batch messages to avoid frequent calls to DB
+      - component_name: batch_aggregate
+        component_module: aggregate
+        component_config:
+          max_items: 100
+          max_time_ms: 3000
+        input_selection:
+          source_expression: input.payload:event
+
+      # Insert into MongoDB
+      - component_name: mongo_insert
+        component_module: mongo_insert
+        component_config:
+          database_host: ${MONGO_HOST}
+          database_port: ${MONGO_PORT}
+          database_user: ${MONGO_USER}
+          database_password: ${MONGO_PASSWORD}
+          database_name: ${MONGO_DB}
+          database_collection: ${MONGO_COLLECTION}
+          data_types:
+            timestamp: Date
+        input_selection:
+          source_expression: previous

@@ -185,7 +185,7 @@ class OpenAIChatModelBase(ComponentBase):
                     if max_retries <= 0:
                         raise e
                     else:
-                        time.sleep(1)
+                        self.stop_signal.wait(timeout=1)
 
     def invoke_stream(self, client, message, messages):
         response_uuid = str(uuid.uuid4())
@@ -239,7 +239,7 @@ class OpenAIChatModelBase(ComponentBase):
                     raise e
                 else:
                     # Small delay before retrying
-                    time.sleep(1)
+                    self.stop_signal.wait(timeout=1)
 
         if self.stream_to_next_component:
             # Just return the last chunk

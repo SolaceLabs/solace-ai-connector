@@ -8,11 +8,6 @@ Connect to a messaging broker and receive messages from it. The component will o
 component_name: <user-supplied-name>
 component_module: broker_input
 component_config:
-  broker_type: <string>
-  broker_url: <string>
-  broker_username: <string>
-  broker_password: <string>
-  broker_vpn: <string>
   broker_queue_name: <string>
   temporary_queue: <string>
   broker_subscriptions: <string>
@@ -22,11 +17,6 @@ component_config:
 
 | Parameter | Required | Default | Description |
 | --- | --- | --- | --- |
-| broker_type | True |  | Type of broker (Solace, MQTT, etc.) |
-| broker_url | True |  | Broker URL (e.g. tcp://localhost:55555) |
-| broker_username | True |  | Client username for broker |
-| broker_password | True |  | Client password for broker |
-| broker_vpn | True |  | Client VPN for broker |
 | broker_queue_name | False |  | Queue name for broker, if not provided it will use a temporary queue |
 | temporary_queue | False | False | Whether to create a temporary queue that will be deleted after disconnection, defaulted to True if broker_queue_name is not provided |
 | broker_subscriptions | True |  | Subscriptions for broker |

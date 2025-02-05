@@ -33,9 +33,16 @@
 
 ---
 log:
-  stdout_log_level: INFO
+  stdout_log_level: DEBUG
   log_file_level: DEBUG
-  log_file: solace_ai_connector.log
+  log_file: ${LOG_FILE}
+  log_format: jsonl
+  logback: 
+    rollingpolicy:
+      file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz"
+      max-file-size: 100MB
+      max-history: 5
+      total-size-cap: 1GB
 
 shared_config:
   - broker_config: &broker_connection
@@ -44,6 +51,8 @@ shared_config:
       broker_username: ${SOLACE_BROKER_USERNAME}
       broker_password: ${SOLACE_BROKER_PASSWORD}
       broker_vpn: ${SOLACE_BROKER_VPN}
+      reconnection_strategy: forever_retry # options: forever_retry, parametrized_retry
+      retry_interval: 10000 # in milliseconds
 
 # Take from input broker and publish back to Solace
 flows:
@@ -69,6 +78,20 @@ flows:
         component_module: litellm_chat_model
         component_config:
           llm_mode: none # options: none or stream
+          retry_policy: # retry the request per error type
+            ContentPolicyViolationErrorRetries: 1
+            AuthenticationErrorRetries: 1
+            BadRequestErrorRetries: 1
+            TimeoutErrorRetries: 1
+            RateLimitErrorRetries: 1
+            InternalServerErrorRetries: 1    
+          allowed_fails_policy: # allow X failures per minute before cooling down
+            ContentPolicyViolationErrorAllowedFails: 1000
+            RateLimitErrorAllowedFails: 1000
+            AuthenticationErrorAllowedFails: 1000
+            TimeoutErrorAllowedFails: 1000
+            InternalServerErrorAllowedFails: 1000
+          timeout: 10 # in second
           load_balancer:
             - model_name: "gpt-4o" # model alias
               litellm_params:

@@ -11,7 +11,7 @@
 # NOTE: For horizontal scaling, partitioned queues must be used. This is not implemented in this example.
 #
 # Dependencies:
-# pip install -U langchain-google-vertexai langchain_anthropic langchain_openai openai
+# pip install -U langchain-google-vertexai langchain_anthropic langchain_openai openai langchain-core~=0.3.0 langchain~=0.3.0
 #
 # required ENV variables:
 # - GOOGLE_APPLICATION_CREDENTIALS: the path to a service account JSON file

@@ -12,7 +12,7 @@
 # It will then send an event back to Solace with the topic: `demo/joke/subject/response`
 #
 # Dependencies:
-# pip install -U langchain_openai openai
+# pip install -U langchain_openai openai langchain-core~=0.3.0 langchain~=0.3.0
 #
 # required ENV variables:
 # - OPENAI_API_KEY

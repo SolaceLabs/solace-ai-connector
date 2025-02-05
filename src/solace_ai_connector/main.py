@@ -2,7 +2,7 @@ import os
 import sys
 import re
 import yaml
-import atexit
+import signal
 
 from .solace_ai_connector import SolaceAiConnector
 
@@ -108,20 +108,24 @@ def main():
         """Shutdown the application."""
         print("Stopping Solace AI Connector")
         app.stop()
-        app.cleanup()  
+        app.cleanup()
         print("Solace AI Connector exited successfully!")
-        os._exit(0)
-    atexit.register(shutdown)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, lambda s, f: shutdown())
+    signal.signal(signal.SIGTERM, lambda s, f: shutdown())
 
     # Start the application
-    app.run()
-
     try:
+        app.run()
         app.wait_for_flows()
+    except Exception as e:
+        print(f"Error running Solace AI Connector: {e}", file=sys.stderr)
+        shutdown()
     except KeyboardInterrupt:
         shutdown()
 
+
 if __name__ == "__main__":
     # Read in the configuration yaml filenames from the args
-
     main()

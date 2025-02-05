@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "pip>=25.0", "setuptools>=70.0"]
 build-backend = "hatchling.build"
 
 
@@ -19,15 +19,15 @@ classifiers = [
 ]
 dependencies = [
     "boto3~=1.34.122",
-    "langchain-core~=0.3.0",
-    "langchain~=0.3.0",
     "PyYAML~=6.0.1",
     "Requests~=2.32.3",
-    "solace_pubsubplus>=1.8.0",
-    "litellm~=1.51.3",
+    "solace_pubsubplus>=1.9.0",
     "Flask~=3.0.3",
     "Flask-SocketIO~=5.4.1",
     "build~=1.2.2.post1",
+    "pymongo~=4.10.1",
+    "pip>=25.0",
+    "setuptools>=70.0",
 ]
 
 [project.urls]
@@ -42,8 +42,12 @@ solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:mai
 
 [tool.hatch.envs.hatch-test]
 installer = "pip"
+dependencies = [
+    "pip>=25.0",
+    "setuptools>=70.0"
+]
 
-# # Specify minimum and maximum Python versions to test
+# Specify minimum and maximum Python versions to test
 [[tool.hatch.envs.hatch-test.matrix]]
 python = ["3.10", "3.12"]
 

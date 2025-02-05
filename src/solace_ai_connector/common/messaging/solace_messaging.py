@@ -3,6 +3,8 @@
 import logging
 import os
 import certifi
+import threading
+from enum import Enum
 
 from solace.messaging.messaging_service import (
     MessagingService,
@@ -32,9 +34,22 @@ from solace import SOLACE_LOGGING_CONFIG
 
 from .messaging import Messaging
 from ..log import log
+from ...common import Message_NACK_Outcome
+
+
+class ConnectionStatus(Enum):
+    RECONNECTING = 2
+    CONNECTED = 1
+    DISCONNECTED = 0
+
+
+def change_connection_status(connection_properties: dict, status):
+    with connection_properties["lock"]:
+        connection_properties["status"] = status
 
 
 class MessageHandlerImpl(MessageHandler):
+
     def __init__(self, persistent_receiver: PersistentMessageReceiver):
         self.receiver: PersistentMessageReceiver = persistent_receiver
         self.persistent_receiver: PersistentMessageReceiver = None
@@ -54,6 +69,7 @@ class MessageHandlerImpl(MessageHandler):
 
 
 class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
+
     def __init__(self, callback=None):
         self.callback = callback
 
@@ -67,17 +83,78 @@ class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
 class ServiceEventHandler(
     ReconnectionListener, ReconnectionAttemptListener, ServiceInterruptionListener
 ):
+
+    def __init__(
+        self,
+        stop_signal,
+        strategy,
+        retry_count,
+        retry_interval,
+        connection_properties,
+        error_prefix="",
+    ):
+        self.stop_signal = stop_signal
+        self.error_prefix = error_prefix
+        self.strategy = strategy
+        self.retry_count = retry_count
+        self.retry_interval = retry_interval
+        self.connection_properties = connection_properties
+
     def on_reconnected(self, service_event: ServiceEvent):
-        log.debug("Reconnected to broker: %s", service_event.get_cause())
-        log.debug("Message: %s", service_event.get_message())
+        change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
+        log.error(
+            f"{self.error_prefix} Reconnected to broker: %s",
+            service_event.get_cause(),
+        )
+        log.error(
+            f"{self.error_prefix} Message: %s",
+            service_event.get_message(),
+        )
 
     def on_reconnecting(self, event: "ServiceEvent"):
-        log.debug("Reconnecting - Error cause: %s", event.get_cause())
-        log.debug("Message: %s", event.get_message())
+        change_connection_status(
+            self.connection_properties, ConnectionStatus.RECONNECTING
+        )
+
+        def log_reconnecting():
+
+            while (
+                not self.stop_signal.is_set()
+                and self.connection_properties["status"]
+                == ConnectionStatus.RECONNECTING
+            ):
+                # update retry count
+                if self.strategy and self.strategy == "parametrized_retry":
+                    if self.retry_count <= 0:
+                        log.error(
+                            f"{self.error_prefix} Reconnection attempts exhausted. Stopping..."
+                        )
+                        break
+                    else:
+                        self.retry_count -= 1
+
+                log.error(
+                    f"{self.error_prefix} Reconnecting to broker: %s",
+                    event.get_cause(),
+                )
+                log.error(
+                    f"{self.error_prefix} Message: %s",
+                    event.get_message(),
+                )
+                self.stop_signal.wait(timeout=self.retry_interval / 1000)
+
+        log_thread = threading.Thread(target=log_reconnecting, daemon=True)
+        log_thread.start()
 
     def on_service_interrupted(self, event: "ServiceEvent"):
-        log.debug("Service interrupted - Error cause: %s", event.get_cause())
-        log.debug("Message: %s", event.get_message())
+        change_connection_status(
+            self.connection_properties, ConnectionStatus.DISCONNECTED
+        )
+        log.debug(
+            f"{self.error_prefix} Service interrupted - Error cause: %s",
+            event.get_cause(),
+        )
+        log.debug(f"{self.error_prefix} Message: %s", event.get_message())
 
 
 def set_python_solace_log_level(level: str):
@@ -92,19 +169,30 @@ def set_python_solace_log_level(level: str):
 
 # Create SolaceMessaging class inheriting from Messaging
 class SolaceMessaging(Messaging):
-    def __init__(self, broker_properties: dict):
+
+    def __init__(self, broker_properties: dict, broker_name, stop_signal):
         super().__init__(broker_properties)
         self.persistent_receivers = []
         self.messaging_service = None
         self.service_handler = None
         self.publisher = None
         self.persistent_receiver: PersistentMessageReceiver = None
+        self.stop_signal = stop_signal
+        self.connection_properties = {
+            "status": ConnectionStatus.DISCONNECTED,
+            "lock": threading.Lock(),
+        }
+
+        self.error_prefix = f"broker[{broker_name}]:"
         # MessagingService.set_core_messaging_log_level(
         #     level="DEBUG", file="/home/efunnekotter/core.log"
         # )
         # set_python_solace_log_level("DEBUG")
 
     def __del__(self):
+        change_connection_status(
+            self.connection_properties, ConnectionStatus.DISCONNECTED
+        )
         self.disconnect()
 
     def connect(self):
@@ -126,21 +214,116 @@ class SolaceMessaging(Messaging):
             or os.path.dirname(certifi.where())
             or "/usr/share/ca-certificates/mozilla/",
         }
-        # print (f"Broker Properties: {self.broker_properties}")
-        self.messaging_service = (
-            MessagingService.builder()
-            .from_properties(broker_props)
-            .with_reconnection_retry_strategy(
-                RetryStrategy.parametrized_retry(20, 3000)
+        strategy = self.broker_properties.get("reconnection_strategy")
+        retry_interval = 3000  # default
+        retry_count = 20  # default
+        if strategy and strategy == "forever_retry":
+            retry_interval = self.broker_properties.get("retry_interval")
+            if not retry_interval:
+                log.warning(
+                    f"{self.error_prefix} retry_interval not provided, using default value of 3000 milliseconds"
+                )
+                retry_interval = 3000
+            self.messaging_service = (
+                MessagingService.builder()
+                .from_properties(broker_props)
+                .with_reconnection_retry_strategy(
+                    RetryStrategy.forever_retry(retry_interval)
+                )
+                .with_connection_retry_strategy(
+                    RetryStrategy.forever_retry(retry_interval)
+                )
+                .build()
             )
-            .build()
-        )
+        elif strategy and strategy == "parametrized_retry":
+            retry_count = self.broker_properties.get("retry_count")
+            retry_interval = self.broker_properties.get("retry_wait")
+            if not retry_count:
+                log.warning(
+                    f"{self.error_prefix} retry_count not provided, using default value of 20"
+                )
+                retry_count = 20
+            if not retry_interval:
+                log.warning(
+                    f"{self.error_prefix} retry_wait not provided, using default value of 3000"
+                )
+                retry_interval = 3000
+            self.messaging_service = (
+                MessagingService.builder()
+                .from_properties(broker_props)
+                .with_reconnection_retry_strategy(
+                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                )
+                .with_connection_retry_strategy(
+                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                )
+                .build()
+            )
+        else:
+            # set default
+            log.info(
+                f"{self.error_prefix} Using default reconnection strategy. 20 retries with 3000ms interval"
+            )
+            strategy = "parametrized_retry"
+            self.messaging_service = (
+                MessagingService.builder()
+                .from_properties(broker_props)
+                .with_reconnection_retry_strategy(
+                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                )
+                .with_connection_retry_strategy(
+                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                )
+                .build()
+            )
 
         # Blocking connect thread
-        self.messaging_service.connect()
+        result = self.messaging_service.connect_async()
+
+        # log connection attempts
+        # note: the connection/reconnection handler API does not log connection attempts
+        self.stop_connection_log = threading.Event()
+
+        def log_connecting():
+            temp_retry_count = retry_count
+            while not (
+                self.stop_signal.is_set()
+                or self.stop_connection_log.is_set()
+                or result.done()
+            ):
+                # update retry count
+                if strategy and strategy == "parametrized_retry":
+                    if temp_retry_count <= 0:
+                        log.error(
+                            f"{self.error_prefix} Connection attempts exhausted. Stopping..."
+                        )
+                        break
+                    else:
+                        temp_retry_count -= 1
+
+                log.info(f"{self.error_prefix} Connecting to broker...")
+                self.stop_signal.wait(timeout=retry_interval / 1000)
+
+        log_thread = threading.Thread(target=log_connecting, daemon=True)
+        log_thread.start()
+
+        if result.result() is None:
+            log.error(f"{self.error_prefix} Failed to connect to broker")
+            return False
+        self.stop_connection_log.set()
+        log.info(f"{self.error_prefix} Successfully connected to broker.")
+
+        change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
 
         # Event Handling for the messaging service
-        self.service_handler = ServiceEventHandler()
+        self.service_handler = ServiceEventHandler(
+            self.stop_signal,
+            strategy,
+            retry_count,
+            retry_interval,
+            self.connection_properties,
+            self.error_prefix,
+        )
         self.messaging_service.add_reconnection_listener(self.service_handler)
         self.messaging_service.add_reconnection_attempt_listener(self.service_handler)
         self.messaging_service.add_service_interruption_listener(self.service_handler)
@@ -181,12 +364,15 @@ class SolaceMessaging(Messaging):
                 .with_missing_resources_creation_strategy(
                     MissingResourcesCreationStrategy.CREATE_ON_START
                 )
+                .with_required_message_outcome_support(
+                    Message_NACK_Outcome.FAILED, Message_NACK_Outcome.REJECTED
+                )
                 .build(queue)
             )
             self.persistent_receiver.start()
 
             log.debug(
-                "Persistent receiver started... Bound to Queue [%s] (Temporary: %s)",
+                f"{self.error_prefix} Persistent receiver started... Bound to Queue [%s] (Temporary: %s)",
                 queue.get_name(),
                 temporary,
             )
@@ -194,7 +380,7 @@ class SolaceMessaging(Messaging):
         # Handle API exception
         except PubSubPlusClientError as exception:
             log.warning(
-                "Error creating persistent receiver for queue [%s], %s",
+                f"{self.error_prefix} Error creating persistent receiver for queue [%s], %s",
                 queue_name,
                 exception,
             )
@@ -207,18 +393,21 @@ class SolaceMessaging(Messaging):
             for subscription in subscriptions:
                 sub = TopicSubscription.of(subscription.get("topic"))
                 self.persistent_receiver.add_subscription(sub)
-                log.debug("Subscribed to topic: %s", subscription)
+                log.debug(f"{self.error_prefix} Subscribed to topic: %s", subscription)
 
         return self.persistent_receiver
 
     def disconnect(self):
         try:
             self.messaging_service.disconnect()
+            change_connection_status(
+                self.connection_properties, ConnectionStatus.DISCONNECTED
+            )
         except Exception as exception:  # pylint: disable=broad-except
-            log.debug("Error disconnecting: %s", exception)
+            log.debug(f"{self.error_prefix} Error disconnecting: %s", exception)
 
-    def is_connected(self):
-        return self.messaging_service.is_connected()
+    def get_connection_status(self):
+        return self.connection_properties["status"]
 
     def send_message(
         self,
@@ -270,4 +459,27 @@ class SolaceMessaging(Messaging):
         if "_original_message" in broker_message:
             self.persistent_receiver.ack(broker_message["_original_message"])
         else:
-            log.warning("Cannot acknowledge message: original Solace message not found")
+            log.warning(
+                f"{self.error_prefix} Cannot acknowledge message: original Solace message not found"
+            )
+
+    def nack_message(self, broker_message, outcome: Message_NACK_Outcome):
+        """
+        This method handles the negative acknowledgment (nack) of a broker message.
+        If the broker message contains an "_original_message" key, it settles the message
+        with the given outcome using the persistent receiver. If the "_original_message"
+        key is not found, it logs a warning indicating that the original Solace message
+        could not be found and therefore cannot be dropped.
+
+        Args:
+            broker_message (dict): The broker message to be nacked.
+            outcome (Message_NACK_Outcome): The outcome to be used for settling the message.
+        """
+        if "_original_message" in broker_message:
+            self.persistent_receiver.settle(
+                broker_message["_original_message"], outcome
+            )
+        else:
+            log.warning(
+                f"{self.error_prefix} Cannot drop message: original Solace message not found"
+            )

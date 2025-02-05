@@ -1,11 +1,13 @@
 """Base class for broker input/output components for the Solace AI Event Connector"""
 
 import uuid
+from typing import List
 
 from abc import abstractmethod
 
 from ..component_base import ComponentBase
 from ...common.message import Message
+from ...common.messaging.solace_messaging import ConnectionStatus
 from ...common.messaging.messaging_builder import MessagingServiceBuilder
 from ...common.utils import encode_payload, decode_payload
 
@@ -28,20 +30,76 @@ from ...common.utils import encode_payload, decode_payload
 #    queue binding and that object is used to retrieve the next message rather than
 #    the message_service object.
 
+base_info = {
+    "class_name": "BrokerBase",
+    "description": "Base class for broker input/output components",
+    "config_parameters": [
+        {
+            "name": "broker_type",
+            "required": True,
+            "description": "Type of broker (Solace, MQTT, etc.)",
+        },
+        {
+            "name": "broker_url",
+            "required": True,
+            "description": "Broker URL (e.g. tcp://localhost:55555)",
+        },
+        {
+            "name": "broker_username",
+            "required": True,
+            "description": "Client username for broker",
+        },
+        {
+            "name": "broker_password",
+            "required": True,
+            "description": "Client password for broker",
+        },
+        {
+            "name": "broker_vpn",
+            "required": True,
+            "description": "Client VPN for broker",
+        },
+        {
+            "name": "reconnection_strategy",
+            "required": False,
+            "description": "Reconnection strategy for the broker (forever_retry, parametrized_retry)",
+            "default": "forever_retry",
+        },
+        {
+            "name": "retry_interval",
+            "required": False,
+            "description": "Reconnection retry interval in seconds for the broker",
+            "default": 10000,  # in milliseconds
+        },
+        {
+            "name": "retry_count",
+            "required": False,
+            "description": "Number of reconnection retries. Only used if reconnection_strategy is parametrized_retry",
+            "default": 10,
+        },
+    ],
+}
+
 
 class BrokerBase(ComponentBase):
+
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.broker_properties = self.get_broker_properties()
         if self.broker_properties["broker_type"] not in ["test", "test_streaming"]:
             self.messaging_service = (
-                MessagingServiceBuilder(self.flow_lock_manager, self.flow_kv_store)
+                MessagingServiceBuilder(
+                    self.flow_lock_manager,
+                    self.flow_kv_store,
+                    self.name,
+                    self.stop_signal,
+                )
                 .from_properties(self.broker_properties)
                 .build()
             )
         self.current_broker_message = None
         self.messages_to_ack = []
-        self.connected = False
+        self.connected = ConnectionStatus.DISCONNECTED
         self.needs_acknowledgement = True
 
     @abstractmethod
@@ -49,14 +107,14 @@ class BrokerBase(ComponentBase):
         pass
 
     def connect(self):
-        if not self.connected:
+        if self.connected == ConnectionStatus.DISCONNECTED:
             self.messaging_service.connect()
-            self.connected = True
+            self.connected = ConnectionStatus.CONNECTED
 
     def disconnect(self):
-        if self.connected:
+        if self.connected == ConnectionStatus.CONNECTED:
             self.messaging_service.disconnect()
-            self.connected = False
+            self.connected = ConnectionStatus.DISCONNECTED
 
     def stop_component(self):
         self.disconnect()
@@ -83,6 +141,9 @@ class BrokerBase(ComponentBase):
     def acknowledge_message(self, broker_message):
         pass
 
+    def negative_acknowledge_message(self, broker_message, nack):
+        pass
+
     def get_broker_properties(self):
         broker_properties = {
             "broker_type": self.get_config("broker_type"),
@@ -94,11 +155,20 @@ class BrokerBase(ComponentBase):
             "subscriptions": self.get_config("broker_subscriptions"),
             "trust_store_path": self.get_config("trust_store_path"),
             "temporary_queue": self.get_config("temporary_queue"),
+            "reconnection_strategy": self.get_config("reconnection_strategy"),
+            "retry_interval": self.get_config("retry_interval"),
+            "retry_count": self.get_config("retry_count"),
+            "retry_interval": self.get_config("retry_interval"),
         }
         return broker_properties
 
     def get_acknowledgement_callback(self):
         pass
+
+    @abstractmethod
+    def get_negative_acknowledgement_callback(self):
+        """Base method for getting NACK callback"""
+        return None
 
     def start(self):
         pass
