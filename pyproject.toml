@@ -26,8 +26,7 @@ dependencies = [
     "Flask-SocketIO~=5.4.1",
     "build~=1.2.2.post1",
     "pymongo~=4.10.1",
-    "pip>=25.0",
-    "setuptools>=70.0",
+    "SQLAlchemy~=2.0.36",
 ]
 
 [project.urls]
@@ -49,7 +48,7 @@ dependencies = [
 
 # Specify minimum and maximum Python versions to test
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.10", "3.12"]
+python = ["3.12"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]
