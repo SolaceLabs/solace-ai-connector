@@ -48,27 +48,35 @@ class SolaceAiConnector:
                 on_flow_creation(self.flows)
 
             log.info("Solace AI Event Connector started successfully")
+        except KeyboardInterrupt:
+            log.info("Received keyboard interrupt - stopping")
+            raise KeyboardInterrupt
         except Exception as e:
             log.error("Error during Solace AI Event Connector startup: %s", str(e))
             log.error("Traceback: %s", traceback.format_exc())
-            self.stop()
-            self.cleanup()
-            raise
+            raise e
 
     def create_flows(self):
         """Loop through the flows and create them"""
-        for index, flow in enumerate(self.config.get("flows", [])):
-            log.info("Creating flow %s", flow.get("name"))
-            num_instances = flow.get("num_instances", 1)
-            if num_instances < 1:
-                num_instances = 1
-            for i in range(num_instances):
-                flow_instance = self.create_flow(flow, index, i)
-                flow_input_queue = flow_instance.get_flow_input_queue()
-                self.flow_input_queues[flow.get("name")] = flow_input_queue
-                self.flows.append(flow_instance)
-        for flow in self.flows:
-            flow.run()
+        try:
+            for index, flow in enumerate(self.config.get("flows", [])):
+                log.info("Creating flow %s", flow.get("name"))
+                num_instances = flow.get("num_instances", 1)
+                if num_instances < 1:
+                    num_instances = 1
+                for i in range(num_instances):
+                    flow_instance = self.create_flow(flow, index, i)
+                    flow_input_queue = flow_instance.get_flow_input_queue()
+                    self.flow_input_queues[flow.get("name")] = flow_input_queue
+                    self.flows.append(flow_instance)
+            for flow in self.flows:
+                flow.run()
+        except KeyboardInterrupt:
+            log.info("Received keyboard interrupt - stopping")
+            raise KeyboardInterrupt
+        except Exception as e:
+            log.error("Error creating flows: %s", e)
+            raise e
 
     def create_flow(self, flow: dict, index: int, flow_instance_index: int):
         """Create a single flow"""
@@ -102,8 +110,7 @@ class SolaceAiConnector:
                 break
             except KeyboardInterrupt:
                 log.info("Received keyboard interrupt - stopping")
-                self.stop()
-                self.cleanup()
+                raise KeyboardInterrupt
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""

@@ -1,6 +1,7 @@
 """Input broker component for the Solace AI Event Connector"""
 
 import copy
+import time
 from solace.messaging.utils.manageable import ApiMetrics, Metric as SolaceMetrics
 
 from .broker_base import BrokerBase
@@ -160,6 +161,9 @@ class BrokerInput(BrokerBase):
         metrics: "ApiMetrics" = self.messaging_service.messaging_service.metrics()
         for metric_key in required_metrics:
             metric = SolaceMetrics(metric_key.value)
-            stats_dict[metric_key] = metrics.get_value(SolaceMetrics(metric))
+            stats_dict[metric_key] = {
+                "value": metrics.get_value(SolaceMetrics(metric)),
+                "timestamp": int(time.time()),
+            }
 
         return stats_dict

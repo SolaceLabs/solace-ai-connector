@@ -4,6 +4,7 @@ import logging
 import os
 import certifi
 import threading
+import concurrent.futures
 from enum import Enum
 
 from solace.messaging.messaging_service import (
@@ -41,6 +42,11 @@ class ConnectionStatus(Enum):
     RECONNECTING = 2
     CONNECTED = 1
     DISCONNECTED = 0
+
+
+class ConnectionStrategy(Enum):
+    FOREVER_RETRY = "forever_retry"
+    PARAMETRIZED_RETRY = "parametrized_retry"
 
 
 def change_connection_status(connection_properties: dict, status):
@@ -102,11 +108,8 @@ class ServiceEventHandler(
 
     def on_reconnected(self, service_event: ServiceEvent):
         change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
-        log.error(
-            f"{self.error_prefix} Reconnected to broker: %s",
-            service_event.get_cause(),
-        )
-        log.error(
+        log.info(f"{self.error_prefix} Successfully reconnected to broker.")
+        log.debug(
             f"{self.error_prefix} Message: %s",
             service_event.get_message(),
         )
@@ -124,7 +127,10 @@ class ServiceEventHandler(
                 == ConnectionStatus.RECONNECTING
             ):
                 # update retry count
-                if self.strategy and self.strategy == "parametrized_retry":
+                if (
+                    self.strategy
+                    and self.strategy == ConnectionStrategy.PARAMETRIZED_RETRY
+                ):
                     if self.retry_count <= 0:
                         log.error(
                             f"{self.error_prefix} Reconnection attempts exhausted. Stopping..."
@@ -137,7 +143,7 @@ class ServiceEventHandler(
                     f"{self.error_prefix} Reconnecting to broker: %s",
                     event.get_cause(),
                 )
-                log.error(
+                log.debug(
                     f"{self.error_prefix} Message: %s",
                     event.get_message(),
                 )
@@ -150,7 +156,7 @@ class ServiceEventHandler(
         change_connection_status(
             self.connection_properties, ConnectionStatus.DISCONNECTED
         )
-        log.debug(
+        log.error(
             f"{self.error_prefix} Service interrupted - Error cause: %s",
             event.get_cause(),
         )
@@ -196,155 +202,178 @@ class SolaceMessaging(Messaging):
         self.disconnect()
 
     def connect(self):
-        # Build A messaging service with a reconnection strategy of 20 retries over
-        # an interval of 3 seconds
-        broker_props = {
-            "solace.messaging.transport.host": self.broker_properties.get("host"),
-            "solace.messaging.service.vpn-name": self.broker_properties.get("vpn_name"),
-            "solace.messaging.authentication.scheme.basic.username": self.broker_properties.get(
-                "username"
-            ),
-            "solace.messaging.authentication.scheme.basic.password": self.broker_properties.get(
-                "password"
-            ),
-            "solace.messaging.tls.trust-store-path": self.broker_properties.get(
-                "trust_store_path"
-            )
-            or os.environ.get("TRUST_STORE")
-            or os.path.dirname(certifi.where())
-            or "/usr/share/ca-certificates/mozilla/",
-        }
-        strategy = self.broker_properties.get("reconnection_strategy")
-        retry_interval = 3000  # default
-        retry_count = 20  # default
-        if strategy and strategy == "forever_retry":
-            retry_interval = self.broker_properties.get("retry_interval")
-            if not retry_interval:
-                log.warning(
-                    f"{self.error_prefix} retry_interval not provided, using default value of 3000 milliseconds"
+        try:
+            # Build A messaging service with a reconnection strategy of 20 retries over
+            # an interval of 3 seconds
+            broker_props = {
+                "solace.messaging.transport.host": self.broker_properties.get("host"),
+                "solace.messaging.service.vpn-name": self.broker_properties.get(
+                    "vpn_name"
+                ),
+                "solace.messaging.authentication.scheme.basic.username": self.broker_properties.get(
+                    "username"
+                ),
+                "solace.messaging.authentication.scheme.basic.password": self.broker_properties.get(
+                    "password"
+                ),
+                "solace.messaging.tls.trust-store-path": self.broker_properties.get(
+                    "trust_store_path"
                 )
-                retry_interval = 3000
-            self.messaging_service = (
-                MessagingService.builder()
-                .from_properties(broker_props)
-                .with_reconnection_retry_strategy(
-                    RetryStrategy.forever_retry(retry_interval)
+                or os.environ.get("TRUST_STORE")
+                or os.path.dirname(certifi.where())
+                or "/usr/share/ca-certificates/mozilla/",
+            }
+            strategy = self.broker_properties.get("reconnection_strategy")
+            retry_interval = 3000  # default
+            retry_count = 20  # default
+            if strategy and strategy == ConnectionStrategy.FOREVER_RETRY:
+                retry_interval = self.broker_properties.get("retry_interval")
+                if not retry_interval:
+                    log.warning(
+                        f"{self.error_prefix} retry_interval not provided, using default value of 3000 milliseconds"
+                    )
+                    retry_interval = 3000
+                self.messaging_service = (
+                    MessagingService.builder()
+                    .from_properties(broker_props)
+                    .with_reconnection_retry_strategy(
+                        RetryStrategy.forever_retry(retry_interval)
+                    )
+                    .with_connection_retry_strategy(
+                        RetryStrategy.forever_retry(retry_interval)
+                    )
+                    .build()
                 )
-                .with_connection_retry_strategy(
-                    RetryStrategy.forever_retry(retry_interval)
+            elif strategy and strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
+                retry_count = self.broker_properties.get("retry_count")
+                retry_interval = self.broker_properties.get("retry_wait")
+                if not retry_count:
+                    log.warning(
+                        f"{self.error_prefix} retry_count not provided, using default value of 20"
+                    )
+                    retry_count = 20
+                if not retry_interval:
+                    log.warning(
+                        f"{self.error_prefix} retry_wait not provided, using default value of 3000"
+                    )
+                    retry_interval = 3000
+                self.messaging_service = (
+                    MessagingService.builder()
+                    .from_properties(broker_props)
+                    .with_reconnection_retry_strategy(
+                        RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                    )
+                    .with_connection_retry_strategy(
+                        RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                    )
+                    .build()
                 )
-                .build()
-            )
-        elif strategy and strategy == "parametrized_retry":
-            retry_count = self.broker_properties.get("retry_count")
-            retry_interval = self.broker_properties.get("retry_wait")
-            if not retry_count:
-                log.warning(
-                    f"{self.error_prefix} retry_count not provided, using default value of 20"
+            else:
+                # set default
+                log.info(
+                    f"{self.error_prefix} Using default reconnection strategy. 20 retries with 3000ms interval"
                 )
-                retry_count = 20
-            if not retry_interval:
-                log.warning(
-                    f"{self.error_prefix} retry_wait not provided, using default value of 3000"
+                strategy = ConnectionStrategy.PARAMETRIZED_RETRY
+                self.messaging_service = (
+                    MessagingService.builder()
+                    .from_properties(broker_props)
+                    .with_reconnection_retry_strategy(
+                        RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                    )
+                    .with_connection_retry_strategy(
+                        RetryStrategy.parametrized_retry(retry_count, retry_interval)
+                    )
+                    .build()
                 )
-                retry_interval = 3000
-            self.messaging_service = (
-                MessagingService.builder()
-                .from_properties(broker_props)
-                .with_reconnection_retry_strategy(
-                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
-                )
-                .with_connection_retry_strategy(
-                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
-                )
-                .build()
-            )
-        else:
-            # set default
-            log.info(
-                f"{self.error_prefix} Using default reconnection strategy. 20 retries with 3000ms interval"
-            )
-            strategy = "parametrized_retry"
-            self.messaging_service = (
-                MessagingService.builder()
-                .from_properties(broker_props)
-                .with_reconnection_retry_strategy(
-                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
-                )
-                .with_connection_retry_strategy(
-                    RetryStrategy.parametrized_retry(retry_count, retry_interval)
-                )
-                .build()
+
+            # Blocking connect thread
+            result = self.messaging_service.connect_async()
+
+            # log connection attempts
+            # note: the connection/reconnection handler API does not log connection attempts
+            self.stop_connection_log = threading.Event()
+
+            def log_connecting():
+                temp_retry_count = retry_count
+                while not (
+                    self.stop_signal.is_set()
+                    or self.stop_connection_log.is_set()
+                    or result.done()
+                ):
+                    # update retry count
+                    if strategy and strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
+                        if temp_retry_count <= 0:
+                            log.error(
+                                f"{self.error_prefix} Connection attempts exhausted. Stopping..."
+                            )
+                            break
+                        else:
+                            temp_retry_count -= 1
+
+                    log.info(f"{self.error_prefix} Connecting to broker...")
+                    self.stop_signal.wait(timeout=retry_interval / 1000)
+
+            log_thread = threading.Thread(target=log_connecting, daemon=True)
+            log_thread.start()
+
+            # wait for the connection to complete
+            while not self.stop_signal.is_set():
+                done, _ = concurrent.futures.wait([result], timeout=0.1)
+                if done:
+                    break
+
+            # disconnect and raise an exception if the stop signal is set
+            if self.stop_signal.is_set():
+                log.error(f"{self.error_prefix} Stopping connection attempt")
+                self.disconnect()
+                raise KeyboardInterrupt("Stopping connection attempt")
+
+            self.stop_connection_log.set()
+            log.info(f"{self.error_prefix} Successfully connected to broker.")
+
+            # change connection status to connected
+            change_connection_status(
+                self.connection_properties, ConnectionStatus.CONNECTED
             )
 
-        # Blocking connect thread
-        result = self.messaging_service.connect_async()
+            # Event Handling for the messaging service
+            self.service_handler = ServiceEventHandler(
+                self.stop_signal,
+                strategy,
+                retry_count,
+                retry_interval,
+                self.connection_properties,
+                self.error_prefix,
+            )
+            self.messaging_service.add_reconnection_listener(self.service_handler)
+            self.messaging_service.add_reconnection_attempt_listener(
+                self.service_handler
+            )
+            self.messaging_service.add_service_interruption_listener(
+                self.service_handler
+            )
 
-        # log connection attempts
-        # note: the connection/reconnection handler API does not log connection attempts
-        self.stop_connection_log = threading.Event()
+            # Create a publisher
+            self.publisher: PersistentMessagePublisher = (
+                self.messaging_service.create_persistent_message_publisher_builder().build()
+            )
+            self.publisher.start()
 
-        def log_connecting():
-            temp_retry_count = retry_count
-            while not (
-                self.stop_signal.is_set()
-                or self.stop_connection_log.is_set()
-                or result.done()
+            publish_receipt_listener = MessagePublishReceiptListenerImpl()
+            self.publisher.set_message_publish_receipt_listener(
+                publish_receipt_listener
+            )
+
+            if "queue_name" in self.broker_properties and self.broker_properties.get(
+                "queue_name"
             ):
-                # update retry count
-                if strategy and strategy == "parametrized_retry":
-                    if temp_retry_count <= 0:
-                        log.error(
-                            f"{self.error_prefix} Connection attempts exhausted. Stopping..."
-                        )
-                        break
-                    else:
-                        temp_retry_count -= 1
-
-                log.info(f"{self.error_prefix} Connecting to broker...")
-                self.stop_signal.wait(timeout=retry_interval / 1000)
-
-        log_thread = threading.Thread(target=log_connecting, daemon=True)
-        log_thread.start()
-
-        if result.result() is None:
-            log.error(f"{self.error_prefix} Failed to connect to broker")
-            return False
-        self.stop_connection_log.set()
-        log.info(f"{self.error_prefix} Successfully connected to broker.")
-
-        change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
-
-        # Event Handling for the messaging service
-        self.service_handler = ServiceEventHandler(
-            self.stop_signal,
-            strategy,
-            retry_count,
-            retry_interval,
-            self.connection_properties,
-            self.error_prefix,
-        )
-        self.messaging_service.add_reconnection_listener(self.service_handler)
-        self.messaging_service.add_reconnection_attempt_listener(self.service_handler)
-        self.messaging_service.add_service_interruption_listener(self.service_handler)
-
-        # Create a publisher
-        self.publisher: PersistentMessagePublisher = (
-            self.messaging_service.create_persistent_message_publisher_builder().build()
-        )
-        self.publisher.start()
-
-        publish_receipt_listener = MessagePublishReceiptListenerImpl()
-        self.publisher.set_message_publish_receipt_listener(publish_receipt_listener)
-
-        if "queue_name" in self.broker_properties and self.broker_properties.get(
-            "queue_name"
-        ):
-            self.bind_to_queue(
-                self.broker_properties.get("queue_name"),
-                self.broker_properties.get("subscriptions"),
-                self.broker_properties.get("temporary_queue"),
-            )
+                self.bind_to_queue(
+                    self.broker_properties.get("queue_name"),
+                    self.broker_properties.get("subscriptions"),
+                    self.broker_properties.get("temporary_queue"),
+                )
+        except KeyboardInterrupt:  # pylint: disable=broad-except
+            raise KeyboardInterrupt
 
     def bind_to_queue(
         self, queue_name: str, subscriptions: list = None, temporary: bool = False
