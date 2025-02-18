@@ -3,6 +3,7 @@
 import datetime
 import dateutil.parser
 from .mongo_base import MongoDBBaseComponent, info as base_info
+from .....common.log import log
 
 info = base_info.copy()
 info["class_name"] = "MongoDBInsertComponent"
@@ -25,11 +26,18 @@ class MongoDBInsertComponent(MongoDBBaseComponent):
         self.data_types_map = self.get_config("data_types")
         if self.data_types_map:
             if not isinstance(self.data_types_map, dict):
+                log.error(
+                    "Invalid data types provided for MongoDB insert. Expected a dictionary. Provided: %s",self.data_types_map
+                )
                 raise ValueError(
                     "Invalid data types provided for MongoDB insert. Expected a dictionary."
                 )
             for key, field_type in self.data_types_map.items():
                 if not isinstance(key, str) or not isinstance(field_type, str) or field_type.lower() not in POSSIBLE_TYPES:
+                    log.error(
+                        "Invalid data types provided for MongoDB insert. Expected a dictionary with key value pairs where key is a string and value is a string from the following list: %s",
+                        POSSIBLE_TYPES
+                    )
                     raise ValueError(
                         "Invalid data types provided for MongoDB insert. Expected a dictionary with key value pairs where key is a string and value is a string from the following list: "
                         + ", ".join(POSSIBLE_TYPES)
@@ -38,6 +46,9 @@ class MongoDBInsertComponent(MongoDBBaseComponent):
 
     def invoke(self, message, data):
         if not data or not isinstance(data, dict) and not isinstance(data, list):
+            log.error(
+                "Invalid data provided for MongoDB insert. Expected a dictionary or a list of dictionary. Provided: %s",data
+            )
             raise ValueError(
                 "Invalid data provided for MongoDB insert. Expected a dictionary or a list of dictionary."
             )

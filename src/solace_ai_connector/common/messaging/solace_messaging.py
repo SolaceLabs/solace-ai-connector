@@ -371,12 +371,17 @@ class SolaceMessaging(Messaging):
                     self.broker_properties.get("queue_name"),
                     self.broker_properties.get("subscriptions"),
                     self.broker_properties.get("temporary_queue"),
+                    self.broker_properties.get("max_redelivery_count"),
                 )
         except KeyboardInterrupt:  # pylint: disable=broad-except
             raise KeyboardInterrupt
 
     def bind_to_queue(
-        self, queue_name: str, subscriptions: list = None, temporary: bool = False
+        self,
+        queue_name: str,
+        subscriptions: list = None,
+        temporary: bool = False,
+        max_redelivery_count: int = None,
     ):
         if subscriptions is None:
             subscriptions = []
@@ -398,6 +403,22 @@ class SolaceMessaging(Messaging):
                 )
                 .build(queue)
             )
+
+            # set maximum redelivery count for the queue
+            if max_redelivery_count != None:
+                try:
+                    end_point_props = {
+                        "ENDPOINT_MAXMSG_REDELIVERY": str(max_redelivery_count),
+                    }
+                    self.persistent_receiver._end_point_props = {
+                        **self.persistent_receiver._end_point_props,
+                        **end_point_props,
+                    }
+                except Exception as e:
+                    log.error(
+                        f"{self.error_prefix} Error setting max redelivery count: {str(e)}"
+                    )
+
             self.persistent_receiver.start()
 
             log.debug(

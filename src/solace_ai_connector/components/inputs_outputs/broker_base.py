@@ -159,6 +159,7 @@ class BrokerBase(ComponentBase):
             "retry_interval": self.get_config("retry_interval"),
             "retry_count": self.get_config("retry_count"),
             "retry_interval": self.get_config("retry_interval"),
+            "max_redelivery_count": self.get_config("max_redelivery_count"),
         }
         return broker_properties
 
