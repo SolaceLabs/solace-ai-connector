@@ -1,19 +1,19 @@
 """Input broker component for the Solace AI Event Connector"""
 
-import copy
 import time
 from solace.messaging.utils.manageable import ApiMetrics, Metric as SolaceMetrics
 
 from .broker_base import BrokerBase
 from .broker_base import base_info
+from ...common.utils import deep_merge
 from ...common.log import log
 from ...common.message import Message
 from ...common.monitoring import Metrics
 from ...common import Message_NACK_Outcome
 
 
-info = copy.deepcopy(base_info)
-info.update(
+
+info = deep_merge(base_info,
     {
         "class_name": "BrokerInput",
         "description": (
