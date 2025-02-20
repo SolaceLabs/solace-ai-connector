@@ -153,7 +153,7 @@ class BrokerBase(ComponentBase):
 
     def get_broker_properties(self):
         broker_properties = {
-            "broker_type": self.get_config("broker_type"),
+            "broker_type": self.get_config("broker_type", "solace"),
             "dev_mode": self.get_config("dev_mode"),
             "host": self.get_config("broker_url"),
             "username": self.get_config("broker_username"),

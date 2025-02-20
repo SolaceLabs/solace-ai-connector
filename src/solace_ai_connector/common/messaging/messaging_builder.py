@@ -30,7 +30,7 @@ class MessagingServiceBuilder:
             return DevBroker(
                 self.broker_properties, self.flow_lock_manager, self.flow_kv_store
             )
-        elif self.broker_properties["broker_type"] == "solace":
+        elif self.broker_properties["broker_type"] == "solace" or self.broker_properties["broker_type"] is None:
             return SolaceMessaging(self.broker_properties, self.broker_name, self.stop_signal)
 
         raise ValueError(
