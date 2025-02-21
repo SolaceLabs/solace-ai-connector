@@ -1,6 +1,7 @@
 """LiteLLM chat model component"""
 
 import uuid
+from litellm import APIConnectionError
 from .litellm_base import LiteLLMBase
 from .litellm_base import litellm_info_base
 from .....common.message import Message
@@ -106,6 +107,11 @@ litellm_chat_info_base["config_parameters"].extend(
     ]
 )
 
+LITELLM_ERROR_MESSAGES = {
+    "litellm.ContextWindowExceededError": "The input is too long for the model to process. Please reduce the input size.",
+    "litellm.InternalServerError: AnthropicException - Overloaded": "The model is overloaded. Please try again later.",
+    "litellm.exceptions.RateLimitError": "The model has reached its rate limit. Please try again later."
+}
 
 class LiteLLMChatModelBase(LiteLLMBase):
 
@@ -179,6 +185,13 @@ class LiteLLMChatModelBase(LiteLLMBase):
                             )
                         current_batch = ""
                         first_chunk = False
+        except APIConnectionError as e:
+            error_str = str(e)
+            log.error("Error invoking LiteLLM: %s", error_str)
+            for error_pattern, error_message in LITELLM_ERROR_MESSAGES.items():
+                if error_pattern in error_str:
+                    return {"content": error_message, "response_uuid": response_uuid}
+            raise e
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
