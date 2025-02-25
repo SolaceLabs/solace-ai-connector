@@ -1,0 +1,114 @@
+# OpenAI RAG (Retrieval Augmented Generation) example using PGVector
+#
+# Solace[topic:demo/rag/data] -> embed and store in PGVector
+#
+# Load Data:
+# Send data to Solace topic `demo/rag/data` with a text payload.
+#
+# Dependencies:
+# pip install -U langchain_openai openai langchain-postgres psycopg_binary
+#
+# Required ENV variables:
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT
+# - OPENAI_EMBEDDING_MODEL_NAME
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# - PGVECTOR_HOST
+# - PGVECTOR_PORT
+# - SOLACE_BROKER_INPUT_QUEUE_NAME
+
+---
+log:
+  stdout_log_level: DEBUG
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+      reconnection_strategy: forever_retry # options: forever_retry, parametrized_retry
+      retry_interval: 1000 # in milliseconds
+
+# Data ingestion and augmented inference flows
+flows:
+  # Data ingestion to chromaDB for RAG
+  - name: pgvector_ingest
+    components:
+      # Data Input from a Solace broker for ingestion
+      - component_name: solace_data_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: ${SOLACE_BROKER_INPUT_QUEUE_NAME}
+          # temporary_queue: ${SOLACE_BROKER_INPUT_TEMPORARY_QUEUE}
+          broker_subscriptions:
+            - topic: ${SOLACE_BROKER_INPUT_TOPIC}
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Split text
+      - component_name: text_splitter
+        component_module: langchain_split_text
+        component_config:
+          langchain_module: langchain_text_splitters
+          langchain_class: TokenTextSplitter
+          langchain_component_config:
+            chunk_size: 10
+            chunk_overlap: 1
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.input
+        input_selection:
+          source_expression: user_data.input
+
+      # Embedding data & PGVector ingest
+      - component_name: pgvector_embed
+        component_module: langchain_vector_store_embedding_index
+        component_config:
+          vector_store_component_path: langchain_postgres.vectorstores
+          vector_store_component_name: PGVector
+          vector_store_component_config:
+            connection: postgresql+psycopg://langchain:langchain@${PGVECTOR_HOST}:${PGVECTOR_PORT}/langchain
+            collection_name: rag
+          embedding_component_path: langchain_openai
+          embedding_component_name: OpenAIEmbeddings
+          embedding_component_config:
+            api_key: ${OPENAI_API_KEY}
+            base_url: ${OPENAI_API_ENDPOINT}
+            model: bedrock-cohere-embed-english-v3 #${OPENAI_EMBEDDING_MODEL_NAME}
+        input_transforms:
+          - type: copy
+            source_value: topic:${SOLACE_BROKER_INPUT_TOPIC}
+            dest_expression: user_data.vector_input:metadatas.source
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.vector_input:texts
+        input_selection:
+          source_expression: user_data.vector_input
+
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:${SOLACE_BROKER_OUTPUT_TOPIC}
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output
