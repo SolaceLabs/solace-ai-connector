@@ -36,8 +36,15 @@ base_info = {
     "config_parameters": [
         {
             "name": "broker_type",
-            "required": True,
-            "description": "Type of broker (Solace, MQTT, etc.)",
+            "required": False,
+            "description": "Type of broker (solace, etc.)",
+            "default": "solace",
+        },
+        {
+            "name": "dev_mode",
+            "required": False,
+            "description": "Operate in development mode, which just uses local queues",
+            "default": "false",
         },
         {
             "name": "broker_url",
@@ -146,7 +153,8 @@ class BrokerBase(ComponentBase):
 
     def get_broker_properties(self):
         broker_properties = {
-            "broker_type": self.get_config("broker_type"),
+            "broker_type": self.get_config("broker_type", "solace"),
+            "dev_mode": self.get_config("dev_mode"),
             "host": self.get_config("broker_url"),
             "username": self.get_config("broker_username"),
             "password": self.get_config("broker_password"),
@@ -159,6 +167,7 @@ class BrokerBase(ComponentBase):
             "retry_interval": self.get_config("retry_interval"),
             "retry_count": self.get_config("retry_count"),
             "retry_interval": self.get_config("retry_interval"),
+            "max_redelivery_count": self.get_config("max_redelivery_count"),
         }
         return broker_properties
 

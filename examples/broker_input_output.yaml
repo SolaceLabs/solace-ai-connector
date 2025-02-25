@@ -31,6 +31,7 @@ shared_config:
       broker_vpn: ${SOLACE_BROKER_VPN}
       reconnection_strategy: forever_retry # options: forever_retry, parametrized_retry
       retry_interval: 1000 # in milliseconds
+      max_redelivery_count: 3 # number of redelivery attempts.
 
 
 flows:

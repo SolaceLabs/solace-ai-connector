@@ -1,13 +1,12 @@
 """Output broker component for sending messages from the Solace AI Event Connector to a broker"""
 
-import copy
-from ...common.log import log
 from .broker_base import BrokerBase
 from .broker_base import base_info
+from ...common.log import log
+from ...common.utils import deep_merge
 from ...common.message import Message
 
-info = copy.deepcopy(base_info)
-info.update(
+info = deep_merge(base_info,
     {
         "class_name": "BrokerOutput",
         "description": (
@@ -58,10 +57,7 @@ info.update(
                     "type": "any",
                     "description": "Payload of the message sent to the broker",
                 },
-                "topic": {
-                    "type": "string",
-                    "description": "Topic to send the message to",
-                },
+                "topic": {"type": "string", "description": "Topic to send the message to"},
                 "user_properties": {
                     "type": "object",
                     "description": "User properties to send with the message",
@@ -71,6 +67,7 @@ info.update(
         },
     }
 )
+
 
 
 class BrokerOutput(BrokerBase):

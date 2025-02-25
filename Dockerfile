@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN apt-get update && \
 # Installing dependencies 
 COPY requirements.txt /app
 
-RUN python3.10 -m pip install -r requirements.txt
+RUN python3.12 -m pip install -r requirements.txt
 ENV PYTHONUNBUFFERED=1
 
 #Install main program

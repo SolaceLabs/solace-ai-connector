@@ -23,8 +23,15 @@ info = {
     "config_parameters": [
         {
             "name": "broker_type",
-            "required": True,
+            "required": False,
             "description": "Type of broker (Solace, MQTT, etc.)",
+            "default": "solace",
+        },
+        {
+            "name": "dev_mode",
+            "required": False,
+            "description": "Operate in development mode, which just uses local queues",
+            "default": "false",
         },
         {
             "name": "broker_url",
@@ -329,6 +336,8 @@ class BrokerRequestResponse(BrokerBase):
             topic = broker_message.get("topic")
             user_properties = broker_message.get("user_properties", {})
 
+            self.messaging_service.ack_message(broker_message)
+        
         if not user_properties:
             log.error("Received response without user properties: %s", payload)
             return

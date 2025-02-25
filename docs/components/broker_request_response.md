@@ -9,6 +9,7 @@ component_name: <user-supplied-name>
 component_module: broker_request_response
 component_config:
   broker_type: <string>
+  dev_mode: <string>
   broker_url: <string>
   broker_username: <string>
   broker_password: <string>
@@ -32,7 +33,8 @@ component_config:
 
 | Parameter | Required | Default | Description |
 | --- | --- | --- | --- |
-| broker_type | True |  | Type of broker (Solace, MQTT, etc.) |
+| broker_type | False | solace | Type of broker (Solace, MQTT, etc.) |
+| dev_mode | False | false | Operate in development mode, which just uses local queues |
 | broker_url | True |  | Broker URL (e.g. tcp://localhost:55555) |
 | broker_username | True |  | Client username for broker |
 | broker_password | True |  | Client password for broker |

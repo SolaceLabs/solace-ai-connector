@@ -112,8 +112,14 @@ def main():
         print("Solace AI Connector exited successfully!")
         sys.exit(0)
 
-    signal.signal(signal.SIGINT, lambda s, f: shutdown())
-    signal.signal(signal.SIGTERM, lambda s, f: shutdown())
+    def signal_handler(signum, frame):
+        if signum == signal.SIGINT:
+            raise KeyboardInterrupt("CTRL+C pressed")
+        elif signum == signal.SIGTERM:
+            raise SystemExit("SIGTERM received")
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Start the application
     try:

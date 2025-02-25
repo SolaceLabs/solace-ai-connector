@@ -546,15 +546,21 @@ class ComponentBase:
                     ]
                 )
 
-                value = {"value": value, "timestamp": int(time.time())}
-
                 metrics[key] = value
         return metrics
 
     def get_metrics(self) -> dict[Metrics, Any]:
+        # This method should be overridden by components that need to provide metrics.
         return {}
 
+    def reset_metrics(self):
+        # This method is intentionally left empty because not all components need to reset metrics.
+        # Components that require metric reset functionality should override this method.
+        pass
+
     def get_connection_status(self) -> ConnectionStatus:
+        # This method should be overridden by components that need to provide connection status.
+        # If the component does not need to provide connection status, it can leave this method empty.
         pass
 
     def run_connection_status_monitoring(self) -> None:
@@ -591,5 +597,6 @@ class ComponentBase:
                 # Wait for the next interval
                 sleep_interval = self.monitoring.get_interval()
                 self.stop_signal.wait(timeout=sleep_interval)
+                self.reset_metrics()
         except KeyboardInterrupt:
             log.info("Monitoring stopped.")

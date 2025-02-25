@@ -377,7 +377,7 @@ The `broker_request_response` configuration allows components to perform request
 broker_request_response:
   enabled: <boolean>
   broker_config:
-    broker_type: <string>
+    dev_mode: <boolean>
     broker_url: <string>
     broker_username: <string>
     broker_password: <string>

@@ -1,0 +1,126 @@
+# OpenAI RAG (Retrieval Augmented Generation) example using Quadrant
+#
+# Solace[topic:demo/rag/data] -> embed and store in Qdrant
+#
+# Load Data:
+# Send data to Solace topic `demo/rag/data` with a JSON format.
+#
+# Dependencies:
+# pip install -U langchain_openai openai langchain-text-splitters langchain-qdrant
+#
+# Required ENV variables:
+# - OPENAI_API_KEY
+# - OPENAI_API_ENDPOINT
+# - OPENAI_EMBEDDING_MODEL_NAME
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# - SOLACE_BROKER_INPUT_TOPIC
+# - SOLACE_BROKER_OUTPUT_TOPIC
+# - SOLACE_BROKER_INPUT_QUEUE_NAME
+# - SOLACE_BROKER_INPUT_TEMPORARY_QUEUE
+# - VECTOR_STORE_URL
+# - VECTOR_STORE_COLLECTION_NAME
+# - MAX_CHUNK_SIZE
+
+---
+log:
+  stdout_log_level: ${LOG_LEVEL}
+  log_file_level: ${LOG_LEVEL}
+  log_file: ${LOG_FILE}
+  log_format: jsonl
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${FILE_NAME_PATTERN}
+      max-file-size: ${MAX_FILE_SIZE}
+      max-history: ${MAX_HISTORY}
+      total-size-cap: ${TOTAL_SIZE_CAP}
+
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+      reconnection_strategy: forever_retry
+      retry_interval: 1000 # in milliseconds
+
+flows:
+  # data ingestion to Quadrant for RAG
+  - name: Simple template to vector store ingestion
+    put_errors_in_error_queue: false
+    components:
+      # input from a Solace broker
+      - component_name: solace_sw_broker
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: ${SOLACE_BROKER_INPUT_QUEUE_NAME}
+          temporary_queue: ${SOLACE_BROKER_INPUT_TEMPORARY_QUEUE}
+          broker_subscriptions:
+          # - topic: ${SOLACE_BROKER_INPUT_TOPIC}
+          #   qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # split json to chunks
+      - component_name: text_splitter
+        component_module: langchain_split_text
+        component_config:
+          langchain_module: langchain_text_splitters
+          langchain_class: RecursiveJsonSplitter
+          langchain_component_config:
+            max_chunk_size: ${MAX_CHUNK_SIZE}
+        input_transforms:
+          - type: copy
+            source_expression: input.payload
+            dest_expression: user_data.input
+        input_selection:
+          source_expression: user_data.input
+
+      # embed data and ingest into Quadrant
+      - component_name: quadrant_embed
+        component_module: langchain_vector_store_embedding_index
+        component_config:
+          vector_store_component_path: langchain_qdrant
+          vector_store_component_name: QdrantVectorStore
+          vector_store_component_config:
+            url: ${VECTOR_STORE_URL}
+            collection_name: ${VECTOR_STORE_COLLECTION_NAME}
+          embedding_component_path: langchain_openai
+          embedding_component_name: OpenAIEmbeddings
+          embedding_component_config:
+            api_key: ${EMBEDDING_MODEL_API_KEY}
+            base_url: ${EMBEDDING_MODEL_API_ENDPOINT}
+            model: ${EMBEDDING_MODEL_NAME}
+        input_transforms:
+          - type: copy
+            source_value: topic:${SOLACE_BROKER_INPUT_TOPIC}
+            dest_expression: user_data.vector_input:metadatas.source
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.vector_input:texts
+        input_selection:
+          source_expression: user_data.vector_input
+
+      # Send response back to broker
+      - component_name: send_response
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+          propagate_acknowledgements: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:${SOLACE_BROKER_OUTPUT_TOPIC}
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

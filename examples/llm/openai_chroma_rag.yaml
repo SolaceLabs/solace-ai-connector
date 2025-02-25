@@ -7,7 +7,7 @@
 # Load Data:
 # Send data to Solace topic `demo/rag/data` with the following payload format:
 # {
-#   "text": text
+#   "texts": [<text data 1>. <text data 2>, ...]
 # }
 #
 # RAG Query:
@@ -18,7 +18,7 @@
 # The response will be sent to Solace topic `demo/rag/query/response`
 #
 # Dependencies:
-# pip install -U langchain_openai openai chromadb langchain-chroma langchain-core~=0.3.0 langchain~=0.3.0
+# pip install -U langchain_openai openai chromadb langchain-chroma
 #
 # Required ENV variables:
 # - OPENAI_API_KEY
@@ -61,22 +61,6 @@ flows:
           payload_encoding: utf-8
           payload_format: json
 
-      # Split text
-      - component_name: text_splitter
-        component_module: langchain_split_text
-        component_config:
-          langchain_module: langchain_text_splitters
-          langchain_class: TokenTextSplitter
-          langchain_component_config:
-            chunk_size: 10
-            chunk_overlap: 1
-        input_transforms:
-          - type: copy
-            source_expression: input.payload:text
-            dest_expression: user_data.input:text
-        input_selection:
-          source_expression: user_data.input
-
       # Embedding data & ChromaDB ingest
       - component_name: chroma_embed
         component_module: langchain_vector_store_embedding_index
@@ -97,28 +81,10 @@ flows:
             source_value: topic:demo/rag/data
             dest_expression: user_data.vector_input:metadatas.source
           - type: copy
-            source_expression: previous
+            source_expression: input.payload:texts
             dest_expression: user_data.vector_input:texts
         input_selection:
           source_expression: user_data.vector_input
-
-            # Send response back to broker
-      - component_name: send_response
-        component_module: broker_output
-        component_config:
-          <<: *broker_connection
-          payload_encoding: utf-8
-          payload_format: json
-          copy_user_properties: true
-        input_transforms:
-          - type: copy
-            source_expression: previous
-            dest_expression: user_data.output:payload
-          - type: copy
-            source_expression: template:demo/rag/response
-            dest_expression: user_data.output:topic
-        input_selection:
-          source_expression: user_data.output
 
   # RAG Inference flow
   - name: OpenAI_RAG
