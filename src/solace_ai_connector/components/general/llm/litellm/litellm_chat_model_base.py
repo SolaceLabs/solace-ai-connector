@@ -109,6 +109,7 @@ litellm_chat_info_base["config_parameters"].extend(
 
 LITELLM_ERROR_MESSAGES = {
     "litellm.ContextWindowExceededError": "The input is too long for the model to process. Please reduce the input size.",
+    "Prompt is too long": "The input is too long for the model to process. Please reduce the input size.",
     "litellm.InternalServerError: AnthropicException - Overloaded": "The model is overloaded. Please try again later.",
     "litellm.exceptions.RateLimitError": "The model has reached its rate limit. Please try again later."
 }
@@ -190,7 +191,11 @@ class LiteLLMChatModelBase(LiteLLMBase):
             log.error("Error invoking LiteLLM: %s", error_str)
             for error_pattern, error_message in LITELLM_ERROR_MESSAGES.items():
                 if error_pattern in error_str:
-                    return {"content": error_message, "response_uuid": response_uuid}
+                    return {
+                        "content": error_message,
+                        "response_uuid": response_uuid,
+                        "handle_error": True
+                    }
             raise e
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
