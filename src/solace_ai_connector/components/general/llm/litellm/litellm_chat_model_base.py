@@ -191,12 +191,12 @@ class LiteLLMChatModelBase(LiteLLMBase):
             log.error("Error invoking LiteLLM: %s", error_str)
             for error_pattern, error_message in LITELLM_ERROR_MESSAGES.items():
                 if error_pattern in error_str:
-                    return {
-                        "content": error_message,
-                        "response_uuid": response_uuid,
-                        "handle_error": True
-                    }
-            raise e
+                    error_str = error_message
+            return {
+                "content": error_str,
+                "response_uuid": response_uuid,
+                "handle_error": True
+            }
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
