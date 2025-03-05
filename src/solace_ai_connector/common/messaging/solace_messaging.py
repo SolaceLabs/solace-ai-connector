@@ -101,10 +101,17 @@ class ServiceEventHandler(
     ):
         self.stop_signal = stop_signal
         self.error_prefix = error_prefix
-        self.strategy = strategy
         self.retry_count = retry_count
         self.retry_interval = retry_interval
         self.connection_properties = connection_properties
+
+        try:
+            self.strategy = ConnectionStrategy(strategy)
+        except ValueError:
+            log.error(
+                f"{self.error_prefix} Invalid reconnection strategy: {strategy}. Using default strategy."
+            )
+            self.strategy = ConnectionStrategy.FOREVER_RETRY
 
     def on_reconnected(self, service_event: ServiceEvent):
         change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
@@ -127,10 +134,7 @@ class ServiceEventHandler(
                 == ConnectionStatus.RECONNECTING
             ):
                 # update retry count
-                if (
-                    self.strategy
-                    and self.strategy == ConnectionStrategy.PARAMETRIZED_RETRY
-                ):
+                if self.strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
                     if self.retry_count <= 0:
                         log.error(
                             f"{self.error_prefix} Reconnection attempts exhausted. Stopping..."
@@ -223,10 +227,20 @@ class SolaceMessaging(Messaging):
                 or os.path.dirname(certifi.where())
                 or "/usr/share/ca-certificates/mozilla/",
             }
-            strategy = self.broker_properties.get("reconnection_strategy")
+
+            try:
+                strategy = ConnectionStrategy(
+                    self.broker_properties.get("reconnection_strategy")
+                )
+            except ValueError:
+                log.error(
+                    f"{self.error_prefix} Invalid reconnection strategy: {self.broker_properties.get('reconnection_strategy')}. Using default strategy."
+                )
+                strategy = ConnectionStrategy.FOREVER_RETRY
+
             retry_interval = 3000  # default
             retry_count = 20  # default
-            if strategy and strategy == ConnectionStrategy.FOREVER_RETRY:
+            if strategy == ConnectionStrategy.FOREVER_RETRY:
                 retry_interval = self.broker_properties.get("retry_interval")
                 if not retry_interval:
                     log.warning(
@@ -244,9 +258,9 @@ class SolaceMessaging(Messaging):
                     )
                     .build()
                 )
-            elif strategy and strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
+            elif strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
                 retry_count = self.broker_properties.get("retry_count")
-                retry_interval = self.broker_properties.get("retry_wait")
+                retry_interval = self.broker_properties.get("retry_interval")
                 if not retry_count:
                     log.warning(
                         f"{self.error_prefix} retry_count not provided, using default value of 20"
@@ -254,7 +268,7 @@ class SolaceMessaging(Messaging):
                     retry_count = 20
                 if not retry_interval:
                     log.warning(
-                        f"{self.error_prefix} retry_wait not provided, using default value of 3000"
+                        f"{self.error_prefix} retry_interval not provided, using default value of 3000"
                     )
                     retry_interval = 3000
                 self.messaging_service = (
@@ -301,7 +315,7 @@ class SolaceMessaging(Messaging):
                     or result.done()
                 ):
                     # update retry count
-                    if strategy and strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
+                    if strategy == ConnectionStrategy.PARAMETRIZED_RETRY:
                         if temp_retry_count <= 0:
                             log.error(
                                 f"{self.error_prefix} Connection attempts exhausted. Stopping..."
