@@ -20,7 +20,15 @@ def load_config(file):
         yaml_str = expandvars_with_defaults(yaml_str)
 
         # Load the YAML string using yaml.safe_load
-        return yaml.safe_load(yaml_str)
+        config = yaml.safe_load(yaml_str)
+
+        # If there are flows but no apps, create an app with the filename as the name
+        if config and "flows" in config and not config.get("apps"):
+            app_name = os.path.splitext(os.path.basename(file))[0]
+            config["apps"] = [{"name": app_name, "flows": config["flows"]}]
+            del config["flows"]
+
+        return config
 
     except Exception as e:  # pylint: disable=locally-disabled, broad-exception-caught
         print(f"Error loading configuration file: {e}", file=sys.stderr)
@@ -71,8 +79,10 @@ def merge_config(dict1, dict2):
     for key in set(dict1.keys()).union(dict2.keys()):
         if key in dict1 and key in dict2:
             if isinstance(dict1[key], list) and isinstance(dict2[key], list):
+                # For other lists, we want to concatenate them
                 merged[key] = dict1[key] + dict2[key]
             else:
+                # For other types, we want to use the second value
                 merged[key] = dict2[key]
         elif key in dict1:
             merged[key] = dict1[key]
@@ -101,14 +111,14 @@ def main():
         # Merge the configuration into the full configuration
         full_config = merge_config(full_config, config)
 
-    # Create the application
-    app = SolaceAiConnector(full_config)
+    # Create the connector instance
+    sac = SolaceAiConnector(full_config, config_filenames=files)
 
     def shutdown():
-        """Shutdown the application."""
+        """Shutdown the connector."""
         print("Stopping Solace AI Connector")
-        app.stop()
-        app.cleanup()
+        sac.stop()
+        sac.cleanup()
         print("Solace AI Connector exited successfully!")
         sys.exit(0)
 
@@ -121,10 +131,10 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Start the application
+    # Start the connector
     try:
-        app.run()
-        app.wait_for_flows()
+        sac.run()
+        sac.wait_for_flows()
     except Exception as e:
         print(f"Error running Solace AI Connector: {e}", file=sys.stderr)
         shutdown()

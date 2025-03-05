@@ -49,6 +49,7 @@ class Flow:
         trace_queue=None,
         flow_instance_index=0,
         connector=None,
+        app=None,
     ):
         self.flow_config = flow_config
         self.flow_index = flow_index
@@ -60,6 +61,7 @@ class Flow:
         self.trace_queue = trace_queue
         self.flow_instance_index = flow_instance_index
         self.connector = connector
+        self.app = app
         self.flow_input_queue = None
         self.threads = []
         self.flow_lock_manager = Flow._lock_manager
@@ -129,9 +131,10 @@ class Flow:
                 instance_name=self.instance_name,
                 trace_queue=self.trace_queue,
                 connector=self.connector,
-                timer_manager=self.connector.timer_manager,
+                timer_manager=self.connector.timer_manager if self.connector else None,
                 cache_service=self.cache_service,
                 put_errors_in_error_queue=self.put_errors_in_error_queue,
+                app=self.app,
             )
             sibling_component = component_instance
 
@@ -162,3 +165,7 @@ class Flow:
                 component.cleanup()
         self.component_groups.clear()
         self.threads.clear()
+        
+    def get_app(self):
+        """Get the app that this flow belongs to"""
+        return self.app

@@ -1,7 +1,9 @@
 # AI Event Connector for Solace event brokers - Overview
 
+
 - [AI Event Connector for Solace event brokers - Overview](#ai-event-connector-for-solace-event-brokers---overview)
   - [Architecture](#architecture)
+    - [Apps](#apps)
     - [Components](#components)
     - [Built-in Components](#built-in-components)
   - [Configuration](#configuration)
@@ -17,7 +19,7 @@ While the connector is built to support extensibility through custom plugins, fo
 
 ## Architecture
 
-Each AI Event Connector instance is made up of one or more pipelines of components, called flows. The flow will always have a single input component, some number of processing components, and a single output component. The input and output components can interface with Solace brokers or possibly connect to other data sources or sinks. The processing components are typically AI models, but can be any kind of processing that you want to do on the data.
+Each AI Event Connector instance is made up of one or more applications (apps), each containing one or more pipelines of components, called flows. Each flow will always have a single input component, some number of processing components, and a single output component. The input and output components can interface with Solace brokers or possibly connect to other data sources or sinks. The processing components are typically AI models, but can be any kind of processing that you want to do on the data.
 
 Each component in the flow is a separate thread that reads from a queue, processes the event, and then writes the result to the next queue. It will only handle one message at a time, blocking until it has completed processing. As shown below, if higher throughput is needed, you can scale the number of instances of a component to handle more messages in parallel.
 
@@ -26,6 +28,14 @@ Each flow will keep track of the events flowing through them and as they complet
 ![AI Event Connector Architecture](images/flows.png)
 
 As shown in the diagram above, each flow has a sequence of components with a queue in between each component. The queues are used to buffer the events as they flow through the system and allow for better parallel processing. Also, each stage in the flow can be scaled independently to have multiple instances of the same component running in parallel. This can help balance the load to avoid bottlenecks in the system. Note that if parallel components are used, the order of the events may not be preserved.
+
+### Apps
+
+Apps are logical groupings of flows that serve a common purpose. Each app can contain multiple flows, and each flow can have its own configuration. This allows you to organize your flows into logical groups and manage them together. For example, you might have an app for processing customer inquiries and another app for processing product recommendations.
+
+Apps can be configured with their own settings, such as the number of instances to run. When a component within an app calls `get_config`, it will first check its own configuration for the key, and if it is not found, it will check the app configuration.
+
+For backward compatibility, if your configuration doesn't include an `apps` section, the connector will automatically create an app to contain the flows in your configuration. If the configuration came from a YAML file, the app name will be the name of the file without the extension. If there are multiple files, each file will be treated as a separate app.
 
 ### Components
 
@@ -51,7 +61,7 @@ In addition to the standard components, there are a series of other built-in com
 
 ## Configuration
 
-The AI Event Connector is highly configurable. You can define the components of each flow, the queue depths between them, and the number of instances of each component. The configuration is done through a YAML file that is loaded when the connector starts. This allows you to easily change the configuration without having to modify the code.
+The AI Event Connector is highly configurable. You can define the apps, flows, components, queue depths, and the number of instances of each component. The configuration is done through a YAML file that is loaded when the connector starts. This allows you to easily change the configuration without having to modify the code.
 
 Detailed information on the configuration options can be found in the [Configuration](configuration.md) section.
 

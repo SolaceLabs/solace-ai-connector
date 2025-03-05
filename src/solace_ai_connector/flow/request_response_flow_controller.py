@@ -26,6 +26,7 @@ from typing import Dict, Any
 
 from ..common.message import Message
 from ..common.event import Event, EventType
+from ..common.log import log
 
 
 # This is a very basic component which will be stitched onto the final component in the flow
@@ -52,14 +53,26 @@ class RequestResponseFlowController:
         self.enqueue_time = None
         self.request_outstanding = False
 
-        self.flow = self.create_broker_request_response_flow()
+        # Create the flow configuration
+        flow_config = self.create_broker_request_response_flow_config()
+        
+        # Create the app using the connector's create_internal_app method
+        app_name = "_internal_broker_request_response_app"
+        app = self.connector.create_internal_app(app_name, [flow_config])
+        
+        # Get the flow from the app
+        if not app.flows:
+            raise ValueError("Failed to create internal broker request-response flow")
+        
+        self.flow = app.flows[0]
         self.setup_queues(self.flow)
         self.flow.run()
 
-    def create_broker_request_response_flow(self):
+    def create_broker_request_response_flow_config(self):
+        """Create the flow configuration for the broker request-response flow"""
         full_config = self.broker_config.copy()
         full_config.update(self.config)
-        config = {
+        return {
             "name": "_internal_broker_request_response_flow",
             "components": [
                 {
@@ -69,7 +82,6 @@ class RequestResponseFlowController:
                 }
             ],
         }
-        return self.connector.create_flow(flow=config, index=0, flow_instance_index=0)
 
     def setup_queues(self, flow):
         # Input queue to send the message to the flow
