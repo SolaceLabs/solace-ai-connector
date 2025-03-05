@@ -3,10 +3,12 @@ hello_milvus.py
 launch.json
 temp/
 *.trace
+*.aider
 examples/private
 launch.json
 prompts.txt
 prompts.yaml
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
