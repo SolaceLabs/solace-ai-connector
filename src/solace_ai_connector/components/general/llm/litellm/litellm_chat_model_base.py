@@ -136,6 +136,13 @@ class LiteLLMChatModelBase(LiteLLMBase):
         try:
             response = self.load_balance(messages, stream=False)
             return {"content": response.choices[0].message.content}
+        except APIConnectionError as e:
+            error_str = str(e)
+            log.error("Error invoking LiteLLM: %s", error_str)
+            return {
+                "content": error_str,
+                "handle_error": True
+            }
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
