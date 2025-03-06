@@ -1,6 +1,7 @@
 """LiteLLM chat model component"""
 
 import uuid
+from litellm import APIConnectionError
 from .litellm_base import LiteLLMBase
 from .litellm_base import litellm_info_base
 from .....common.message import Message
@@ -106,7 +107,6 @@ litellm_chat_info_base["config_parameters"].extend(
     ]
 )
 
-
 class LiteLLMChatModelBase(LiteLLMBase):
 
     def __init__(self, info, **kwargs):
@@ -136,6 +136,13 @@ class LiteLLMChatModelBase(LiteLLMBase):
         try:
             response = self.load_balance(messages, stream=False)
             return {"content": response.choices[0].message.content}
+        except APIConnectionError as e:
+            error_str = str(e)
+            log.error("Error invoking LiteLLM: %s", error_str)
+            return {
+                "content": error_str,
+                "handle_error": True
+            }
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
@@ -179,6 +186,14 @@ class LiteLLMChatModelBase(LiteLLMBase):
                             )
                         current_batch = ""
                         first_chunk = False
+        except APIConnectionError as e:
+            error_str = str(e)
+            log.error("Error invoking LiteLLM: %s", error_str)
+            return {
+                "content": error_str,
+                "response_uuid": response_uuid,
+                "handle_error": True
+            }
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
