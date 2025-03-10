@@ -88,7 +88,15 @@ class Flow:
                 for component in component_group:
                     component.set_next_component(self.component_groups[index + 1][0])
 
-        self.flow_input_queue = self.component_groups[0][0].get_input_queue()
+        if (
+            self.component_groups
+            and len(self.component_groups[0]) > 0
+            and self.component_groups[0][0]
+        ):
+            self.flow_input_queue = self.component_groups[0][0].get_input_queue()
+        else:
+            log.error(f"No components created for flow {self.name}")
+            raise ValueError(f"No components created for flow {self.name}")
 
     def run(self):
         # Now one more time to create threads and run them
@@ -102,6 +110,12 @@ class Flow:
         base_path = component.get("component_base_path", None)
         component_package = component.get("component_package", None)
         num_instances = component.get("num_instances", 1)
+        disabled = component.get("disabled", False)
+        if disabled:
+            log.warning(
+                f"Component '{component.get('component_name')}' is disabled and will not be created."
+            )
+            return
 
         imported_module = import_module(component_module, base_path, component_package)
 

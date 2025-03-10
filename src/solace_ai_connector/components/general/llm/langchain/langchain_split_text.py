@@ -12,11 +12,6 @@ info = {
     "description": "Split a long text into smaller parts using the LangChain text splitter module",
     "config_parameters": [
         {
-            "name": "enabled",
-            "required": False,
-            "description": "Disable/Enable the splitter",
-        },
-        {
             "name": "langchain_module",
             "required": True,
             "description": "The text split module - e.g. 'langchain_text_splitters'",
@@ -82,14 +77,35 @@ class LangChainTextSplitter(LangChainBase):
             list: A list of strings representing the split text segments.
         """
         try:
-            is_active = self.get_config("enabled", True)
-            if not is_active:
-                log.info("Text splitter is disabled.")
-                return data
-
             chunks = self.component.split_text(data)
             log.debug(f"Chunk: {chunks}")
             return chunks
         except Exception as e:
             log.error(f"Error splitting text: {str(e)}")
+            return []
+
+
+class SingleChunkSplitter:
+    """
+    A class to split a long text into smaller parts using the LangChain text splitter module.
+    """
+
+    def split_text(self, data):
+        return [data]
+
+    def invoke(self, message, data):
+        """
+        Wrap the text in a list.
+
+        Args:
+            message (Message): The message object containing metadata.
+            data (dict): A dictionary containing the input text to be split.
+
+        Returns:
+            list: A list of strings representing the text.
+        """
+        try:
+            return [data]
+        except Exception as e:
+            log.error(f"Error wrapping data: {str(e)}")
             return []
