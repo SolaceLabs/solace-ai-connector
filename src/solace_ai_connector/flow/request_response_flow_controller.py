@@ -117,7 +117,6 @@ class RequestResponseFlowController:
                     if event.event_type == EventType.MESSAGE:
                         self.enqueue_time = time.time()
                         message = event.data
-                        print(f"\nmessage: {message.payload}")
                         last_message = message.get_data(streaming_complete_expression)
                         yield message, last_message
                         if last_message:
