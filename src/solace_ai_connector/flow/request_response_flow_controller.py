@@ -108,9 +108,16 @@ class RequestResponseFlowController:
             # if this is the last message
             while True:
                 try:
+                    # Calculate remaining time based on the most recent enqueue_time
+                    now = time.time()
+                    elapsed_time = now - self.enqueue_time
+                    remaining_timeout = self.request_expiry_s - elapsed_time
+
                     event = self.response_queue.get(timeout=remaining_timeout)
                     if event.event_type == EventType.MESSAGE:
+                        self.enqueue_time = time.time()
                         message = event.data
+                        print(f"\nmessage: {message.payload}")
                         last_message = message.get_data(streaming_complete_expression)
                         yield message, last_message
                         if last_message:
@@ -122,10 +129,6 @@ class RequestResponseFlowController:
                         )
                 except Exception as e:
                     raise e
-
-                now = time.time()
-                elapsed_time = now - self.enqueue_time
-                remaining_timeout = self.request_expiry_s - elapsed_time
 
         # If we are not in streaming mode, we will return a single message
         # and then stop the iterator

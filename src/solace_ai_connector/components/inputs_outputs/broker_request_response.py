@@ -424,6 +424,12 @@ class BrokerRequestResponse(BrokerBase):
             is_last = message.get_data(streaming_complete_expression)
             if not is_last:
                 last_piece = False
+                self.cache_service.add_data(
+                    key=request_id,
+                    value=cached_request,
+                    expiry=self.request_expiry_ms / 1000, # Reset expiry time
+                    component=self
+                )
 
         if last_piece:
             self.cache_service.remove_data(request_id)
