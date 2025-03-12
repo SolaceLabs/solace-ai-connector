@@ -128,8 +128,14 @@ def main():
         elif signum == signal.SIGTERM:
             raise SystemExit("SIGTERM received")
 
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    if sys.platform == 'win32':
+        import win32api
+        def handler(type):
+            shutdown()
+        win32api.SetConsoleCtrlHandler(handler, True)
+    else:
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
 
     # Start the connector
     try:
