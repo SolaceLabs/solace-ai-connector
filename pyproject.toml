@@ -14,7 +14,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -27,6 +27,7 @@ dependencies = [
     "build~=1.2.2.post1",
     "pymongo~=4.10.1",
     "SQLAlchemy~=2.0.36",
+    'pywin32>=306; sys_platform == "win32"',
 ]
 
 [project.urls]

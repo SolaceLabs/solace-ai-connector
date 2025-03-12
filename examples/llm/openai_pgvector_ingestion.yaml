@@ -19,6 +19,8 @@
 # - PGVECTOR_HOST
 # - PGVECTOR_PORT
 # - SOLACE_BROKER_INPUT_QUEUE_NAME
+# - SOLACE_BROKER_INPUT_TOPIC == demo/rag/data
+# - SOLACE_BROKER_OUTPUT_TOPIC == demo/rag/response
 
 ---
 log:
@@ -46,13 +48,11 @@ flows:
         component_module: broker_input
         component_config:
           <<: *broker_connection
-          broker_queue_name: ${SOLACE_BROKER_INPUT_QUEUE_NAME}
-          # temporary_queue: ${SOLACE_BROKER_INPUT_TEMPORARY_QUEUE}
           broker_subscriptions:
             - topic: ${SOLACE_BROKER_INPUT_TOPIC}
               qos: 1
           payload_encoding: utf-8
-          payload_format: json
+          payload_format: text
 
       # Split text
       - component_name: text_splitter
@@ -84,7 +84,7 @@ flows:
           embedding_component_config:
             api_key: ${OPENAI_API_KEY}
             base_url: ${OPENAI_API_ENDPOINT}
-            model: bedrock-cohere-embed-english-v3 #${OPENAI_EMBEDDING_MODEL_NAME}
+            model: ${OPENAI_EMBEDDING_MODEL_NAME}
         input_transforms:
           - type: copy
             source_value: topic:${SOLACE_BROKER_INPUT_TOPIC}

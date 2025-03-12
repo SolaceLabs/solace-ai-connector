@@ -1,10 +1,14 @@
 """LiteLLM chat model component"""
 
 import uuid
+import time
+from litellm import cost_per_token
+from litellm import APIConnectionError
 from .litellm_base import LiteLLMBase
 from .litellm_base import litellm_info_base
 from .....common.message import Message
 from .....common.log import log
+from .....common.monitoring import Metrics
 
 litellm_chat_info_base = litellm_info_base.copy()
 litellm_chat_info_base.update(
@@ -134,8 +138,28 @@ class LiteLLMChatModelBase(LiteLLMBase):
     def invoke_non_stream(self, messages):
         """invoke the model without streaming"""
         try:
+            start_time = time.time()
             response = self.load_balance(messages, stream=False)
+
+            end_time = time.time()
+            processing_time = round(end_time - start_time, 3)
+            log.debug("Completion processing time: %s seconds", processing_time)
+
+            # Extract token usage details
+            prompt_tokens = response.usage.prompt_tokens
+            completion_tokens = response.usage.completion_tokens
+            total_tokens = response.usage.total_tokens
+            self.send_metrics(
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                processing_time,
+            )
             return {"content": response.choices[0].message.content}
+        except APIConnectionError as e:
+            error_str = str(e)
+            log.error("Error invoking LiteLLM: %s", error_str)
+            return {"content": error_str, "handle_error": True}
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
@@ -149,6 +173,7 @@ class LiteLLMChatModelBase(LiteLLMBase):
         aggregate_result = ""
         current_batch = ""
         first_chunk = True
+        start_time = time.time()
 
         try:
             response = self.load_balance(messages, stream=True)
@@ -179,6 +204,30 @@ class LiteLLMChatModelBase(LiteLLMBase):
                             )
                         current_batch = ""
                         first_chunk = False
+                if hasattr(chunk, "usage"):
+                    end_time = time.time()
+                    processing_time = round(end_time - start_time, 3)
+                    log.debug("Completion processing time: %s seconds", processing_time)
+
+                    # Extract token usage details
+                    prompt_tokens = chunk.usage.prompt_tokens
+                    completion_tokens = chunk.usage.completion_tokens
+                    total_tokens = chunk.usage.total_tokens
+                    self.send_metrics(
+                        prompt_tokens,
+                        completion_tokens,
+                        total_tokens,
+                        processing_time,
+                    )
+
+        except APIConnectionError as e:
+            error_str = str(e)
+            log.error("Error invoking LiteLLM: %s", error_str)
+            return {
+                "content": error_str,
+                "response_uuid": response_uuid,
+                "handle_error": True,
+            }
         except Exception as e:
             log.error("Error invoking LiteLLM: %s", e)
             raise e
@@ -259,3 +308,63 @@ class LiteLLMChatModelBase(LiteLLMBase):
         }
 
         self.process_post_invoke(result, message)
+
+    def send_metrics(
+        self, prompt_tokens, completion_tokens, total_tokens, processing_time
+    ):
+        """
+        Sends metrics related to the LLM's performance.
+
+        Args:
+            prompt_tokens (int): Number of tokens in the prompt.
+            completion_tokens (int): Number of tokens in the completion.
+            total_tokens (int): Total number of tokens (prompt + completion).
+            processing_time (float): Time taken to process the request.
+        """
+        prompt_tokens_cost_usd_dollar, completion_tokens_cost_usd_dollar = (
+            cost_per_token(
+                model=self.load_balancer_config[0]["model_name"],
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            )
+        )
+        cost = prompt_tokens_cost_usd_dollar + completion_tokens_cost_usd_dollar
+        current_time = int(time.time())
+        with self._lock_stats:
+            self.stats[Metrics.LITELLM_STATS_PROMPT_TOKENS].append(
+                {
+                    "value": prompt_tokens,
+                    "timestamp": current_time,
+                }
+            )
+            self.stats[Metrics.LITELLM_STATS_RESPONSE_TOKENS].append(
+                {
+                    "value": completion_tokens,
+                    "timestamp": current_time,
+                }
+            )
+            self.stats[Metrics.LITELLM_STATS_TOTAL_TOKENS].append(
+                {
+                    "value": total_tokens,
+                    "timestamp": current_time,
+                }
+            )
+            self.stats[Metrics.LITELLM_STATS_RESPONSE_TIME].append(
+                {
+                    "value": processing_time,
+                    "timestamp": current_time,
+                }
+            )
+            self.stats[Metrics.LITELLM_STATS_COST].append(
+                {
+                    "value": cost,
+                    "timestamp": current_time,
+                }
+            )
+        log.debug(
+            "Completion tokens: %s, Prompt tokens: %s, Total tokens: %s, Cost: %s",
+            completion_tokens,
+            prompt_tokens,
+            total_tokens,
+            cost,
+        )

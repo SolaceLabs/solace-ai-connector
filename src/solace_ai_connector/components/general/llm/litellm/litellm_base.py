@@ -1,7 +1,6 @@
 """Base class for LiteLLM chat models"""
 
 import litellm
-import time
 
 from threading import Lock
 from litellm import ModelResponse
@@ -168,62 +167,16 @@ class LiteLLMBase(ComponentBase):
 
     def load_balance(self, messages, stream):
         """load balance the messages"""
-        start_time = time.time()
-        response = self.router.completion(
-            model=self.load_balancer_config[0]["model_name"],
-            messages=messages,
-            stream=stream,
-        )
-
-        if isinstance(response, ModelResponse):
-            end_time = time.time()
-            processing_time = round(end_time - start_time, 3)
-            log.debug("Completion processing time: %s seconds", processing_time)
-
-            # Extract token usage details
-            prompt_tokens = response.usage.prompt_tokens
-            completion_tokens = response.usage.completion_tokens
-            total_tokens = response.usage.total_tokens
-            cost = response._hidden_params["response_cost"]
-            current_time = int(time.time())
-            with self._lock_stats:
-                self.stats[Metrics.LITELLM_STATS_PROMPT_TOKENS].append(
-                    {
-                        "value": prompt_tokens,
-                        "timestamp": current_time,
-                    }
-                )
-                self.stats[Metrics.LITELLM_STATS_RESPONSE_TOKENS].append(
-                    {
-                        "value": completion_tokens,
-                        "timestamp": current_time,
-                    }
-                )
-                self.stats[Metrics.LITELLM_STATS_TOTAL_TOKENS].append(
-                    {
-                        "value": total_tokens,
-                        "timestamp": current_time,
-                    }
-                )
-                self.stats[Metrics.LITELLM_STATS_RESPONSE_TIME].append(
-                    {
-                        "value": processing_time,
-                        "timestamp": current_time,
-                    }
-                )
-                self.stats[Metrics.LITELLM_STATS_COST].append(
-                    {
-                        "value": cost,
-                        "timestamp": current_time,
-                    }
-                )
-            log.debug(
-                "Completion tokens: %s, Prompt tokens: %s, Total tokens: %s, Cost: %s",
-                completion_tokens,
-                prompt_tokens,
-                total_tokens,
-                cost,
+        try:
+            response = self.router.completion(
+                model=self.load_balancer_config[0]["model_name"],
+                messages=messages,
+                stream=stream,
+                **({"stream_options": {"include_usage": True}} if stream else {}),
             )
+        except Exception as e:
+            log.error(f"LiteLLM API connection error: {e}")
+            raise e
 
         log.debug("Load balancer responded")
         return response
@@ -239,7 +192,7 @@ class LiteLLMBase(ComponentBase):
         else:
             return Message_NACK_Outcome.REJECTED
 
-    def reset_metrics(self):
+    def flush_metrics(self):
         with self._lock_stats:
             self.stats = {
                 Metrics.LITELLM_STATS_PROMPT_TOKENS: [],
@@ -255,8 +208,8 @@ class LiteLLMBase(ComponentBase):
     def validate_model_config(self, config):
         """Validate the model config and throw a descriptive error if it's invalid."""
         for model in config:
-            params = model.get('litellm_params', {})
-            if not all([params.get('model'), params.get('api_key')]):
+            params = model.get("litellm_params", {})
+            if not all([params.get("model"), params.get("api_key")]):
                 raise ValueError(
                     f"Each model configuration requires both a model name and an API key, neither of which can be None.\n"
                     f"Received config: {model}"

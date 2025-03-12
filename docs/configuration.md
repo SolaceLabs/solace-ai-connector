@@ -9,6 +9,7 @@ Table of Contents
     - [Log Configuration](#log-configuration)
     - [Trace Configuration](#trace-configuration)
     - [Shared Configurations](#shared-configurations)
+    - [Apps Configuration](#apps-configuration)
     - [Flow Configuration](#flow-configuration)
   - [Message Data](#message-data)
   - [Expression Syntax](#expression-syntax)
@@ -28,7 +29,7 @@ Table of Contents
     - [user\_processor Component and invoke](#user_processor-component-and-invoke)
   - [Usecase Examples](#usecase-examples)
 
-The AI Event Connector is highly configurable. You can define the components of each flow, the queue depths between them, and the number of instances of each component. The configuration is done through a YAML file that is loaded when the connector starts. This allows you to easily change the configuration without having to modify the code.
+The AI Event Connector is highly configurable. You can define the apps, components of each flow, the queue depths between them, and the number of instances of each component. The configuration is done through a YAML file that is loaded when the connector starts. This allows you to easily change the configuration without having to modify the code.
 
 ## Configuration File Format and Rules
 
@@ -74,7 +75,8 @@ The configuration file is a YAML file with these top-level keys:
 - `log`: Configuration of logging for the connector
 - `trace`: Configuration of tracing for the connector
 - `shared_config`: Named configurations that can be used by multiple components later in the file
-- `flows`: A list of flow configurations.
+- `apps`: A list of app configurations, each containing flows
+- `flows`: A list of flow configurations (for backward compatibility)
 
 ### Log Configuration
 
@@ -120,6 +122,31 @@ Later in the file, you can reference this shared configuration like this:
       <<: *my_shared_config
       my_key: my_new_value
 ```
+
+### Apps Configuration
+
+The `apps` section is a list of app configurations. Each app configuration is a dictionary with the following keys:
+
+- `name`: <string> - The unique name of the app
+- `num_instances`: <int> - The number of instances of the app to run (optional, default is 1)
+- `flows`: A list of flow configurations. Check [Flow Configuration](#flow-configuration) for more details
+
+```yaml
+apps:
+  - name: my_app
+    num_instances: 1
+    flows:
+      - name: my_flow
+        components:
+          - component_name: my_component
+  - name: another_app
+    flows:
+      - name: another_flow
+        components:
+          - component_name: another_component
+```
+
+For backward compatibility, if your configuration doesn't include an `apps` section but does include a `flows` section, the connector will automatically create an app to contain the flows in your configuration. If the configuration came from a YAML file, the app name will be the name of the file without the extension. If there are multiple files, each file will be treated as a separate app.
 
 ### Flow Configuration
 

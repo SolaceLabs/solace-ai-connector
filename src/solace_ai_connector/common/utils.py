@@ -375,20 +375,44 @@ def encode_payload(payload, encoding, payload_format):
 
 def decode_payload(payload, encoding, payload_format):
     if encoding == "base64":
-        payload = base64.b64decode(payload)
+        try:
+            payload = base64.b64decode(payload)
+        except Exception as e:
+            log.error("Error decoding base64 payload: %s", e)
+            raise e
     elif encoding == "gzip":
-        payload = gzip.decompress(payload)
+        try:
+            payload = gzip.decompress(payload)
+        except Exception as e:
+            log.error("Error decompressing gzip payload: %s", e)
+            raise e
     elif encoding == "utf-8" and (
         isinstance(payload, bytes) or isinstance(payload, bytearray)
     ):
-        payload = payload.decode("utf-8")
+        try:
+            payload = payload.decode("utf-8")
+        except UnicodeDecodeError as e:
+            log.error("Error decoding UTF-8 payload: %s", e)
+            raise e
     elif encoding == "unicode_escape":
-        payload = payload.decode("unicode_escape")
+        try:
+            payload = payload.decode("unicode_escape")
+        except UnicodeDecodeError as e:
+            log.error("Error decoding unicode_escape payload: %s", e)
+            raise e
 
     if payload_format == "json":
-        payload = json.loads(payload)
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError as e:
+            log.error("Error decoding JSON payload: %s", e)
+            raise e
     elif payload_format == "yaml":
-        payload = yaml.safe_load(payload)
+        try:
+            payload = yaml.safe_load(payload)
+        except Exception as e:
+            log.error("Error decoding YAML payload: %s", e)
+            raise e
 
     return payload
 
@@ -401,7 +425,7 @@ def get_data_value(data_object, expression, resolve_none_colon=False):
         and not isinstance(data_object, object)
     ):
         return data_object
-    
+
     if ":" not in expression:
         if resolve_none_colon:
             return (data_object or {}).get(expression)
@@ -444,6 +468,7 @@ def get_data_value(data_object, expression, resolve_none_colon=False):
 
     # Return the final data
     return current_data
+
 
 # Similar to get_data_value, we need to use the expression to find the place to set the value
 # except that we will create objects along the way if they don't exist
@@ -513,12 +538,13 @@ def set_data_value(data_object, expression, value):
                     expression,
                 )
                 return
-            
+
+
 def remove_data_value(data_object, expression):
     if ":" not in expression:
         data_object.pop(expression, None)
         return
-    
+
     data_name = expression.split(":")[1]
 
     # It is an error if the data_object is None or not a dictionary or list
@@ -573,7 +599,6 @@ def remove_data_value(data_object, expression):
                     expression,
                 )
                 return
-
 
 def deep_merge(d, u):
     # Create a deep copy of first dict to avoid modifying original
