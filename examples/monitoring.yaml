@@ -1,0 +1,23 @@
+---
+# Example for monitoring configuration
+# Flow: stdin -> stdout
+# 
+
+log:
+  stdout_log_level: DEBUG
+  log_file_level: DEBUG
+  log_file: solace_ai_connector.log
+
+monitoring:
+  manual_flush: true
+
+flows:
+  - name: input_output
+    components:
+      # Input from a standard in
+      - component_name: stdin
+        component_module: stdin_input
+
+     # Output to a standard out
+      - component_name: stdout
+        component_module: stdout_output

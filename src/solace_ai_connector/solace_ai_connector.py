@@ -41,7 +41,10 @@ class SolaceAiConnector:
         self.instance_name = self.config.get("instance_name", "solace_ai_connector")
         self.timer_manager = TimerManager(self.stop_signal)
         self.cache_service = self.setup_cache_service()
-        self.monitoring = Monitoring(config)
+
+        # Initialize monitoring
+        monitoring_config = self.config.get("monitoring", None)
+        self.monitoring = Monitoring(monitoring_config)
 
     def run(self):
         """Run the Solace AI Event Connector"""
