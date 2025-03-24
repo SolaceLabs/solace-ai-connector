@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Callable
 from enum import Enum
 from threading import Lock
 
@@ -16,22 +16,6 @@ class Metrics(Enum):
     LITELLM_STATS_RESPONSE_TIME = "LITELLM_STATS_RESPONSE_TIME"
     LITELLM_STATS_COST = "LITELLM_STATS_COST"
 
-    @staticmethod
-    def get_type(metric: "Metrics") -> str:
-        """
-        Get the type of the metric.
-
-        :param metric: Metric
-        :return: Type of the metric
-        """
-        if metric in [
-            Metrics.SOLCLIENT_STATS_RX_SETTLE_ACCEPTED,
-            Metrics.SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS,
-        ]:
-            return "integer"
-        # Add more cases here if needed
-        return "unknown"
-
 
 class Monitoring:
     """
@@ -41,6 +25,7 @@ class Monitoring:
     _instance = None
     _initialized = False
     _interval = 10
+    _reset_callback = []
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
@@ -57,6 +42,7 @@ class Monitoring:
             return
 
         self._initialized = True
+        self._is_flush_manual = config.get("manual_flush", False) if config else False
         self._collected_metrics = {}
         self._connection_status = {}
         self._lock = Lock()
@@ -67,6 +53,22 @@ class Monitoring:
         Initialize the required metrics.
         """
         self._required_metrics = [metric for metric in Metrics]
+
+    def is_flush_manual(self) -> bool:
+        """
+        Check if the metrics are manually flushed.
+
+        :return: True if metrics are manually flushed, False otherwise
+        """
+        return self._is_flush_manual
+
+    def register_callback(self, method: Callable) -> None:
+        """
+        Register methods to flush metrics.
+
+        :param method: Method to register
+        """
+        self._reset_callback.append(method)
 
     def get_required_metrics(self) -> List[Metrics]:
         """
@@ -262,3 +264,10 @@ class Monitoring:
                     }
                 )
         return formatted_metrics
+
+    def flush_metrics(self) -> None:
+        """
+        Flush the collected metrics.
+        """
+        for callback in self._reset_callback:
+            callback()
