@@ -28,8 +28,7 @@ dependencies = [
     "pymongo~=4.10.1",
     "SQLAlchemy~=2.0.36",
     'pywin32>=306; sys_platform == "win32"',
-    "gevent>=24.11.1",
-    "gevent-websocket>=0.10.1",
+    "eventlet>=0.39.1",
 ]
 
 [project.urls]
