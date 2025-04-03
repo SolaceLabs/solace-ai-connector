@@ -88,6 +88,7 @@ info = {
 
 
 class LangChainVectorStoreEmbeddingsSearch(LangChainVectorStoreEmbeddingsBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
 
@@ -97,9 +98,11 @@ class LangChainVectorStoreEmbeddingsSearch(LangChainVectorStoreEmbeddingsBase):
         combine_context_from_same_source = self.get_config(
             "combine_context_from_same_source"
         )
-        # For the lookup, we will double the k value to ensure that we get enough results since
-        # we will be combining the results from the same source
-        result = self.vector_store.similarity_search(text, k=k * 2)
+        try:
+            result = self.vector_store.similarity_search(text, k=k)
+        except Exception as e:
+            log.error("Error while searching for %s in the vector store: %s", text, e)
+            raise e
         log.debug("Searched for %s and got result: %s", text, result)
         # Clean up the result by looping through all the Documents and extracting the metadata and page_content
         # Loop through the results and extract the metadata and page_content
