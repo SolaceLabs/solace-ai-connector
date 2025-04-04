@@ -76,7 +76,7 @@ class WebsocketBase(ComponentBase, ABC):
         # logging.getLogger("engineio").setLevel(logging.DEBUG)
 
         self.socketio = SocketIO(
-            self.app, cors_allowed_origins="*", logger=False, engineio_logger=False, async_mode='eventlet'
+            self.app, cors_allowed_origins="*", logger=False, engineio_logger=False
         )
         self.setup_websocket()
 
