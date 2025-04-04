@@ -5,6 +5,7 @@ import signal
 from abc import ABC, abstractmethod
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
+from waitress import serve
 from ...common.log import log
 from ..component_base import ComponentBase
 from flask.logging import default_handler
@@ -106,10 +107,7 @@ class WebsocketBase(ComponentBase, ABC):
 
     def run_server(self):
         if self.socketio:
-            self.socketio.init_app(self.app)
-            self.socketio.run(
-                self.app, port=self.listen_port, debug=False, use_reloader=False
-            )
+            serve(self.app, host='0.0.0.0', port=self.listen_port)
 
     def stop_server(self):
         try:
