@@ -5,7 +5,7 @@ import signal
 from abc import ABC, abstractmethod
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
-from waitress import serve
+from gevent.pywsgi import WSGIServer
 from ...common.log import log
 from ..component_base import ComponentBase
 from flask.logging import default_handler
@@ -107,7 +107,8 @@ class WebsocketBase(ComponentBase, ABC):
 
     def run_server(self):
         if self.socketio:
-            serve(self.app, host='0.0.0.0', port=self.listen_port)
+            http_server = WSGIServer(('0.0.0.0', self.listen_port), self.app)
+            http_server.serve_forever()
 
     def stop_server(self):
         try:
