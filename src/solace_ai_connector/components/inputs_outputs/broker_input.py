@@ -12,8 +12,8 @@ from ...common.monitoring import Metrics
 from ...common import Message_NACK_Outcome
 
 
-
-info = deep_merge(base_info,
+info = deep_merge(
+    base_info,
     {
         "class_name": "BrokerInput",
         "description": (
@@ -66,7 +66,7 @@ info = deep_merge(base_info,
             },
             "required": ["payload", "topic", "user_properties"],
         },
-    }
+    },
 )
 
 # We always need a timeout so that we can check if we should stop
@@ -96,22 +96,53 @@ class BrokerInput(BrokerBase):
         }
 
     def get_next_message(self, timeout_ms=None):
-        if timeout_ms is None:
-            timeout_ms = DEFAULT_TIMEOUT_MS
-        broker_message = self.messaging_service.receive_message(
-            timeout_ms, self.broker_properties["queue_name"]
-        )
-        if not broker_message:
-            return None
-        self.current_broker_message = broker_message
+        try:
 
-        payload = broker_message.get("payload")
-        payload = self.decode_payload(payload)
+            if timeout_ms is None:
+                timeout_ms = DEFAULT_TIMEOUT_MS
+            broker_message = self.messaging_service.receive_message(
+                timeout_ms, self.broker_properties["queue_name"]
+            )
+            if not broker_message:
+                return None
 
-        topic = broker_message.get("topic")
-        user_properties = broker_message.get("user_properties", {})
-        log.debug("Received message from broker: topic=%s", topic)
-        return Message(payload=payload, topic=topic, user_properties=user_properties)
+            self.current_broker_message = broker_message
+
+            # Create a message object
+            msg = Message(
+                payload=None,
+                topic=None,
+                user_properties=None,
+            )
+            payload = broker_message.get("payload")
+            topic = broker_message.get("topic")
+            user_properties = broker_message.get("user_properties", {})
+
+            msg.payload = payload
+            msg.topic = topic
+            msg.user_properties = user_properties
+
+            # add nack callback to the message
+            callback = (
+                self.get_negative_acknowledgement_callback()
+            )  # pylint: disable=assignment-from-none
+            if callback is not None:
+                msg.add_negative_acknowledgements(callback)
+            else:
+                log.error("No callback for negative acknowledgement found. ")
+
+            payload = self.decode_payload(payload)
+
+            log.debug("Received message from broker: topic=%s", topic)
+
+            # update the message with the decoded payload
+            msg.payload = payload
+
+            return msg
+        except Exception as e:
+            log.error("Error receiving message from broker: %s", str(e))
+            self.handle_negative_acknowledgements(msg, e)
+            raise e
 
     def acknowledge_message(self, broker_message):
         self.messaging_service.ack_message(broker_message)
