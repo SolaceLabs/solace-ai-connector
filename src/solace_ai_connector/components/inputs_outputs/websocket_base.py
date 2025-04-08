@@ -111,20 +111,12 @@ class WebsocketBase(ComponentBase, ABC):
             http_server.serve_forever()
 
     def stop_server(self):
-        try:
-            func = request.environ.get('werkzeug.server.shutdown')
-            if func is None:
-                raise RuntimeError('Not running with the Werkzeug Server')
-            func()
-        except RuntimeError:
-            # Ignore the error if the server is already shutdown
-            pass
+        if hasattr(self, 'http_server') and self.http_server.started:
+            self.http_server.stop(timeout=10)
         try:
             self.socketio.stop()
         except Exception as e:
             pass
-        # force exiting component
-        os.kill(os.getpid(), signal.SIGINT)
  
     def get_sockets(self):
         if not self.sockets:
