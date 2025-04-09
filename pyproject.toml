@@ -33,8 +33,6 @@ dependencies = [
 # Basic LLM functionality
 llm = [
     "litellm==1.61.20",
-    "waitress==2.1.2",
-    "Flask-WTF==1.2.2",
 ]
 
 # OpenAI specific dependencies
@@ -45,64 +43,47 @@ openai = [
 
 # AWS integration (Bedrock, etc.)
 aws = [
+    "boto3==1.34.162",
     "langchain_aws==0.2.7",
     "requests_aws4auth>=1.3.1",
 ]
 
 # Vector stores
 chromadb-vector-store = [
-    "boto3==1.34.162",
     "chromadb==0.6.3",
     "langchain-chroma==0.2.2",
 ]
 
 qdrant-vector-store = [
-    "boto3==1.34.162",
     "langchain-qdrant==0.2.0",
-    "qdrant-client==1.10.1",
 ]
 
 milvus-vector-store = [
-    "boto3==1.34.162",
     "langchain_milvus==0.1.8",
     "pymilvus==2.5.6",
 ]
 
 # PostgreSQL vector database
-pgvector = [
-    "boto3==1.34.162",
+pgvector-vector-store = [
     "pgvector==0.3.6",
     "langchain-postgres==0.0.13",
+    "psycopg_binary==3.2.6",
 ]
 
 # LangChain core and utilities
 langchain = [
     "langchain==0.3.21",
-    "langchain-text-splitters==0.3.7",
 ]
 
 # Web search capabilities
-websearch = [
-    "duckduckgo-search==7.5.5",
-    "google-api-python-client==2.166.0",
-]
-
-# Web scraping
 webscraping = [
     "playwright==1.51.0",
     "beautifulsoup4==4.13.3",
 ]
 
 # RAG (Retrieval Augmented Generation)
-rag = [
-    "boto3==1.34.162",
-    "litellm==1.61.20",
-    "waitress==2.1.2",
-    "Flask-WTF==1.2.2",
-    "langchain-qdrant==0.2.0",
+splitter = [
     "langchain-text-splitters==0.3.7",
-    "openai==1.64.0",
-    "langchain-openai==0.3.8",
 ]
 
 # Mongo database
@@ -114,50 +95,57 @@ mongodb = [
 websocket = [
     "Flask==3.0.3",
     "Flask-SocketIO==5.4.1",
+    "Flask-WTF==1.2.2",
 ]
 
 # All dependencies
 all = [
+    # From langchain
+    "langchain==0.3.21",
+
     # From llm
     "litellm==1.61.20",
-    "waitress==2.1.2", 
-    "Flask-WTF==1.2.2",
     
     # From openai
     "openai==1.64.0",
     "langchain-openai==0.3.8",
     
     # From aws
-    "langchain_aws==0.2.7",
-    "requests_aws4auth==1.3.1",
-    
-    # From vector-stores
     "boto3==1.34.162",
+    "langchain_aws==0.2.7",
+    "requests_aws4auth>=1.3.1",
+    
+    # From chromadb-vector-store
     "chromadb==0.6.3",
     "langchain-chroma==0.2.2",
+    
+    # From qdrant-vector-store
     "langchain-qdrant==0.2.0",
     "qdrant-client==1.10.1",
+    
+    # From milvus-vector-store
     "langchain_milvus==0.1.8",
     "pymilvus==2.5.6",
     
-    # From pgvector
+    # From pgvector-vector-store
     "pgvector==0.3.6",
     "langchain-postgres==0.0.13",
-    
-    # From langchain
-    "langchain==0.3.21",
-    "langchain-text-splitters==0.3.7",
-    
-    # From websearch
-    "duckduckgo-search==7.5.5",
-    "google-api-python-client==2.166.0",
+    "psycopg_binary==3.2.6",
     
     # From webscraping
     "playwright==1.51.0",
     "beautifulsoup4==4.13.3",
-
-    # Mongo database
+    
+    # From splitter
+    "langchain-text-splitters==0.3.7",
+    
+    # From mongodb
     "pymongo==4.10.1",
+    
+    # From websocket
+    "Flask==3.0.3",
+    "Flask-SocketIO==5.4.1",
+    "Flask-WTF==1.2.2",
 ]
 
 
