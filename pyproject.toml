@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "pip>=25.0", "setuptools>=70.0"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 
@@ -11,24 +11,143 @@ authors = [
 ]
 description = "Solace AI Connector - make it easy to connect Solace PubSub+ Event Brokers to AI/ML frameworks"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10.16"
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "boto3~=1.34.122",
-    "PyYAML~=6.0.1",
-    "Requests~=2.32.3",
-    "solace_pubsubplus>=1.9.0",
-    "Flask~=3.0.3",
-    "Flask-SocketIO~=5.4.1",
-    "build~=1.2.2.post1",
-    "pymongo~=4.10.1",
-    "SQLAlchemy~=2.0.36",
+    "PyYAML==6.0.2",
+    "Requests==2.32.3",
+    "solace_pubsubplus==1.9.0",
+    "SQLAlchemy==2.0.40",
     'pywin32>=306; sys_platform == "win32"',
 ]
+
+[project.optional-dependencies]
+# Basic LLM functionality
+llm = [
+    "litellm==1.61.20",
+]
+
+# OpenAI specific dependencies
+openai = [
+    "openai==1.64.0",
+    "langchain-openai==0.3.8",
+]
+
+# AWS integration (Bedrock, etc.)
+aws = [
+    "boto3==1.34.162",
+    "langchain_aws==0.2.7",
+    "requests_aws4auth>=1.3.1",
+]
+
+# Vector stores
+chromadb-vector-store = [
+    "chromadb==0.6.3",
+    "langchain-chroma==0.2.2",
+]
+
+qdrant-vector-store = [
+    "langchain-qdrant==0.2.0",
+]
+
+milvus-vector-store = [
+    "langchain_milvus==0.1.8",
+    "pymilvus==2.5.6",
+]
+
+# PostgreSQL vector database
+pgvector-vector-store = [
+    "pgvector==0.3.6",
+    "langchain-postgres==0.0.13",
+    "psycopg_binary==3.2.6",
+]
+
+# LangChain core and utilities
+langchain = [
+    "langchain==0.3.21",
+]
+
+# Web search capabilities
+webscraping = [
+    "playwright==1.51.0",
+    "beautifulsoup4==4.13.3",
+]
+
+# RAG (Retrieval Augmented Generation)
+splitter = [
+    "langchain-text-splitters==0.3.7",
+]
+
+# Mongo database
+mongodb = [
+    "pymongo==4.10.1",
+]
+
+# Web Socket
+websocket = [
+    "Flask==3.0.3",
+    "Flask-SocketIO==5.4.1",
+    "Flask-WTF==1.2.2",
+]
+
+# All dependencies
+all = [
+    # From langchain
+    "langchain==0.3.21",
+
+    # From llm
+    "litellm==1.61.20",
+    
+    # From openai
+    "openai==1.64.0",
+    "langchain-openai==0.3.8",
+    
+    # From aws
+    "boto3==1.34.162",
+    "langchain_aws==0.2.7",
+    "requests_aws4auth>=1.3.1",
+    
+    # From chromadb-vector-store
+    "chromadb==0.6.3",
+    "langchain-chroma==0.2.2",
+    
+    # From qdrant-vector-store
+    "langchain-qdrant==0.2.0",
+    "qdrant-client==1.10.1",
+    
+    # From milvus-vector-store
+    "langchain_milvus==0.1.8",
+    "pymilvus==2.5.6",
+    
+    # From pgvector-vector-store
+    "pgvector==0.3.6",
+    "langchain-postgres==0.0.13",
+    "psycopg_binary==3.2.6",
+    
+    # From webscraping
+    "playwright==1.51.0",
+    "beautifulsoup4==4.13.3",
+    
+    # From splitter
+    "langchain-text-splitters==0.3.7",
+    
+    # From mongodb
+    "pymongo==4.10.1",
+    
+    # From websocket
+    "Flask==3.0.3",
+    "Flask-SocketIO==5.4.1",
+    "Flask-WTF==1.2.2",
+]
+
 
 [project.urls]
 homepage = "https://github.com/SolaceLabs/solace-ai-connector"
@@ -42,14 +161,10 @@ solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:mai
 
 [tool.hatch.envs.hatch-test]
 installer = "pip"
-dependencies = [
-    "pip>=25.0",
-    "setuptools>=70.0"
-]
 
 # Specify minimum and maximum Python versions to test
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.12"]
+python = ["3.10", "3.13"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]

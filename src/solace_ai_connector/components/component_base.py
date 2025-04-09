@@ -192,12 +192,6 @@ class ComponentBase:
             )
 
     def process_pre_invoke(self, message):
-        # add nack callback to the message
-        callback = (
-            self.get_negative_acknowledgement_callback()
-        )  # pylint: disable=assignment-from-none
-        if callback is not None:
-            message.add_negative_acknowledgements(callback)
 
         self.apply_input_transforms(message)
         return self.get_input_data(message)

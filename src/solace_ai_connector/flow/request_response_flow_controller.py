@@ -101,7 +101,7 @@ class RequestResponseFlowController:
         # Now we will wait for the response
         now = time.time()
         elapsed_time = now - self.enqueue_time
-        remaining_timeout = self.request_expiry_s - elapsed_time
+        remaining_timeout = max(0, self.request_expiry_s - elapsed_time)
         if stream:
             # If we are in streaming mode, we will return individual messages
             # until we receive the last message. Use the expression to determine
@@ -111,7 +111,7 @@ class RequestResponseFlowController:
                     # Calculate remaining time based on the most recent enqueue_time
                     now = time.time()
                     elapsed_time = now - self.enqueue_time
-                    remaining_timeout = self.request_expiry_s - elapsed_time
+                    remaining_timeout = max(0, self.request_expiry_s - elapsed_time)
 
                     event = self.response_queue.get(timeout=remaining_timeout)
                     if event.event_type == EventType.MESSAGE:
