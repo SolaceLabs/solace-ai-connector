@@ -107,12 +107,15 @@ class WebsocketBase(ComponentBase, ABC):
 
     def run_server(self):
         if self.socketio:
-            http_server = WSGIServer(('0.0.0.0', self.listen_port), self.app)
-            http_server.serve_forever()
+            self.http_server = WSGIServer(('0.0.0.0', self.listen_port), self.app)
+            self.http_server.serve_forever()
 
     def stop_server(self):
         if hasattr(self, 'http_server') and self.http_server.started:
-            self.http_server.stop(timeout=10)
+            try:
+                self.http_server.stop(timeout=10)
+            except Exception as e:
+                log.warning("Error stopping WebSocket server: %s", str(e))
         try:
             self.socketio.stop()
         except Exception as e:
