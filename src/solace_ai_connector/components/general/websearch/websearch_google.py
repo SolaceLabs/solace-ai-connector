@@ -77,7 +77,7 @@ class WebSearchGoogle(WebSearchBase):
             return response
         else:
             error = response.json().get("error", {}).get("message", "Unknown error")
-            raise ValueError(f"Error: {response.status_code}: {error}")
+            raise ValueError(f"Error: {response.status_code}")
 
     # Extract required data from a message
     def parse(self, message):

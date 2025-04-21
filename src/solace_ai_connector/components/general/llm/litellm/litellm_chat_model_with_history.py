@@ -70,7 +70,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
                 )
 
             session_history = history[session_id]["messages"]
-            log.debug(f"Session history: {session_history}")
+            log.debug("Got session history")
 
             # If the passed in messages have a system message and the history's
             # first message is a system message, then replace the history's first
@@ -103,6 +103,6 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
             )
 
             self.kv_store_set(self.history_key, history)
-            log.debug(f"Updated history: {history}")
+            log.debug("Updated history")
 
         return response

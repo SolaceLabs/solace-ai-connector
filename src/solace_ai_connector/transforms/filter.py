@@ -96,6 +96,7 @@ and produce an object like this:
 
 
 class FilterTransform(TransformBase):
+
     def __init__(self, transform_config, index, log_identifier=None):
         self.skip_expresions = True
         super().__init__(transform_config, index, log_identifier)
@@ -150,10 +151,10 @@ class FilterTransform(TransformBase):
             if filter_function:
                 try:
                     keep = filter_function(message)
-                except Exception as e:
+                except Exception:
                     raise ValueError(
-                        f"{self.log_identifier}: Error calling processing function: {e}"
-                    ) from e
+                        f"{self.log_identifier}: Error calling processing function"
+                    )
 
             if keep:
                 # Now put the data into the destination list

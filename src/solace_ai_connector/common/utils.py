@@ -54,9 +54,9 @@ def import_from_directories(module_name, base_path=None):
                     if path not in sys.path:
                         sys.path.insert(0, path)
                     spec.loader.exec_module(module)
-                except Exception as e:
-                    log.error("Exception importing %s: %s", module_path, e)
-                    raise e
+                except Exception:
+                    log.error("Exception importing %s", module_path)
+                    raise
                 return module
     raise ImportError(f"Could not import module '{module_name}'")
 
@@ -115,7 +115,7 @@ def import_module(module, base_path=None, component_package=None):
             sys.path.append(base_path)
     try:
         return importlib.import_module(module)
-    except ModuleNotFoundError as exc:
+    except ModuleNotFoundError:
         # If the module does not have a path associated with it, try
         # importing it from the known prefixes - annoying that this
         # is necessary. It seems you can't dynamically import a module
@@ -149,12 +149,10 @@ def import_module(module, base_path=None, component_package=None):
                             name != "solace_ai_connector"
                             and name.split(".")[-1] != full_name.split(".")[-1]
                         ):
-                            raise e
-                    except Exception as e:
-                        raise ImportError(
-                            f"Module load error for {full_name}: {e}"
-                        ) from e
-        raise ModuleNotFoundError(f"Module '{module}' not found") from exc
+                            raise
+                    except Exception:
+                        raise ImportError(f"Module load error for {full_name}")
+        raise ModuleNotFoundError(f"Module '{module}' not found")
 
 
 def invoke_config(config, allow_source_expression=False):
@@ -377,42 +375,42 @@ def decode_payload(payload, encoding, payload_format):
     if encoding == "base64":
         try:
             payload = base64.b64decode(payload)
-        except Exception as e:
-            log.error("Error decoding base64 payload: %s", e)
-            raise e
+        except Exception:
+            log.error("Error decoding base64 payload")
+            raise
     elif encoding == "gzip":
         try:
             payload = gzip.decompress(payload)
-        except Exception as e:
-            log.error("Error decompressing gzip payload: %s", e)
-            raise e
+        except Exception:
+            log.error("Error decompressing gzip payload")
+            raise
     elif encoding == "utf-8" and (
         isinstance(payload, bytes) or isinstance(payload, bytearray)
     ):
         try:
             payload = payload.decode("utf-8")
-        except UnicodeDecodeError as e:
-            log.error("Error decoding UTF-8 payload: %s", e)
-            raise e
+        except UnicodeDecodeError:
+            log.error("Error decoding UTF-8 payload")
+            raise
     elif encoding == "unicode_escape":
         try:
             payload = payload.decode("unicode_escape")
-        except UnicodeDecodeError as e:
-            log.error("Error decoding unicode_escape payload: %s", e)
-            raise e
+        except UnicodeDecodeError:
+            log.error("Error decoding unicode_escape payload")
+            raise
 
     if payload_format == "json":
         try:
             payload = json.loads(payload)
         except json.JSONDecodeError as e:
-            log.error("Error decoding JSON payload: %s", e)
-            raise e
+            log.error("Error decoding JSON payload")
+            raise
     elif payload_format == "yaml":
         try:
             payload = yaml.safe_load(payload)
-        except Exception as e:
-            log.error("Error decoding YAML payload: %s", e)
-            raise e
+        except Exception:
+            log.error("Error decoding YAML payload")
+            raise
 
     return payload
 
@@ -600,10 +598,11 @@ def remove_data_value(data_object, expression):
                 )
                 return
 
+
 def deep_merge(d, u):
     # Create a deep copy of first dict to avoid modifying original
     result = deepcopy(d)
-    
+
     # Iterate through keys and values in second dict
     for k, v in u.items():
         if k in result:

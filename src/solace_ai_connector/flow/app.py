@@ -63,9 +63,9 @@ class App:
                     flow_input_queue = flow_instance.get_flow_input_queue()
                     self.flow_input_queues[flow.get("name")] = flow_input_queue
                     self.flows.append(flow_instance)
-        except Exception as e:
-            log.error(f"Error creating flows for app {self.name}: {e}")
-            raise e
+        except Exception:
+            log.error(f"Error creating flows for app {self.name}")
+            raise
 
     def create_flow(self, flow: dict, index: int, flow_instance_index: int) -> Flow:
         """
@@ -107,8 +107,8 @@ class App:
         for flow in self.flows:
             try:
                 flow.cleanup()
-            except Exception as e:
-                log.error(f"Error cleaning up flow in app {self.name}: {e}")
+            except Exception:
+                log.error(f"Error cleaning up flow in app {self.name}")
         self.flows.clear()
         self.flow_input_queues.clear()
 

@@ -96,6 +96,7 @@ and produce an object like this:
 
 
 class ReduceTransform(TransformBase):
+
     def __init__(self, transform_config, index, log_identifier=None):
         self.skip_expresions = True
         super().__init__(transform_config, index, log_identifier)
@@ -152,10 +153,10 @@ class ReduceTransform(TransformBase):
             # Call the accumulator function
             try:
                 accumulated_value = accumulator_function(message)
-            except Exception as e:
+            except Exception:
                 raise ValueError(
-                    f"{self.log_identifier}: Error calling accumulator function: {e}"
-                ) from e
+                    f"{self.log_identifier}: Error calling accumulator function"
+                )
 
             # Set the accumulated value
             keyword_args["accumulated_value"] = accumulated_value

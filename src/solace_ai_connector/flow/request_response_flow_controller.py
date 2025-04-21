@@ -55,15 +55,15 @@ class RequestResponseFlowController:
 
         # Create the flow configuration
         flow_config = self.create_broker_request_response_flow_config()
-        
+
         # Create the app using the connector's create_internal_app method
         app_name = "_internal_broker_request_response_app"
         app = self.connector.create_internal_app(app_name, [flow_config])
-        
+
         # Get the flow from the app
         if not app.flows:
             raise ValueError("Failed to create internal broker request-response flow")
-        
+
         self.flow = app.flows[0]
         self.setup_queues(self.flow)
         self.flow.run()
@@ -126,8 +126,8 @@ class RequestResponseFlowController:
                         raise TimeoutError(  # pylint: disable=raise-missing-from
                             "Timeout waiting for response"
                         )
-                except Exception as e:
-                    raise e
+                except Exception:
+                    raise
 
         # If we are not in streaming mode, we will return a single message
         # and then stop the iterator

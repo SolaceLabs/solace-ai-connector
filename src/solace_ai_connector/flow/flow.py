@@ -121,10 +121,10 @@ class Flow:
 
         try:
             self.module_info = getattr(imported_module, "info")
-        except AttributeError as e:
+        except AttributeError:
             raise ValueError(
                 f"Component module '{component_module}' does not have an 'info' attribute. It probably isn't a valid component."
-            ) from e
+            )
 
         component_class = getattr(imported_module, self.module_info["class_name"])
 
@@ -179,7 +179,7 @@ class Flow:
                 component.cleanup()
         self.component_groups.clear()
         self.threads.clear()
-        
+
     def get_app(self):
         """Get the app that this flow belongs to"""
         return self.app

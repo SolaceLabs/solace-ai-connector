@@ -162,8 +162,8 @@ class LiteLLMBase(ComponentBase):
                 timeout=self.timeout,
             )
             log.debug("Litellm Load balancer was initialized")
-        except Exception as e:
-            raise ValueError(f"Error initializing load balancer: {e}")
+        except Exception:
+            raise ValueError("Error initializing load balancer")
 
     def load_balance(self, messages, stream):
         """load balance the messages"""
@@ -174,9 +174,9 @@ class LiteLLMBase(ComponentBase):
                 stream=stream,
                 **({"stream_options": {"include_usage": True}} if stream else {}),
             )
-        except Exception as e:
-            log.error(f"LiteLLM API connection error: {e}")
-            raise e
+        except Exception:
+            log.error("LiteLLM API connection error")
+            raise
 
         log.debug("Load balancer responded")
         return response

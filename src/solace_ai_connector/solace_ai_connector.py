@@ -60,11 +60,11 @@ class SolaceAiConnector:
             log.info("Solace AI Event Connector started successfully")
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
+
             raise KeyboardInterrupt
-        except Exception as e:
-            log.error("Error during Solace AI Event Connector startup: %s", str(e))
-            log.error("Traceback: %s", traceback.format_exc())
-            raise e
+        except Exception:
+            log.error("Error during Solace AI Event Connector startup")
+            raise
 
     def create_apps(self):
         """Create apps from the configuration"""
@@ -139,9 +139,9 @@ class SolaceAiConnector:
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt
-        except Exception as e:
-            log.error("Error creating apps: %s", e)
-            raise e
+        except Exception:
+            log.error("Error creating apps")
+            raise
 
     def create_internal_app(self, app_name: str, flows: List[Dict[str, Any]]) -> App:
         """
@@ -217,8 +217,8 @@ class SolaceAiConnector:
         for app in self.apps:
             try:
                 app.cleanup()
-            except Exception as e:
-                log.error(f"Error cleaning up app: {e}")
+            except Exception:
+                log.error("Error cleaning up app")
         self.apps.clear()
         self.flows.clear()
 
@@ -227,8 +227,8 @@ class SolaceAiConnector:
             try:
                 while not queue.empty():
                     queue.get_nowait()
-            except Exception as e:
-                log.error(f"Error cleaning queue {queue_name}: {e}")
+            except Exception:
+                log.error(f"Error cleaning queue {queue_name}")
         self.flow_input_queues.clear()
 
         if hasattr(self, "trace_queue") and self.trace_queue:

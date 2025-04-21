@@ -126,9 +126,7 @@ class ComponentBase:
         self.process_event(event)
 
     def handle_component_error(self, e, event):
-        log.error(
-            f"[{self.name}] {self.log_identifier} Component has crashed: {e}\n{traceback.format_exc()}"
-        )
+        log.error(f"[{self.name}] {self.log_identifier} Component has crashed")
         self.handle_error(e, event)
 
     def get_next_event(self):
@@ -171,9 +169,11 @@ class ComponentBase:
             try:
                 result = self.invoke(message, data)
             except Exception as e:
+                print("faced exception in invoke")
+                exit()
                 self.current_message = None
                 self.handle_negative_acknowledgements(message, e)
-                raise e
+                raise
             finally:
                 self.current_message = None
 
@@ -511,7 +511,7 @@ class ComponentBase:
     def handle_negative_acknowledgements(self, message, exception):
         """Handle NACK for the message."""
         log.error(
-            f"[{self.name}] {self.log_identifier} Component failed to process message: {exception} \n {traceback.format_exc()}"
+            f"[{self.name}] {self.log_identifier} Component failed to process message"
         )
         nack = self.nack_reaction_to_exception(type(exception))
         message.call_negative_acknowledgements(nack)

@@ -61,7 +61,7 @@ class Parser(ComponentBase):
             elif input_format != "dict":
                 raise ValueError(f"Invalid input format: {input_format}")
         except Exception as e:
-            raise ValueError(f"Error converting input: {str(e)}") from e
+            raise ValueError("Error converting input")
 
         try:
             if output_format == "json" or output_format == "yaml":
@@ -70,5 +70,5 @@ class Parser(ComponentBase):
                 return dict_data
             else:
                 raise ValueError(f"Invalid output format: {output_format}")
-        except Exception as e:
-            raise ValueError(f"Error converting output: {str(e)}") from e
+        except Exception:
+            raise ValueError("Error converting output")

@@ -97,6 +97,7 @@ info = {
 
 
 class LangChainVectorStoreDelete(LangChainVectorStoreEmbeddingsBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
 
@@ -116,18 +117,14 @@ class LangChainVectorStoreDelete(LangChainVectorStoreEmbeddingsBase):
                 )
             try:
                 delete_ids = self.vector_store.get_pks(expr)
-            except Exception as e:  # pylint: disable=broad-except
-                log.warning(
-                    "%sFailed to get pks from Milvus. %s", self.log_identifier, e
-                )
+            except Exception:  # pylint: disable=broad-except
+                log.warning("%sFailed to get pks from Milvus.", self.log_identifier)
                 delete_ids = []
             del delete_kwargs["expr"]
 
         try:
             result = self.vector_store.delete(delete_ids, **delete_kwargs)
-        except Exception as e:  # pylint: disable=broad-except
-            log.warning(
-                "%sFailed to delete from vector store. %s", self.log_identifier, e
-            )
+        except Exception:  # pylint: disable=broad-except
+            log.warning("%sFailed to delete from vector store.", self.log_identifier)
             result = False
         return {"result": result}

@@ -99,6 +99,7 @@ and produce an object like this:
 
 
 class MapTransform(TransformBase):
+
     def __init__(self, transform_config, index, log_identifier=None):
         self.skip_expresions = True
         super().__init__(transform_config, index, log_identifier)
@@ -151,10 +152,10 @@ class MapTransform(TransformBase):
             if processing_function:
                 try:
                     source_data = processing_function(message)
-                except Exception as e:
+                except Exception:
                     raise ValueError(
-                        f"{self.log_identifier}: Error calling processing function: {e}"
-                    ) from e
+                        f"{self.log_identifier}: Error calling processing function"
+                    )
 
             # Now put the data into the destination list
             full_dest_expression = None

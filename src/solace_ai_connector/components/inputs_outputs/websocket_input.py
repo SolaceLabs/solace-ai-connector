@@ -33,6 +33,7 @@ info.update(
 
 
 class WebsocketInput(WebsocketBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.payload_encoding = self.get_config("payload_encoding")
@@ -60,9 +61,9 @@ class WebsocketInput(WebsocketBase):
                 event = Event(EventType.MESSAGE, message)
                 self.process_event_with_tracing(event)
             except json.JSONDecodeError:
-                log.error("Received invalid payload: %s", data)
+                log.error("Received invalid payload.")
             except AssertionError as e:
-                raise e
+                raise
             except Exception as e:
                 self.handle_component_error(e, event)
 
@@ -79,6 +80,6 @@ class WebsocketInput(WebsocketBase):
                 "topic": message.get_topic(),
                 "user_properties": message.get_user_properties(),
             }
-        except Exception as e:
-            log.error("Error processing WebSocket message: %s", str(e))
+        except Exception:
+            log.error("Error processing WebSocket message.")
             return None
