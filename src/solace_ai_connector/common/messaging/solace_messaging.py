@@ -386,9 +386,12 @@ class SolaceMessaging(Messaging):
                     self.broker_properties.get("subscriptions"),
                     self.broker_properties.get("temporary_queue"),
                     self.broker_properties.get("max_redelivery_count"),
+                    self.broker_properties.get("create_queue_on_start"),
                 )
         except KeyboardInterrupt:  # pylint: disable=broad-except
             raise KeyboardInterrupt
+        except Exception as e:
+            raise e
 
     def bind_to_queue(
         self,
@@ -396,6 +399,7 @@ class SolaceMessaging(Messaging):
         subscriptions: list = None,
         temporary: bool = False,
         max_redelivery_count: int = None,
+        create_queue_on_start: bool = True,
     ):
         if subscriptions is None:
             subscriptions = []
@@ -405,12 +409,22 @@ class SolaceMessaging(Messaging):
         else:
             queue = Queue.durable_exclusive_queue(queue_name)
 
+        # Create a queue if create_queue_on_start is set to True
+        if create_queue_on_start:
+            missing_resources_creation_strategy = (
+                MissingResourcesCreationStrategy.CREATE_ON_START
+            )
+        else:
+            missing_resources_creation_strategy = (
+                MissingResourcesCreationStrategy.DO_NOT_CREATE
+            )
+
         try:
             # Build a receiver and bind it to the queue
             self.persistent_receiver: PersistentMessageReceiver = (
                 self.messaging_service.create_persistent_message_receiver_builder()
                 .with_missing_resources_creation_strategy(
-                    MissingResourcesCreationStrategy.CREATE_ON_START
+                    missing_resources_creation_strategy
                 )
                 .with_required_message_outcome_support(
                     Message_NACK_Outcome.FAILED, Message_NACK_Outcome.REJECTED
@@ -448,12 +462,13 @@ class SolaceMessaging(Messaging):
                 queue_name,
                 exception,
             )
+            raise exception
 
         # Add to list of receivers
         self.persistent_receivers.append(self.persistent_receiver)
 
         # If subscriptions are provided, add them to the receiver
-        if subscriptions:
+        if create_queue_on_start and subscriptions:
             for subscription in subscriptions:
                 sub = TopicSubscription.of(subscription.get("topic"))
                 self.persistent_receiver.add_subscription(sub)
