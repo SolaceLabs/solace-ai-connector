@@ -7,6 +7,8 @@ from ..common.messaging.solace_messaging import ConnectionStatus
 
 class Metrics(Enum):
     SOLCLIENT_STATS_RX_SETTLE_ACCEPTED = "SOLCLIENT_STATS_RX_SETTLE_ACCEPTED"
+    SOLCLIENT_STATS_RX_SETTLE_FAILED = "SOLCLIENT_STATS_RX_SETTLE_FAILED"
+    SOLCLIENT_STATS_RX_SETTLE_REJECTED = "SOLCLIENT_STATS_RX_SETTLE_REJECTED"
     SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS = (
         "SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS"
     )
@@ -211,6 +213,8 @@ class Monitoring:
             aggregated_metrics[new_key] = value
         elif metric in [
             Metrics.SOLCLIENT_STATS_RX_SETTLE_ACCEPTED,
+            Metrics.SOLCLIENT_STATS_RX_SETTLE_FAILED,
+            Metrics.SOLCLIENT_STATS_RX_SETTLE_REJECTED,
             Metrics.SOLCLIENT_STATS_TX_TOTAL_CONNECTION_ATTEMPTS,
         ]:
             aggregated_timestamp = aggregated_metrics[new_key].timestamp
