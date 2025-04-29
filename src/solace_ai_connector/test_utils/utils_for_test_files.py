@@ -37,7 +37,7 @@ class TestOutputComponent:
     def get_output(self):
         try:
             item = self.queue.get(timeout=self.queue_timeout)
-            log.debug("Output test component received item: %s", item)
+            log.debug("Output test component received item.")
             return item
         except queue.Empty:
             pass
@@ -52,7 +52,7 @@ class TestInputComponent:
         self.next_component_queue = next_component_queue
 
     def enqueue(self, message):
-        log.debug("Input test component sending message: %s", message)
+        log.debug("Input test component sending message.")
         if not isinstance(message, Event):
             event = Event(EventType.MESSAGE, message)
         else:
@@ -236,9 +236,9 @@ def create_and_run_component(
         output_message = None
         if not no_output:
             output_message = get_message_from_flow(flow_info[0])
-    except Exception as e:
+    except Exception:
         dispose_connector(connector)
-        raise e
+        raise ValueError("Failed to create and run component.")
     dispose_connector(connector)
     return output_message
 

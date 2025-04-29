@@ -34,6 +34,7 @@ info = {
 
 
 class Iterate(ComponentBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
 
@@ -41,7 +42,9 @@ class Iterate(ComponentBase):
         # data is the list of items
         # Loop over them and output each one as a separate message
         if not isinstance(data, list):
-            raise ValueError("The iterate component requires the input to be a list")
+            raise ValueError(
+                "The iterate component requires the input to be a list"
+            ) from None
 
         for item in data:
             # Create a new message for each item unless it is the last item

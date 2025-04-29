@@ -49,6 +49,7 @@ base_info = {
 
 
 class WebsocketBase(ComponentBase, ABC):
+
     def __init__(self, info, **kwargs):
         super().__init__(info, **kwargs)
         self.listen_port = self.get_config("listen_port")
@@ -120,7 +121,7 @@ class WebsocketBase(ComponentBase, ABC):
             self.socketio.stop()
         except Exception as e:
             pass
- 
+          
     def get_sockets(self):
         if not self.sockets:
             self.sockets = self.kv_store_get("websocket_connections") or {}

@@ -133,16 +133,16 @@ class BrokerInput(BrokerBase):
 
             payload = self.decode_payload(payload)
 
-            log.debug("Received message from broker: topic=%s", topic)
+            log.debug("Received message from broker.")
 
             # update the message with the decoded payload
             msg.payload = payload
 
             return msg
         except Exception as e:
-            log.error("Error receiving message from broker: %s", str(e))
+            log.error("Error receiving message from broker")
             self.handle_negative_acknowledgements(msg, e)
-            raise e
+            raise ValueError("Error receiving message from broker") from None
 
     def acknowledge_message(self, broker_message):
         self.messaging_service.ack_message(broker_message)

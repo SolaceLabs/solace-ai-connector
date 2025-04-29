@@ -138,7 +138,7 @@ class Message:
 
         raise ValueError(
             f"Unknown data type '{data_type}' in expression '{expression}'"
-        )
+        ) from None
 
     def set_data_object(self, expression, value):
         data_type = expression.split(":")[0]
@@ -159,7 +159,7 @@ class Message:
         else:
             raise ValueError(
                 f"Unknown data type '{data_type}' in expression '{expression}'"
-            )
+            ) from None
 
     def set_iteration_data(self, item, index):
         self.iteration_data["item"] = item
@@ -231,7 +231,7 @@ class Message:
         else:
             raise ValueError(
                 f"Unknown encoding '{encoding}' in expression '{encoding_expression}'"
-            )
+            ) from None
 
         return data
 

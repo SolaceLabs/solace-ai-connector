@@ -116,10 +116,6 @@ class ServiceEventHandler(
     def on_reconnected(self, service_event: ServiceEvent):
         change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
         log.info(f"{self.error_prefix} Successfully reconnected to broker.")
-        log.debug(
-            f"{self.error_prefix} Message: %s",
-            service_event.get_message(),
-        )
 
     def on_reconnecting(self, event: "ServiceEvent"):
         change_connection_status(
@@ -143,13 +139,8 @@ class ServiceEventHandler(
                     else:
                         self.retry_count -= 1
 
-                log.error(
-                    f"{self.error_prefix} Reconnecting to broker: %s",
-                    event.get_cause(),
-                )
-                log.debug(
-                    f"{self.error_prefix} Message: %s",
-                    event.get_message(),
+                log.info(
+                    f"{self.error_prefix} Reconnecting to broker...",
                 )
                 self.stop_signal.wait(timeout=self.retry_interval / 1000)
 
@@ -160,11 +151,7 @@ class ServiceEventHandler(
         change_connection_status(
             self.connection_properties, ConnectionStatus.DISCONNECTED
         )
-        log.error(
-            f"{self.error_prefix} Service interrupted - Error cause: %s",
-            event.get_cause(),
-        )
-        log.debug(f"{self.error_prefix} Message: %s", event.get_message())
+        log.error(f"{self.error_prefix} Service interrupted")
 
 
 def set_python_solace_log_level(level: str):
@@ -229,12 +216,18 @@ class SolaceMessaging(Messaging):
             }
 
             try:
-                strategy = ConnectionStrategy(
-                    self.broker_properties.get("reconnection_strategy")
-                )
+                if "reconnection_strategy" in self.broker_properties:
+                    strategy = ConnectionStrategy(
+                        self.broker_properties.get("reconnection_strategy")
+                    )
+                else:
+                    log.info(
+                        f"{self.error_prefix} reconnection_strategy not provided, using default value of forever_retry"
+                    )
+                    strategy = ConnectionStrategy.FOREVER_RETRY
             except ValueError:
-                log.error(
-                    f"{self.error_prefix} Invalid reconnection strategy: {self.broker_properties.get('reconnection_strategy')}. Using default strategy."
+                log.warning(
+                    f"{self.error_prefix} Invalid reconnection strategy: {self.broker_properties.get('reconnection_strategy')}. Using default Forever Retry strategy."
                 )
                 strategy = ConnectionStrategy.FOREVER_RETRY
 
@@ -271,23 +264,6 @@ class SolaceMessaging(Messaging):
                         f"{self.error_prefix} retry_interval not provided, using default value of 3000"
                     )
                     retry_interval = 3000
-                self.messaging_service = (
-                    MessagingService.builder()
-                    .from_properties(broker_props)
-                    .with_reconnection_retry_strategy(
-                        RetryStrategy.parametrized_retry(retry_count, retry_interval)
-                    )
-                    .with_connection_retry_strategy(
-                        RetryStrategy.parametrized_retry(retry_count, retry_interval)
-                    )
-                    .build()
-                )
-            else:
-                # set default
-                log.info(
-                    f"{self.error_prefix} Using default reconnection strategy. 20 retries with 3000ms interval"
-                )
-                strategy = ConnectionStrategy.PARAMETRIZED_RETRY
                 self.messaging_service = (
                     MessagingService.builder()
                     .from_properties(broker_props)
@@ -340,7 +316,7 @@ class SolaceMessaging(Messaging):
             if self.stop_signal.is_set():
                 log.error(f"{self.error_prefix} Stopping connection attempt")
                 self.disconnect()
-                raise KeyboardInterrupt("Stopping connection attempt")
+                raise KeyboardInterrupt("Stopping connection attempt") from None
 
             self.stop_connection_log.set()
             log.info(f"{self.error_prefix} Successfully connected to broker.")
@@ -389,9 +365,9 @@ class SolaceMessaging(Messaging):
                     self.broker_properties.get("create_queue_on_start"),
                 )
         except KeyboardInterrupt:  # pylint: disable=broad-except
-            raise KeyboardInterrupt
+            raise KeyboardInterrupt from None
         except Exception as e:
-            raise e
+            raise ValueError("Error in broker connection") from None
 
     def bind_to_queue(
         self,
@@ -442,10 +418,8 @@ class SolaceMessaging(Messaging):
                         **self.persistent_receiver._end_point_props,
                         **end_point_props,
                     }
-                except Exception as e:
-                    log.error(
-                        f"{self.error_prefix} Error setting max redelivery count: {str(e)}"
-                    )
+                except Exception:
+                    log.error(f"{self.error_prefix} Error setting max redelivery count")
 
             self.persistent_receiver.start()
 
@@ -456,11 +430,10 @@ class SolaceMessaging(Messaging):
             )
 
         # Handle API exception
-        except PubSubPlusClientError as exception:
+        except PubSubPlusClientError:
             log.warning(
-                f"{self.error_prefix} Error creating persistent receiver for queue [%s], %s",
+                f"{self.error_prefix} Error creating persistent receiver for queue [%s]",
                 queue_name,
-                exception,
             )
             raise exception
 
@@ -482,8 +455,8 @@ class SolaceMessaging(Messaging):
             change_connection_status(
                 self.connection_properties, ConnectionStatus.DISCONNECTED
             )
-        except Exception as exception:  # pylint: disable=broad-except
-            log.debug(f"{self.error_prefix} Error disconnecting: %s", exception)
+        except Exception:  # pylint: disable=broad-except
+            log.debug(f"{self.error_prefix} Error disconnecting")
 
     def get_connection_status(self):
         return self.connection_properties["status"]

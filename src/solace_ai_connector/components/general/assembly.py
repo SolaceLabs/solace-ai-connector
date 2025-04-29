@@ -60,6 +60,7 @@ ASSEMBLY_EXPIRY_ID = "assembly_expiry"
 
 
 class Assembly(ComponentBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
         self.assemble_key = self.get_config("assemble_key")
@@ -69,12 +70,10 @@ class Assembly(ComponentBase):
     def invoke(self, message, data):
         # Check if the message has the assemble key
         if self.assemble_key not in data or type(data[self.assemble_key]) is not str:
-            log.error(
-                f"Message does not have the key {self.assemble_key} or it is not a string"
-            )
+            log.error("Message does not have the assemble key or it is not a string")
             raise ValueError(
                 f"Message does not have the key {self.assemble_key} or it is not a string"
-            )
+            ) from None
 
         event_key = data[self.assemble_key]
         # Fetch the current assembly from cache
@@ -84,7 +83,7 @@ class Assembly(ComponentBase):
         expiry = None
         # Create a new assembly if not present
         if not current_assembly:
-            expiry = self.max_time_ms  / 1000
+            expiry = self.max_time_ms / 1000
             current_assembly = {
                 "list": [],
                 "message": Message(),

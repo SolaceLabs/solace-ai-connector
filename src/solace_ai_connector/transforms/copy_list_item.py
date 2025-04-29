@@ -48,13 +48,14 @@ info = {
 
 
 class CopyListItemTransform(TransformBase):
+
     def __init__(self, transform_config, index):
         super().__init__(transform_config, index)
         self.source_property = transform_config.get("source_property", None)
         if self.source_property is None:
             raise ValueError(
                 "In CopyListItemTransform, source property not provided in transform configuration"
-            )
+            ) from None
         self.dest_property = transform_config.get("dest_property", None)
 
     def invoke(self, message, calling_object=None):
@@ -70,7 +71,7 @@ class CopyListItemTransform(TransformBase):
                 return message
             raise ValueError(
                 "In CopyListItemTransform, source expression does not resolve to a list"
-            )
+            ) from None
 
         # Get the destination list
         dest_list = message.get_data(
@@ -85,14 +86,14 @@ class CopyListItemTransform(TransformBase):
         if not isinstance(dest_list, list):
             raise ValueError(
                 "In CopyListItemTransform, destination expression does not resolve to a list"
-            )
+            ) from None
 
         # Copy the item from the source list to the destination list
         for index, item in enumerate(source_list):
             if not isinstance(item, dict):
                 raise ValueError(
                     "In CopyListItemTransform, source list item is not a dictionary"
-                )
+                ) from None
             self.extend_list_if_needed(dest_list, index)
             if self.dest_property is not None:
                 if dest_list[index] is None:
@@ -100,7 +101,7 @@ class CopyListItemTransform(TransformBase):
                 if not isinstance(dest_list[index], dict):
                     raise ValueError(
                         "In CopyListItemTransform, dest list item is not a dictionary"
-                    )
+                    ) from None
                 dest_list[index][self.dest_property] = item[self.source_property]
             else:
                 dest_list[index] = item[self.source_property]
