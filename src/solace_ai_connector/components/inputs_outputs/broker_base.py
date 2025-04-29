@@ -84,6 +84,12 @@ base_info = {
             "description": "Number of reconnection retries. Only used if reconnection_strategy is parametrized_retry",
             "default": 10,
         },
+        {
+            "name": "create_queue_on_start",
+            "required": False,
+            "description": "Create a queue for the broker",
+            "default": True,
+        },
     ],
 }
 
@@ -168,6 +174,7 @@ class BrokerBase(ComponentBase):
             "retry_count": self.get_config("retry_count"),
             "retry_interval": self.get_config("retry_interval"),
             "max_redelivery_count": self.get_config("max_redelivery_count"),
+            "create_queue_on_start": self.get_config("create_queue_on_start", True),
         }
         return broker_properties
 
