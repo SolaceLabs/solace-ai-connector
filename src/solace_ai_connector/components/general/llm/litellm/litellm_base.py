@@ -1,6 +1,7 @@
 """Base class for LiteLLM chat models"""
 
 import litellm
+import time
 
 from threading import Lock
 from litellm import ModelResponse
@@ -167,13 +168,21 @@ class LiteLLMBase(ComponentBase):
 
     def load_balance(self, messages, stream):
         """load balance the messages"""
+        model=self.load_balancer_config[0]["model_name"]
         try:
             response = self.router.completion(
-                model=self.load_balancer_config[0]["model_name"],
+                model=model,
                 messages=messages,
                 stream=stream,
                 **({"stream_options": {"include_usage": True}} if stream else {}),
             )
+        except litellm.BadRequestError as e:
+            # Handle context window exceeded error
+            if "ContextWindowExceededError" in str(e):
+                log.error(f"Context window exceeded error: {e}")
+                return self.context_exceeded_response(model)
+            log.error(f"Bad request error: {e}")
+            raise e
         except Exception as e:
             log.error(f"LiteLLM API connection error: {e}")
             raise e
@@ -214,3 +223,27 @@ class LiteLLMBase(ComponentBase):
                     f"Each model configuration requires both a model name and an API key, neither of which can be None.\n"
                     f"Received config: {model}"
                 )
+
+    def context_exceeded_response(self, model):
+        """Create a response for when context is too large for any model"""
+        response_message = {
+            "role": "assistant",
+            "content": (
+                f"Your request exceeds the maximum context length for {model}.\n\n"
+                f"The input is too long for the model to process. Please consider:\n"
+                f"1. Reducing the length of your input\n"
+                f"2. Splitting your request into smaller chunks\n"
+                f"3. Summarizing or extracting only the most relevant parts of your content\n\n"
+                f"Technical details: Input is too long for requested model."
+            )
+        }
+        # Create a ModelResponse object with the error message
+        return ModelResponse(
+            id=f"context-exceeded-{int(time.time())}",
+            choices=[{
+                "message": response_message,
+                "finish_reason": "context_window_exceeded",
+                "index": 0,
+            }],
+            model=model
+        )
