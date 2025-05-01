@@ -99,6 +99,7 @@ and produce an object like this:
 
 
 class MapTransform(TransformBase):
+
     def __init__(self, transform_config, index, log_identifier=None):
         self.skip_expresions = True
         super().__init__(transform_config, index, log_identifier)
@@ -118,7 +119,7 @@ class MapTransform(TransformBase):
         if not dest_list_expression:
             raise ValueError(
                 f"{self.log_identifier}: Map transform does not have a dest list expression"
-            )
+            ) from None
 
         # Get the processing function - pass None as the message so we get the function back
         processing_function = self.get_config(None, "processing_function")
@@ -126,7 +127,7 @@ class MapTransform(TransformBase):
         if processing_function and not callable(processing_function):
             raise ValueError(
                 f"{self.log_identifier}: Map transform has a non-callable processing function"
-            )
+            ) from None
 
         keyword_args = {
             "index": 0,
@@ -151,10 +152,10 @@ class MapTransform(TransformBase):
             if processing_function:
                 try:
                     source_data = processing_function(message)
-                except Exception as e:
+                except Exception:
                     raise ValueError(
-                        f"{self.log_identifier}: Error calling processing function: {e}"
-                    ) from e
+                        f"{self.log_identifier}: Error calling processing function"
+                    ) from None
 
             # Now put the data into the destination list
             full_dest_expression = None

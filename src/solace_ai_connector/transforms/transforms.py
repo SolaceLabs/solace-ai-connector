@@ -20,6 +20,7 @@ name_to_class = {
 
 
 class Transforms:
+
     def __init__(self, transforms, log_identifier=None):
         self.transformsList = transforms
         self.transforms = []
@@ -36,14 +37,16 @@ class Transforms:
     def create_transform(self, transform, index):
         transform_type = transform.get("type", None)
         if not transform_type:
-            raise ValueError(f"Transform at index {index} does not have a type")
+            raise ValueError(
+                f"Transform at index {index} does not have a type"
+            ) from None
 
         transform_class = name_to_class.get(transform_type, None)
 
         if not transform_class:
             raise ValueError(
                 f"Transform at index {index} has an unknown type: {transform_type}"
-            )
+            ) from None
 
         # Create the transform
         transform_instance = transform_class(

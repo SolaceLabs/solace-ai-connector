@@ -29,6 +29,7 @@ info = {
 
 
 class FileOutput(ComponentBase):
+
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
 
@@ -40,12 +41,12 @@ class FileOutput(ComponentBase):
         if not file_path:
             raise ValueError(
                 f"file_path is required for file_output component. {self.log_identifier}"
-            )
+            ) from None
 
         if mode not in ["w", "a"]:
             raise ValueError(
                 f"mode must be either 'w' (write) or 'a' (append). {self.log_identifier}"
-            )
+            ) from None
 
         if content:
             with open(file_path, mode, encoding="utf-8") as f:

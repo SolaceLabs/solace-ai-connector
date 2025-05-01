@@ -7,3 +7,5 @@ Flask-SocketIO~=5.4.1
 build~=1.2.2.post1
 datadog~=0.50.2
 SQLAlchemy~=2.0.36
+gevent>=24.11.1
+gevent-websocket>=0.10.1

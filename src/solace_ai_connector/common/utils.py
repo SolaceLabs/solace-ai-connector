@@ -54,11 +54,13 @@ def import_from_directories(module_name, base_path=None):
                     if path not in sys.path:
                         sys.path.insert(0, path)
                     spec.loader.exec_module(module)
-                except Exception as e:
-                    log.error("Exception importing %s: %s", module_path, e)
-                    raise e
+                except Exception:
+                    log.error("Exception importing %s", module_path)
+                    raise ValueError(
+                        f"Error importing module {module_path} - {module_name}"
+                    ) from None
                 return module
-    raise ImportError(f"Could not import module '{module_name}'")
+    raise ImportError(f"Could not import module '{module_name}'") from None
 
 
 def get_subdirectories(path=None):
@@ -115,7 +117,7 @@ def import_module(module, base_path=None, component_package=None):
             sys.path.append(base_path)
     try:
         return importlib.import_module(module)
-    except ModuleNotFoundError as exc:
+    except ModuleNotFoundError:
         # If the module does not have a path associated with it, try
         # importing it from the known prefixes - annoying that this
         # is necessary. It seems you can't dynamically import a module
@@ -149,12 +151,14 @@ def import_module(module, base_path=None, component_package=None):
                             name != "solace_ai_connector"
                             and name.split(".")[-1] != full_name.split(".")[-1]
                         ):
-                            raise e
-                    except Exception as e:
+                            raise ModuleNotFoundError(
+                                f"Module '{full_name}' not found"
+                            ) from None
+                    except Exception:
                         raise ImportError(
-                            f"Module load error for {full_name}: {e}"
-                        ) from e
-        raise ModuleNotFoundError(f"Module '{module}' not found") from exc
+                            f"Module load error for {full_name}"
+                        ) from None
+        raise ModuleNotFoundError(f"Module '{module}' not found") from None
 
 
 def invoke_config(config, allow_source_expression=False):
@@ -178,7 +182,9 @@ def invoke_config(config, allow_source_expression=False):
     params = config.get("params", {})
 
     if module and obj:
-        raise ValueError("Cannot have both module and object in an 'invoke' config")
+        raise ValueError(
+            "Cannot have both module and object in an 'invoke' config"
+        ) from None
 
     if module:
         obj = import_module(module, base_path=path)
@@ -196,7 +202,9 @@ def invoke_config(config, allow_source_expression=False):
         if func is None:
             func = getattr(builtins, function, None)
             if func is None:
-                raise ValueError(f"Function '{function}' not a known python function")
+                raise ValueError(
+                    f"Function '{function}' not a known python function"
+                ) from None
         return call_function(func, params, allow_source_expression)
 
 
@@ -210,9 +218,9 @@ def call_function(function, params, allow_source_expression):
     positional = params.get("positional")
     keyword = params.get("keyword")
     if positional is not None and not isinstance(positional, list):
-        raise ValueError("positional must be a list")
+        raise ValueError("positional must be a list") from None
     if keyword is not None and not isinstance(keyword, dict):
-        raise ValueError("keyword must be a dict")
+        raise ValueError("keyword must be a dict") from None
 
     # Loop through the parameters looking for source expressions and lambda functions
     have_lambda = False
@@ -244,7 +252,7 @@ def call_function(function, params, allow_source_expression):
                 if not allow_source_expression:
                     raise ValueError(
                         "evaluate_expression() is not allowed in this context"
-                    )
+                    ) from None
                 (expression, data_type) = extract_evaluate_expression(value)
                 keyword[key] = create_lambda_function_for_source_expression(
                     expression, data_type=data_type
@@ -287,7 +295,7 @@ def extract_evaluate_expression(se_call):
         (expression, data_type) = re.split(r"\s*,\s*", expression)
 
     if not expression:
-        raise ValueError("evaluate_expression() must contain an expression")
+        raise ValueError("evaluate_expression() must contain an expression") from None
     return (expression, data_type)
 
 
@@ -377,42 +385,42 @@ def decode_payload(payload, encoding, payload_format):
     if encoding == "base64":
         try:
             payload = base64.b64decode(payload)
-        except Exception as e:
-            log.error("Error decoding base64 payload: %s", e)
-            raise e
+        except Exception:
+            log.error("Error decoding base64 payload")
+            raise ValueError("Error decoding base64 payload") from None
     elif encoding == "gzip":
         try:
             payload = gzip.decompress(payload)
-        except Exception as e:
-            log.error("Error decompressing gzip payload: %s", e)
-            raise e
+        except Exception:
+            log.error("Error decompressing gzip payload")
+            raise ValueError("Error decompressing gzip payload") from None
     elif encoding == "utf-8" and (
         isinstance(payload, bytes) or isinstance(payload, bytearray)
     ):
         try:
             payload = payload.decode("utf-8")
-        except UnicodeDecodeError as e:
-            log.error("Error decoding UTF-8 payload: %s", e)
-            raise e
+        except UnicodeDecodeError:
+            log.error("Error decoding UTF-8 payload")
+            raise ValueError("Error decoding UTF-8 payload") from None
     elif encoding == "unicode_escape":
         try:
             payload = payload.decode("unicode_escape")
-        except UnicodeDecodeError as e:
-            log.error("Error decoding unicode_escape payload: %s", e)
-            raise e
+        except UnicodeDecodeError:
+            log.error("Error decoding unicode_escape payload")
+            raise ValueError("Error decoding unicode_escape payload") from None
 
     if payload_format == "json":
         try:
             payload = json.loads(payload)
-        except json.JSONDecodeError as e:
-            log.error("Error decoding JSON payload: %s", e)
-            raise e
+        except json.JSONDecodeError:
+            log.error("Error decoding JSON payload")
+            raise ValueError("Error decoding JSON payload") from None
     elif payload_format == "yaml":
         try:
             payload = yaml.safe_load(payload)
-        except Exception as e:
-            log.error("Error decoding YAML payload: %s", e)
-            raise e
+        except Exception:
+            log.error("Error decoding YAML payload")
+            raise ValueError("Error decoding YAML payload") from None
 
     return payload
 
@@ -460,7 +468,7 @@ def get_data_value(data_object, expression, resolve_none_colon=False):
             raise ValueError(
                 f"Could not get data value for expression '{expression}' - data "
                 "is not a dictionary or list"
-            )
+            ) from None
 
         # If at any point we get None, stop and return None
         if current_data is None:
@@ -483,18 +491,18 @@ def set_data_value(data_object, expression, value):
     if data_object is None:
         raise ValueError(
             f"Could not set data value for expression '{expression}' - data_object is None"
-        )
+        ) from None
     if not isinstance(data_object, dict) and not isinstance(data_object, list):
         raise ValueError(
             f"Could not set data value for expression '{expression}' - data_object "
             "is not a dictionary or list"
-        )
+        ) from None
 
     # It is an error if the data_name is empty
     if data_name == "":
         raise ValueError(
             f"Could not set data value for expression '{expression}' - data_name is empty"
-        )
+        ) from None
 
     # Split the data_name by dots to get the path
     path_parts = data_name.split(".")
@@ -551,18 +559,18 @@ def remove_data_value(data_object, expression):
     if data_object is None:
         raise ValueError(
             f"Could not remove data value for expression '{expression}' - data_object is None"
-        )
+        ) from None
     if not isinstance(data_object, dict) and not isinstance(data_object, list):
         raise ValueError(
             f"Could not remove data value for expression '{expression}' - data_object "
             "is not a dictionary or list"
-        )
+        ) from None
 
     # It is an error if the data_name is empty
     if data_name == "":
         raise ValueError(
             f"Could not remove data value for expression '{expression}' - data_name is empty"
-        )
+        ) from None
 
     # Split the data_name by dots to get the path
     path_parts = data_name.split(".")
@@ -600,10 +608,11 @@ def remove_data_value(data_object, expression):
                 )
                 return
 
+
 def deep_merge(d, u):
     # Create a deep copy of first dict to avoid modifying original
     result = deepcopy(d)
-    
+
     # Iterate through keys and values in second dict
     for k, v in u.items():
         if k in result:

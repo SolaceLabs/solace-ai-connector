@@ -42,7 +42,7 @@ class WebScraper(ComponentBase):
     def invoke(self, message, data):
         url = data["url"]
         if type(url) != str or not url:
-            raise ValueError("No URL provided")
+            raise ValueError("No URL provided") from None
         content = self.scrape(url)
         return content
 
@@ -50,10 +50,10 @@ class WebScraper(ComponentBase):
     def scrape(self, url):
         try:
             from playwright.sync_api import sync_playwright
-        except ImportError as e:
+        except ImportError:
             err_msg = "Please install playwright by running 'pip install playwright' and 'playwright install'."
             log.error(err_msg)
-            raise ValueError(err_msg) from e
+            raise ValueError(err_msg) from None
 
         with sync_playwright() as p:
             try:
@@ -62,17 +62,17 @@ class WebScraper(ComponentBase):
                     headless=True,
                     timeout=self.timeout,
                 )  # Set headless=False to see the browser in action
-            except ImportError as e:
+            except ImportError:
                 err_msg = "Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
                 log.error(err_msg)
-                raise ValueError(err_msg) from e
+                raise ValueError(err_msg) from None
 
             resp = {}
             try:
                 context = browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
                 )
-                log.debug(f"Scraping the website: {url}")
+                log.debug("Scraping the website")
                 page = context.new_page()
                 page.goto(url)
 
@@ -86,11 +86,11 @@ class WebScraper(ComponentBase):
                 title = page.title()
                 content = page.evaluate("document.body.innerText")
                 resp = {"title": title, "content": content}
-                log.debug(f"Scraped the website: {url}. \n Content is {content}")
+                log.debug("Scraped the website.")
                 browser.close()
                 return resp
-            except Exception as e:
-                log.error(f"Failed to scrape the website: {e}")
+            except Exception:
+                log.error("Failed to scrape the website.")
                 browser.close()
                 return {
                     "title": "",

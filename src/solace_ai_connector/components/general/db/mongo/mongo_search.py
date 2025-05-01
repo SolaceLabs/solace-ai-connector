@@ -32,7 +32,7 @@ class MongoDBSearchComponent(MongoDBBaseComponent):
         collection = data.get("collection")
         query = data.get("query")
         if not query:
-            raise ValueError("No query provided")
+            raise ValueError("No query provided") from None
         if isinstance(query, str):
             query = json.loads(query)
         return self.db_handler.execute_query(collection, query)

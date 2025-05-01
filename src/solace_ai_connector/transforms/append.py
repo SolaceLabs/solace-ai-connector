@@ -40,10 +40,7 @@ class AppendTransform(TransformBase):
                 dest_list.append(source_data)
             else:
                 log.warning(
-                    "Overwriting non-list data (%s) with list data. Source=%s, Dest=%s",
-                    dest_list,
-                    source_expression,
-                    dest_expression,
+                    "Overwriting non-list data with list data.",
                 )
                 message.set_data(dest_expression, [source_data])
         return message

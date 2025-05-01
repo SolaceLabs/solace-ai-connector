@@ -71,7 +71,7 @@ class WebSearchDuckDuckGo(WebSearchBase):
 
     def invoke(self, message, data):
         if type(data) != str or not data:
-            raise ValueError("Invalid search query")
+            raise ValueError("Invalid search query") from None
         params = {
             "q": data,  # User query
             "format": "json",  # Response format (json by default)
@@ -86,7 +86,7 @@ class WebSearchDuckDuckGo(WebSearchBase):
             response = self.parse(response)
             return response
         else:
-            raise ValueError(f"Error: {response.status_code}")
+            raise ValueError(f"Error: {response.status_code}") from None
 
     # Extract required data from a message
     def parse(self, message):

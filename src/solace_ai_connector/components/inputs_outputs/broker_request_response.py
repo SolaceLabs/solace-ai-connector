@@ -310,8 +310,8 @@ class BrokerRequestResponse(BrokerBase):
                 )
                 if broker_message:
                     self.process_response(broker_message)
-            except Exception as e:
-                log.error("Error handling response: %s", e)
+            except Exception:
+                log.error("Error handling response.")
 
     def handle_test_pass_through(self):
         while not self.stop_signal.is_set():
@@ -322,8 +322,8 @@ class BrokerRequestResponse(BrokerBase):
                 self.process_response(message)
             except queue.Empty:
                 continue
-            except Exception as e:
-                log.error("Error handling test passthrough: %s", e)
+            except Exception:
+                log.error("Error handling test passthrough.")
 
     def process_response(self, broker_message):
         if self.test_mode:
@@ -337,9 +337,9 @@ class BrokerRequestResponse(BrokerBase):
             user_properties = broker_message.get("user_properties", {})
 
             self.messaging_service.ack_message(broker_message)
-        
+
         if not user_properties:
-            log.error("Received response without user properties: %s", payload)
+            log.error("Received response without user properties.")
             return
 
         streaming_complete_expression = None
@@ -347,34 +347,32 @@ class BrokerRequestResponse(BrokerBase):
             user_properties, self.user_properties_reply_metadata_key, True
         )
         if not metadata_json:
-            log.error("Received response without metadata: %s", payload)
+            log.error("Received response without metadata.")
             return
 
         try:
             metadata_stack = json.loads(metadata_json)
         except json.JSONDecodeError:
-            log.error("Received response with invalid metadata JSON: %s", metadata_json)
+            log.error("Received response with invalid metadata JSON.")
             return
 
         if not metadata_stack:
-            log.error("Received response with empty metadata stack: %s", payload)
+            log.error("Received response with empty metadata stack.")
             return
 
         try:
             current_metadata = metadata_stack.pop()
         except IndexError:
-            log.error(
-                "Received response with invalid metadata stack: %s", metadata_stack
-            )
+            log.error("Received response with invalid metadata stack.")
             return
         request_id = current_metadata.get("request_id")
         if not request_id:
-            log.error("Received response without request_id in metadata: %s", payload)
+            log.error("Received response without request_id in metadata.")
             return
 
         cached_request = self.cache_service.get_data(request_id)
         if not cached_request:
-            log.error("Received response for unknown request_id: %s", request_id)
+            log.error("Received response for unknown request_id.")
             return
 
         stream = cached_request.get("stream", False)
@@ -427,8 +425,8 @@ class BrokerRequestResponse(BrokerBase):
                 self.cache_service.add_data(
                     key=request_id,
                     value=cached_request,
-                    expiry=self.request_expiry_ms / 1000, # Reset expiry time
-                    component=self
+                    expiry=self.request_expiry_ms / 1000,  # Reset expiry time
+                    component=self,
                 )
 
         if last_piece:
@@ -463,14 +461,9 @@ class BrokerRequestResponse(BrokerBase):
                     existing_metadata.append(metadata)
                     metadata = existing_metadata
                 else:
-                    log.warning(
-                        "Invalid existing metadata format: %s", existing_metadata
-                    )
+                    log.warning("Invalid existing metadata format.")
             except json.JSONDecodeError:
-                log.warning(
-                    "Failed to decode existing metadata JSON: %s",
-                    existing_metadata_json,
-                )
+                log.warning("Failed to decode existing metadata JSON.")
         else:
             metadata = [metadata]
 
@@ -501,7 +494,9 @@ class BrokerRequestResponse(BrokerBase):
             if self.broker_type == "test_streaming":
                 # The payload should be an array. Send one message per item in the array
                 if not isinstance(data["payload"], list):
-                    raise ValueError("Payload must be a list for test_streaming broker")
+                    raise ValueError(
+                        "Payload must be a list for test_streaming broker"
+                    ) from None
                 for item in data["payload"]:
                     encoded_payload = self.encode_payload(item)
                     self.pass_through_queue.put(

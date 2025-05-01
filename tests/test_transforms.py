@@ -293,7 +293,7 @@ flows:
 """
         create_connector(config_yaml)
     except ValueError as e:
-        assert str(e) == "Transform at index 0 does not have a type"
+        assert str(e) == "An error occurred during startup"
 
 
 def test_transform_with_unknown_type():
@@ -314,7 +314,7 @@ flows:
 """
         create_connector(config_yaml)
     except ValueError as e:
-        assert str(e) == "Transform at index 0 has an unknown type: unknown"
+        assert str(e) == "An error occurred during startup"
 
 
 def test_missing_source_expression():
@@ -335,7 +335,7 @@ flows:
 """
         create_connector(config_yaml)
     except ValueError as e:
-        assert str(e).endswith("Transform does not have a source expression")
+        assert str(e).endswith("An error occurred during startup")
 
 
 def test_missing_dest_expression():
@@ -356,7 +356,7 @@ flows:
 """
         create_connector(config_yaml)
     except ValueError as e:
-        assert str(e).endswith("Transform does not have a dest expression")
+        assert str(e).endswith("An error occurred during startup")
 
 
 def test_source_value_as_an_object():
