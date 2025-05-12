@@ -22,6 +22,8 @@ from .general.for_testing import (
     need_ack_input,
     fail,
     give_ack_output,
+    need_nack_input,
+    give_nack_output,
 )
 
 from .general.websearch import (websearch_duckduckgo, websearch_google, websearch_bing)
@@ -38,6 +40,8 @@ from .general.aggregate import Aggregate
 from .general.for_testing.need_ack_input import NeedAckInput
 from .general.for_testing.fail import Fail
 from .general.for_testing.give_ack_output import GiveAckOutput
+from .general.for_testing.need_nack_input import NeedNackInput
+from .general.for_testing.give_nack_output import GiveNackOutput
 from .general.pass_through import PassThrough
 from .general.delay import Delay
 from .general.iterate import Iterate
