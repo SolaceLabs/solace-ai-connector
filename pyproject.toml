@@ -5,8 +5,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "solace_ai_connector"
-# dynamic = ["version"] # Commented out for workaround
-version = "0.0.1" # Added static version for workaround
+# version = "0.0.1" # Commented out for workaround
+dynamic = ["version"] # Commented out for workaround
 authors = [
   { name="Edward Funnekotter", email="edward.funnekotter@solace.com" },
 ]
@@ -334,8 +334,8 @@ python = ["3.10", "3.13"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/solace_ai_connector"]
 
-# [tool.hatch.version] # Commented out for workaround
-# path = "src/solace_ai_connector/__init__.py" # Commented out for workaround
+[tool.hatch.version] # Commented out for workaround
+path = "src/solace_ai_connector/__init__.py" # Commented out for workaround
 
 [tool.ruff]
 lint.select = ["E4", "E7", "E9", "F"]
