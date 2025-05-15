@@ -214,8 +214,6 @@ def create_ai_prompt(info):
     with open("prompts.yaml", "w", encoding="utf-8") as f:
         f.write(yaml.dump(prompts, default_style=">", default_flow_style=True))
 
-    print(prompts["system_prompt"])
-    print(prompts["prompt"])
     with open("prompts.txt", "w", encoding="utf-8") as f:
         f.write(prompts["system_prompt"])
         f.write(prompts["prompt"])

@@ -60,11 +60,11 @@ class SolaceAiConnector:
             log.info("Solace AI Event Connector started successfully")
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
-            raise KeyboardInterrupt
-        except Exception as e:
-            log.error("Error during Solace AI Event Connector startup: %s", str(e))
-            log.error("Traceback: %s", traceback.format_exc())
-            raise e
+
+            raise KeyboardInterrupt from None
+        except Exception:
+            log.error("Error during Solace AI Event Connector startup")
+            raise ValueError("An error occurred during startup") from None
 
     def create_apps(self):
         """Create apps from the configuration"""
@@ -138,10 +138,10 @@ class SolaceAiConnector:
 
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
-            raise KeyboardInterrupt
-        except Exception as e:
-            log.error("Error creating apps: %s", e)
-            raise e
+            raise KeyboardInterrupt from None
+        except Exception:
+            log.error("Error creating apps")
+            raise ValueError("An error occurred during app creation") from None
 
     def create_internal_app(self, app_name: str, flows: List[Dict[str, Any]]) -> App:
         """
@@ -189,7 +189,9 @@ class SolaceAiConnector:
         This is now handled by App.create_flow().
         """
         # This should not be called directly anymore
-        raise NotImplementedError("create_flow is deprecated, use create_apps instead")
+        raise NotImplementedError(
+            "create_flow is deprecated, use create_apps instead"
+        ) from None
 
     def send_message_to_flow(self, flow_name, message):
         """Send a message to a flow"""
@@ -209,7 +211,7 @@ class SolaceAiConnector:
                 break
             except KeyboardInterrupt:
                 log.info("Received keyboard interrupt - stopping")
-                raise KeyboardInterrupt
+                raise KeyboardInterrupt from None
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
@@ -217,8 +219,8 @@ class SolaceAiConnector:
         for app in self.apps:
             try:
                 app.cleanup()
-            except Exception as e:
-                log.error(f"Error cleaning up app: {e}")
+            except Exception:
+                log.error("Error cleaning up app")
         self.apps.clear()
         self.flows.clear()
 
@@ -227,8 +229,8 @@ class SolaceAiConnector:
             try:
                 while not queue.empty():
                     queue.get_nowait()
-            except Exception as e:
-                log.error(f"Error cleaning queue {queue_name}: {e}")
+            except Exception:
+                log.error(f"Error cleaning queue {queue_name}")
         self.flow_input_queues.clear()
 
         if hasattr(self, "trace_queue") and self.trace_queue:
@@ -299,11 +301,11 @@ class SolaceAiConnector:
     def validate_config(self):
         """Just some quick validation of the config for now"""
         if not self.config:
-            raise ValueError("No config provided")
+            raise ValueError("No config provided") from None
 
         # Check if either apps or flows are defined
         if not self.config.get("apps") and not self.config.get("flows"):
-            raise ValueError("No apps or flows defined in configuration file")
+            raise ValueError("No apps or flows defined in configuration file") from None
 
         if not self.config.get("log"):
             log.warning("No log config provided - using defaults")
@@ -312,10 +314,12 @@ class SolaceAiConnector:
         if self.config.get("apps"):
             for index, app in enumerate(self.config.get("apps", [])):
                 if not app.get("name"):
-                    raise ValueError(f"App name not provided in app {index}")
+                    raise ValueError(f"App name not provided in app {index}") from None
 
                 if not app.get("flows"):
-                    raise ValueError(f"No flows defined in app {app.get('name')}")
+                    raise ValueError(
+                        f"No flows defined in app {app.get('name')}"
+                    ) from None
 
                 # Validate flows in the app
                 self._validate_flows(app.get("flows"), f"app {app.get('name')}")
@@ -328,31 +332,33 @@ class SolaceAiConnector:
         """Validate flows configuration"""
         for index, flow in enumerate(flows):
             if not flow.get("name"):
-                raise ValueError(f"Flow name not provided in flow {index} of {context}")
+                raise ValueError(
+                    f"Flow name not provided in flow {index} of {context}"
+                ) from None
 
             if not flow.get("components"):
                 raise ValueError(
                     f"Flow components list not provided in flow {index} of {context}"
-                )
+                ) from None
 
             # Verify that the components list is a list
             if not isinstance(flow.get("components"), list):
                 raise ValueError(
                     f"Flow components is not a list in flow {index} of {context}"
-                )
+                ) from None
 
             # Loop through the components and validate them
             for component_index, component in enumerate(flow.get("components", [])):
                 if not component.get("component_name"):
                     raise ValueError(
                         f"component_name not provided in flow {index}, component {component_index} of {context}"
-                    )
+                    ) from None
 
                 if not component.get("component_module"):
                     raise ValueError(
                         f"component_module not provided in flow {index}, "
                         f"component {component_index} of {context}"
-                    )
+                    ) from None
 
     def get_flows(self):
         """Return the flows"""

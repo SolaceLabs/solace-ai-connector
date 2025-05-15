@@ -6,7 +6,8 @@ from ...common.log import log
 from ...common.utils import deep_merge
 from ...common.message import Message
 
-info = deep_merge(base_info,
+info = deep_merge(
+    base_info,
     {
         "class_name": "BrokerOutput",
         "description": (
@@ -57,7 +58,10 @@ info = deep_merge(base_info,
                     "type": "any",
                     "description": "Payload of the message sent to the broker",
                 },
-                "topic": {"type": "string", "description": "Topic to send the message to"},
+                "topic": {
+                    "type": "string",
+                    "description": "Topic to send the message to",
+                },
                 "user_properties": {
                     "type": "object",
                     "description": "User properties to send with the message",
@@ -65,9 +69,8 @@ info = deep_merge(base_info,
             },
             "required": ["payload", "topic"],
         },
-    }
+    },
 )
-
 
 
 class BrokerOutput(BrokerBase):
@@ -103,10 +106,10 @@ class BrokerOutput(BrokerBase):
             self.get_config("discard_on_ttl_expiration")
             and user_properties.get("ttl") <= 0
         ):
-            log.info("Discarding message due to TTL expiration: %s", message)
+            log.info("Discarding message due to TTL expiration.")
             return
 
-        log.debug("Sending message to broker: topic=%s", topic)
+        log.debug("Sending message to broker.")
         user_context = None
         if self.propagate_acknowledgements:
             user_context = {

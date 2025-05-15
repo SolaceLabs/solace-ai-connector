@@ -47,7 +47,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
     def invoke(self, message, data):
         session_id = data.get("session_id")
         if not session_id:
-            raise ValueError("session_id is not provided")
+            raise ValueError("session_id is not provided") from None
 
         clear_history_but_keep_depth = data.get("clear_history_but_keep_depth")
         try:
@@ -70,7 +70,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
                 )
 
             session_history = history[session_id]["messages"]
-            log.debug(f"Session history: {session_history}")
+            log.debug("Got session history")
 
             # If the passed in messages have a system message and the history's
             # first message is a system message, then replace the history's first
@@ -103,6 +103,6 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
             )
 
             self.kv_store_set(self.history_key, history)
-            log.debug(f"Updated history: {history}")
+            log.debug("Updated history")
 
         return response

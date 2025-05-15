@@ -23,16 +23,24 @@ class MessagingServiceBuilder:
     def build(self):
         dev_mode = self.broker_properties.get("dev_mode", os.getenv("SOLACE_DEV_MODE"))
         if (
-            isinstance(dev_mode, bool) and dev_mode or
-            dev_mode and isinstance(dev_mode, str) and dev_mode.lower() == "true" or
-            self.broker_properties["broker_type"] == "dev_broker"
+            isinstance(dev_mode, bool)
+            and dev_mode
+            or dev_mode
+            and isinstance(dev_mode, str)
+            and dev_mode.lower() == "true"
+            or self.broker_properties["broker_type"] == "dev_broker"
         ):
             return DevBroker(
                 self.broker_properties, self.flow_lock_manager, self.flow_kv_store
             )
-        elif self.broker_properties["broker_type"] == "solace" or self.broker_properties["broker_type"] is None:
-            return SolaceMessaging(self.broker_properties, self.broker_name, self.stop_signal)
+        elif (
+            self.broker_properties["broker_type"] == "solace"
+            or self.broker_properties["broker_type"] is None
+        ):
+            return SolaceMessaging(
+                self.broker_properties, self.broker_name, self.stop_signal
+            )
 
         raise ValueError(
             f"Unsupported broker type: {self.broker_properties['broker_type']}. Please either enable dev_mode or use a supported broker type."
-        )
+        ) from None

@@ -5,6 +5,7 @@ import signal
 from abc import ABC, abstractmethod
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
+from gevent.pywsgi import WSGIServer
 from ...common.log import log
 from ..component_base import ComponentBase
 from flask.logging import default_handler
@@ -48,6 +49,7 @@ base_info = {
 
 
 class WebsocketBase(ComponentBase, ABC):
+
     def __init__(self, info, **kwargs):
         super().__init__(info, **kwargs)
         self.listen_port = self.get_config("listen_port")
@@ -106,26 +108,20 @@ class WebsocketBase(ComponentBase, ABC):
 
     def run_server(self):
         if self.socketio:
-            self.socketio.run(
-                self.app, port=self.listen_port, debug=False, use_reloader=False
-            )
+            self.http_server = WSGIServer(('0.0.0.0', self.listen_port), self.app)
+            self.http_server.serve_forever()
 
     def stop_server(self):
-        try:
-            func = request.environ.get('werkzeug.server.shutdown')
-            if func is None:
-                raise RuntimeError('Not running with the Werkzeug Server')
-            func()
-        except RuntimeError:
-            # Ignore the error if the server is already shutdown
-            pass
+        if hasattr(self, 'http_server') and self.http_server.started:
+            try:
+                self.http_server.stop(timeout=10)
+            except Exception as e:
+                log.warning("Error stopping WebSocket server: %s", str(e))
         try:
             self.socketio.stop()
         except Exception as e:
             pass
-        # force exiting component
-        os.kill(os.getpid(), signal.SIGINT)
- 
+          
     def get_sockets(self):
         if not self.sockets:
             self.sockets = self.kv_store_get("websocket_connections") or {}

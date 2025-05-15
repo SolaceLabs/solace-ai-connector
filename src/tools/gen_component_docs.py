@@ -212,6 +212,7 @@ def create_ai_prompt(info):
 
     print(prompts["system_prompt"])
     print(prompts["prompt"])
+
     with open("prompts.txt", "w", encoding="utf-8") as f:
         f.write(prompts["system_prompt"])
         f.write(prompts["prompt"])

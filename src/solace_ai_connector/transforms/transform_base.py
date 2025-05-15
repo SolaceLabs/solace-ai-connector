@@ -4,6 +4,7 @@ from ..common.utils import get_source_expression
 
 
 class TransformBase:
+
     def __init__(self, transform_config, index, log_identifier=None):
         self.transform_config = transform_config
         self.index = index
@@ -43,7 +44,7 @@ class TransformBase:
             if not allow_none:
                 raise ValueError(
                     f"{self.log_identifier}: Transform does not have a source expression"
-                )
+                ) from None
             else:
                 return None
         return source_expression
@@ -53,5 +54,5 @@ class TransformBase:
         if not dest_expression:
             raise ValueError(
                 f"{self.log_identifier}: Transform does not have a dest expression"
-            )
+            ) from None
         return dest_expression

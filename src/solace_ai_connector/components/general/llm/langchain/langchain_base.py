@@ -7,6 +7,7 @@ from .....common.utils import resolve_config_values
 
 
 class LangChainBase(ComponentBase):
+
     def __init__(self, module_info, **kwargs):
         super().__init__(module_info, **kwargs)
         self.name = self.get_config("component_name")
@@ -31,8 +32,8 @@ class LangChainBase(ComponentBase):
         try:
             module = importlib.import_module(path)
             component_class = getattr(module, name)
-        except Exception as e:
-            raise ImportError("Unable to load component: " + str(e)) from e
+        except Exception:
+            raise ImportError("Unable to load component") from None
         return component_class
 
     def create_component(self, config, cls):
@@ -41,12 +42,12 @@ class LangChainBase(ComponentBase):
             config = {}
         try:
             component = cls(**config)
-        except Exception as e:
-            raise ImportError("Unable to create component: " + str(e)) from e
+        except Exception:
+            raise ImportError("Unable to create component") from None
         return component
 
     def invoke(self, message, data):
-        raise NotImplementedError("invoke() not implemented")
+        raise NotImplementedError("invoke() not implemented") from None
 
     def __str__(self):
         return self.__class__.__name__ + " " + str(self.config)
