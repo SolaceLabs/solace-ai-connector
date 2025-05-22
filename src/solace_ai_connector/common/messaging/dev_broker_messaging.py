@@ -9,6 +9,7 @@ from enum import Enum
 
 from .messaging import Messaging
 from ...common import Message_NACK_Outcome
+from ..log import log
 
 
 class DevConnectionStatus(Enum):
@@ -116,6 +117,56 @@ class DevBroker(Messaging):
 
     def ack_message(self, message):
         pass
+
+    def add_topic_to_queue(self, topic_str: str, queue_name: str) -> bool:
+        """Adds a topic subscription (regex pattern) to the specified queue's list of subscriptions."""
+        if not self.connected:
+            log.error("DevBroker: Cannot add topic to queue. Not connected.")
+            return False
+
+        regex_pattern = self._subscription_to_regex(topic_str)
+        with self.subscriptions_lock:
+            if queue_name not in self.queues:
+                log.error(
+                    f"DevBroker: Queue '{queue_name}' does not exist. Cannot add subscription '{topic_str}'."
+                )
+                return False
+
+            if regex_pattern not in self.subscriptions:
+                self.subscriptions[regex_pattern] = []
+
+            if queue_name not in self.subscriptions[regex_pattern]:
+                self.subscriptions[regex_pattern].append(queue_name)
+                log.info(
+                    f"DevBroker: Added subscription '{topic_str}' (regex: '{regex_pattern}') to queue '{queue_name}'."
+                )
+            else:
+                log.debug(
+                    f"DevBroker: Subscription '{topic_str}' already exists for queue '{queue_name}'."
+                )
+        return True
+
+    def remove_topic_from_queue(self, topic_str: str, queue_name: str) -> bool:
+        """Removes a topic subscription (regex pattern) from the specified queue's list of subscriptions."""
+        if not self.connected:
+            log.error("DevBroker: Cannot remove topic from queue. Not connected.")
+            return False
+
+        regex_pattern = self._subscription_to_regex(topic_str)
+        with self.subscriptions_lock:
+            if regex_pattern in self.subscriptions and queue_name in self.subscriptions[regex_pattern]:
+                self.subscriptions[regex_pattern].remove(queue_name)
+                if not self.subscriptions[regex_pattern]:  # If list becomes empty
+                    del self.subscriptions[regex_pattern]
+                log.info(
+                    f"DevBroker: Removed subscription '{topic_str}' (regex: '{regex_pattern}') from queue '{queue_name}'."
+                )
+                return True
+            else:
+                log.warning(
+                    f"DevBroker: Subscription '{topic_str}' not found for queue '{queue_name}'. Cannot remove."
+                )
+                return False
 
     def nack_message(self, broker_message, outcome: Message_NACK_Outcome):
         """

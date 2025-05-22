@@ -16,9 +16,10 @@ from ...common.utils import ensure_slash_on_end, ensure_slash_on_start
 info = {
     "class_name": "BrokerRequestResponse",
     "description": (
-        "Connect to a messaging broker, send request messages, and receive responses. "
-        "This component combines the functionality of broker_input and broker_output "
-        "with additional request-response handling."
+        "This component sends request messages to a broker and waits for correlated responses, "
+        "handling both outbound requests and inbound responses within a single component. "
+        "This is performed asynchronously, allowing to to handle multiple requests and responses "
+        "at the same time. "
     ),
     "config_parameters": [
         {

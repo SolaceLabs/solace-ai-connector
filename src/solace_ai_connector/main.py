@@ -3,6 +3,8 @@ import sys
 import re
 import yaml
 import signal
+import argparse
+from dotenv import load_dotenv
 
 from .solace_ai_connector import SolaceAiConnector
 
@@ -54,8 +56,9 @@ def process_includes(file_path, base_dir):
         )
         return indented_content
 
+    # Updated regex to handle !include correctly
     include_pattern = re.compile(
-        r'^(\s*)!include\s+(["\']?[^"\s\']+)["\']?', re.MULTILINE
+        r'^([ \t]*)!include\s+(["\']?[^"\s\']+)["\']?', re.MULTILINE
     )
     return include_pattern.sub(include_repl, content)
 
@@ -92,20 +95,45 @@ def merge_config(dict1, dict2):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Solace AI Event Connector: Connect Solace brokers to AI/ML models and services."
+    )
+    parser.add_argument(
+        "--envfile",
+        metavar="<file>",
+        type=str,
+        help="Load environment variables from a specified .env file.",
+    )
+    parser.add_argument(
+        "config_files",
+        metavar="<config.yaml>",
+        type=str,
+        nargs="+",  # Require at least one config file
+        help="One or more YAML configuration files for the connector.",
+    )
 
-    files = sys.argv[1:]
+    args = parser.parse_args()
 
-    if not files:
-        print("No configuration files provided", file=sys.stderr)
-        base_file = os.path.basename(sys.argv[0])
-        print(
-            f"Usage: {base_file} <config1.yaml> [<config2.yaml> ...]", file=sys.stderr
-        )
-        sys.exit(1)
+    # Load .env file if specified
+    if args.envfile:
+        if os.path.exists(args.envfile):
+            load_dotenv(dotenv_path=args.envfile, override=True)
+            print(f"Loaded environment variables from {args.envfile}")
+        else:
+            print(
+                f"Warning: Specified --envfile '{args.envfile}' not found.",
+                file=sys.stderr,
+            )
+
+    # Use the config files provided via arguments
+    files = args.config_files
 
     # Loop over the configuration files
     full_config = {}
     for file in files:
+        if not os.path.exists(file):
+            print(f"Error: Configuration file '{file}' not found.", file=sys.stderr)
+            sys.exit(1)
         # Load the configuration from the file
         config = load_config(file)
         # Merge the configuration into the full configuration
@@ -132,7 +160,19 @@ def main():
         import win32api
 
         def handler(type):
-            shutdown()
+            # Map Windows signals to Python exceptions for consistent handling
+            if type == signal.CTRL_C_EVENT:
+                print("\nCTRL+C pressed, initiating shutdown...")
+                # Raising KeyboardInterrupt here might not work reliably across threads
+                # Directly call shutdown for Windows console events
+                shutdown()
+                return True  # Indicate we handled it
+            elif type == signal.CTRL_BREAK_EVENT:
+                print("\nCTRL+BREAK pressed, initiating shutdown...")
+                shutdown()
+                return True
+            # Add other Windows signals if needed (CTRL_CLOSE_EVENT, etc.)
+            return False  # Let default handler run for other signals
 
         win32api.SetConsoleCtrlHandler(handler, True)
     else:
@@ -143,13 +183,23 @@ def main():
     try:
         sac.run()
         sac.wait_for_flows()
+        # If wait_for_flows completes without interruption, initiate clean shutdown
+        shutdown()
+    except (KeyboardInterrupt, SystemExit) as e:
+        print(f"Shutdown initiated due to {type(e).__name__}.")
+        shutdown()
     except Exception as e:
         print(f"Error running Solace AI Connector: {e}", file=sys.stderr)
-        shutdown()
-    except KeyboardInterrupt:
-        shutdown()
+        import traceback
+
+        traceback.print_exc(file=sys.stderr)
+        # Attempt graceful shutdown even on unexpected errors
+        try:
+            shutdown()
+        except Exception as shutdown_err:
+            print(f"Error during shutdown: {shutdown_err}", file=sys.stderr)
+            sys.exit(1)  # Exit with error code if shutdown fails
 
 
 if __name__ == "__main__":
-    # Read in the configuration yaml filenames from the args
     main()
