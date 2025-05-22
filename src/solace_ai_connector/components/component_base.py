@@ -2,7 +2,6 @@ import threading
 import queue
 import traceback
 import pprint
-import time
 from abc import abstractmethod
 from typing import Any
 
@@ -18,6 +17,7 @@ from ..flow.request_response_flow_controller import RequestResponseFlowControlle
 from ..common.monitoring import Monitoring
 from ..common.monitoring import Metrics
 from ..common import Message_NACK_Outcome
+from ..common.config_validation import validate_config_block
 
 DEFAULT_QUEUE_TIMEOUT_MS = 1000
 DEFAULT_QUEUE_MAX_DEPTH = 5
@@ -43,6 +43,7 @@ class ComponentBase:
         self.cache_service = kwargs.pop("cache_service", None)
         self.put_errors_in_error_queue = kwargs.pop("put_errors_in_error_queue", True)
         self.parent_app = kwargs.pop("app", None)
+        self._component_rrc = None  # Initialize component-level RRC attribute
 
         self.component_config = self.config.get("component_config") or {}
         self.broker_request_response_config = self.config.get(
@@ -66,7 +67,7 @@ class ComponentBase:
         self.validate_config()
         self.setup_transforms()
         self.setup_communications()
-        self.setup_broker_request_response()
+        self.setup_component_broker_request_response()
 
         self.monitoring = Monitoring()
 
@@ -126,7 +127,11 @@ class ComponentBase:
         self.process_event(event)
 
     def handle_component_error(self, e, event):
-        log.error(f"[{self.name}] {self.log_identifier} Component has crashed")
+        log.error(
+            "[%s] %s Component has crashed",
+            self.name,
+            self.log_identifier,
+        )
         self.handle_error(e, event)
 
     def get_next_event(self):
@@ -146,7 +151,9 @@ class ComponentBase:
                 timeout = self.queue_timeout_ms or DEFAULT_QUEUE_TIMEOUT_MS
                 event = self.input_queue.get(timeout=timeout / 1000)
                 log.debug(
-                    f"[{self.name}] {self.log_identifier} Component received event from input queue"
+                    "[%s] %s Component received event from input queue",
+                    self.name,
+                    self.log_identifier,
                 )
                 return event
             except queue.Empty:
@@ -186,7 +193,10 @@ class ComponentBase:
             self.handle_cache_expiry_event(event.data)
         else:
             log.warning(
-                f"[{self.name}] {self.log_identifier} Unknown event type: event.event_type"
+                "[%s] %s Unknown event type: %s",
+                self.name,
+                self.log_identifier,
+                event.event_type,
             )
 
     def process_pre_invoke(self, message):
@@ -205,7 +215,10 @@ class ComponentBase:
         # Finally send the message to the next component - or if this is the last component,
         # the component will override send_message and do whatever it needs to do with the message
         log.debug(
-            f"[{self.name}] {self.log_identifier} Sending message from {self.name}"
+            "[%s] %s Sending message from %s",
+            self.name,
+            self.log_identifier,
+            self.name,
         )
         self.send_message(message)
 
@@ -268,14 +281,14 @@ class ComponentBase:
                 pass
 
     def get_config(self, key=None, default=None):
-        # First check component config
+        # First check component_config (specific config for this component instance)
         val = self.component_config.get(key, None)
 
-        # If not found in component config, check app config if available
+        # If not found in component_config, check app config if available
         if val is None and self.parent_app:
             val = self.parent_app.get_config(key, None)
 
-        # If still not found, check flow config
+        # If still not found, check self.config (component entry from flow/app config)
         if val is None:
             val = self.config.get(key, default)
 
@@ -334,44 +347,74 @@ class ComponentBase:
         else:
             self.input_queue = queue.Queue(maxsize=self.queue_max_depth)
 
-    def setup_broker_request_response(self):
+    def setup_component_broker_request_response(self):
+        """Initializes RRC if configured at the component level (backward compatibility)."""
         if (
-            not self.broker_request_response_config
-            or not self.broker_request_response_config.get("enabled", False)
+            self.broker_request_response_config
+            and self.broker_request_response_config.get("enabled", False)
         ):
-            self.broker_request_response_controller = None
-            return
-        broker_config = self.broker_request_response_config.get("broker_config", {})
-        request_expiry_ms = self.broker_request_response_config.get(
-            "request_expiry_ms", 30000
-        )
-        if not broker_config:
-            raise ValueError(
-                f"Broker request response config not found for component {self.name}"
-            ) from None
-        rrc_config = {
-            "broker_config": broker_config,
-            "request_expiry_ms": request_expiry_ms,
-        }
+            log.warning(
+                "[%s] %s Using deprecated component-level 'broker_request_response' config. "
+                "Consider migrating to app-level 'request_reply_enabled' in the 'broker' config.",
+                self.name,
+                self.log_identifier,
+            )
+            broker_config = self.broker_request_response_config.get("broker_config", {})
+            request_expiry_ms = self.broker_request_response_config.get(
+                "request_expiry_ms", 30000  # Default from old logic
+            )
+            if not broker_config:
+                raise ValueError(
+                    f"Component-level broker_request_response config missing 'broker_config' for component {self.name}"
+                ) from None
 
-        optional_keys = [
-            "response_topic_prefix",
-            "response_queue_prefix",
-            "user_properties_reply_topic_key",
-            "user_properties_reply_metadata_key",
-            "response_topic_insertion_expression",
-        ]
+            # Construct config for the controller, extracting relevant keys
+            rrc_config = {
+                "broker_config": broker_config,
+                "request_expiry_ms": request_expiry_ms,
+            }
+            optional_keys = [
+                "response_topic_prefix",
+                "response_queue_prefix",
+                "user_properties_reply_topic_key",
+                "user_properties_reply_metadata_key",
+                "response_topic_insertion_expression",
+            ]
+            for key in optional_keys:
+                if key in self.broker_request_response_config:
+                    rrc_config[key] = self.broker_request_response_config[key]
 
-        for key in optional_keys:
-            if key in self.broker_request_response_config:
-                rrc_config[key] = self.broker_request_response_config[key]
-
-        self.broker_request_response_controller = RequestResponseFlowController(
-            config=rrc_config, connector=self.connector
-        )
+            try:
+                # Store the controller instance on the component
+                self._component_rrc = RequestResponseFlowController(
+                    config=rrc_config, connector=self.connector
+                )
+                log.info(
+                    "[%s] %s Initialized component-level RequestResponseFlowController.",
+                    self.name,
+                    self.log_identifier,
+                )
+            except Exception:
+                log.error(
+                    "[%s] %s Failed to initialize component-level RRC",
+                    self.name,
+                    self.log_identifier,
+                )
+                # Decide if this should be fatal
+                raise ValueError("Failed to initialize component-level RRC") from None
+        else:
+            self._component_rrc = None
 
     def is_broker_request_response_enabled(self):
-        return self.broker_request_response_controller is not None
+        """Checks if RRC is enabled either at App level or Component level."""
+        app = self.get_app()
+        # Check app level first (new way)
+        if app is not None and app.request_response_controller is not None:
+            return True
+        # Check component level (old way)
+        if hasattr(self, "_component_rrc") and self._component_rrc is not None:
+            return True
+        return False
 
     def setup_transforms(self):
         self.transforms = Transforms(
@@ -379,24 +422,24 @@ class ComponentBase:
         )
 
     def validate_config(self):
+        """Validates the component_config against the schema in module_info."""
         config_params = self.module_info.get("config_parameters", [])
-        # Loop through the parameters and make sure they are all present if they are required
-        # and set the default if it is not present
-        for param in config_params:
-            name = param.get("name", None)
-            if name is None:
+        # Only validate if schema parameters are defined
+        if config_params:
+            try:
+                validate_config_block(
+                    self.component_config, config_params, self.log_identifier
+                )
+            except ValueError:
+                # Re-raise the error with more context
                 raise ValueError(
-                    f"config_parameters schema for module {self.config.get('component_module')} "
-                    "does not have a name: {param}"
+                    f"Configuration error in component '{self.name}': {e}"
                 ) from None
-            required = param.get("required", False)
-            if required and name not in self.component_config:
-                raise ValueError(
-                    f"Config parameter {name} is required but not present in component {self.name}"
-                ) from None
-            default = param.get("default", None)
-            if default is not None and name not in self.component_config:
-                self.component_config[name] = default
+        else:
+            log.debug(
+                "%s No 'config_parameters' defined in module_info. Skipping config validation.",
+                self.log_identifier,
+            )
 
     def trace_event(self, event):
         trace_message = TraceMessage(
@@ -471,11 +514,13 @@ class ComponentBase:
 
     def cleanup(self):
         """Clean up resources used by the component"""
-        log.debug(f"[{self.name}] {self.log_identifier} Cleaning up component")
+        log.debug("[%s] %s Cleaning up component", self.name, self.log_identifier)
         try:
             self.stop_component()
         except KeyboardInterrupt:
             pass
+        if hasattr(self, "_component_rrc") and self._component_rrc:
+            self._component_rrc = None
         if hasattr(self, "input_queue"):
             while not self.input_queue.empty():
                 try:
@@ -483,33 +528,69 @@ class ComponentBase:
                 except queue.Empty:
                     break
 
-    # This should be used to do an on-the-fly broker request response
     def do_broker_request_response(
         self, message, stream=False, streaming_complete_expression=None
     ):
-        if self.broker_request_response_controller:
+        """Performs broker request-response using App-level or Component-level controller."""
+        app = self.get_app()
+        controller = None
+
+        # Prioritize App-level controller (new way)
+        if app and app.request_response_controller:
+            controller = app.request_response_controller
+            log.debug("[%s] %s Using App-level RRC.", self.name, self.log_identifier)
+        # Fallback to Component-level controller (old way)
+        elif hasattr(self, "_component_rrc") and self._component_rrc:
+            controller = self._component_rrc
+            log.debug(
+                "[%s] %s Using Component-level RRC.", self.name, self.log_identifier
+            )
+
+        # If a controller was found (either way)
+        if controller:
+            # Use the found controller
+            generator = controller.do_broker_request_response(
+                message, stream, streaming_complete_expression
+            )
             if stream:
-                return (
-                    self.broker_request_response_controller.do_broker_request_response(
-                        message, stream, streaming_complete_expression
-                    )
-                )
+                return generator  # Return the generator directly for streaming
             else:
-                generator = (
-                    self.broker_request_response_controller.do_broker_request_response(
-                        message
+                # Get the first (and only) item for non-streaming
+                try:
+                    next_message, _ = next(generator)  # Ignore the 'last' flag
+                    return next_message
+                except StopIteration:
+                    log.warning(
+                        "[%s] %s RRC generator yielded no response.",
+                        self.name,
+                        self.log_identifier,
                     )
-                )
-                next_message, last = next(generator, None)
-                return next_message
-        raise ValueError(
-            f"Broker request response controller not found for component {self.name}"
-        ) from None
+                    return None
+                except TimeoutError:  # Catch timeout specifically
+                    log.error("[%s] %s RRC timed out", self.name, self.log_identifier)
+                    raise e  # Re-raise timeout
+                except Exception:
+                    log.error(
+                        "[%s] %s Error during RRC call",
+                        self.name,
+                        self.log_identifier,
+                    )
+                    raise e  # Re-raise other exceptions
+        else:
+            # No controller found
+            raise ValueError(
+                f"Broker request-response is not enabled for app '{app.name if app else 'unknown'}' "
+                f"or component '{self.name}'. Ensure 'request_reply_enabled: true' is set in the app's "
+                f"'broker' config (recommended) or 'enabled: true' in the component's "
+                f"'broker_request_response' config (deprecated)."
+            )
 
     def handle_negative_acknowledgements(self, message, exception):
         """Handle NACK for the message."""
         log.error(
-            f"[{self.name}] {self.log_identifier} Component failed to process message"
+            "[%s] %s Component failed to process message",
+            self.name,
+            self.log_identifier,
         )
         nack = self.nack_reaction_to_exception(type(exception))
         message.call_negative_acknowledgements(nack)
@@ -582,7 +663,7 @@ class ComponentBase:
                     # Wait 1 second for the next interval
                     self.stop_signal.wait(timeout=1)
         except KeyboardInterrupt:
-            log.info(f"[{self.name}] Monitoring connection status stopped.")
+            log.info("[%s] Monitoring connection status stopped.", self.name)
 
     def run_micro_monitoring(self) -> None:
         """
@@ -599,9 +680,9 @@ class ComponentBase:
                 # Reset metrics in automatic mode
                 if not self.monitoring.is_flush_manual():
                     self.flush_metrics()
-                    log.debug(f"[{self.name}] Automatically flushed metrics.")
+                    log.debug("[%s] Automatically flushed metrics.", self.name)
         except KeyboardInterrupt:
-            log.info(f"[{self.name}] Monitoring stopped.")
+            log.info("[%s] Monitoring stopped.", self.name)
 
     def get_app(self):
         """Get the app that this component belongs to"""

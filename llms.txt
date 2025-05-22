@@ -1,0 +1,704 @@
+# Solace AI Connector LLM Context
+
+## 1. Overview
+
+The `solace-ai-connector` is a Python application framework designed to connect Solace PubSub+ event brokers with various AI/ML models and external services. It allows building event-driven pipelines (called "flows") composed of modular "components" that process messages received from Solace or other inputs, interact with AI services, databases, APIs, etc., and potentially publish results back to Solace.
+
+The primary goal is to facilitate the integration of AI capabilities into event-driven architectures. Configuration is primarily done via YAML files, but the framework also supports defining applications and components directly in Python code.
+
+## 2. Core Concepts
+
+### 2.1. Apps
+- **Definition:** An "App" is a logical grouping of one or more related "Flows". It serves as the main organizational unit within the connector.
+- **Modes:**
+    - **Standard App:** Explicitly defines one or more `flows` in the configuration. Offers maximum flexibility.
+    - **Simplified App:** Defines `broker` interactions and `components` directly, omitting `flows`. The framework automatically generates a single implicit flow. Ideal for common patterns (receive -> process -> optional send/reply).
+- **Configuration:** Defined under the top-level `apps:` list in YAML. Each app has a `name`, optional `num_instances`, and either `flows` (standard) or `broker` and `components` (simplified). Can also have an app-level `app_config` block.
+    ```yaml
+    # Example App Definitions in YAML
+    apps:
+      # Standard App
+      - name: my_standard_app
+        app_config: { global_param: "value" }
+        flows:
+          - name: my_flow
+            components: [ ... ] # Component definitions here
+      # Simplified App
+      - name: my_simplified_app
+        broker: { ... } # Broker connection and interaction settings
+        app_config: { api_key: ${API_KEY} }
+        components: [ ... ] # Component definitions here
+    ```
+- **Code-Based Apps:** Apps can be defined in Python by subclassing `solace_ai_connector.flow.app.App` and defining an `app_config` class attribute (which defines the app structure). Referenced in YAML via `app_module`.
+
+### 2.2. Flows
+- **Definition:** A "Flow" represents a single processing pipeline instance. It consists of a sequence of "Components".
+- **Structure:** Typically Input Component -> Zero or more Processing Components -> Output Component.
+- **Communication:** Components within a flow communicate via internal Python queues.
+- **Independence:** Flows generally run independently, but can communicate via external systems like the Solace broker.
+- **Configuration:** Defined under the `flows:` key within a standard app definition in YAML. Each flow has a `name` and a list of `components`.
+    ```yaml
+    # Example Flow Definition within a Standard App
+    flows:
+      - name: data_processing_flow
+        components:
+          - component_name: input_reader
+            component_module: broker_input
+            component_config: { ... }
+          - component_name: processor
+            component_module: my_custom_processor
+            component_config: { ... }
+          - component_name: output_writer
+            component_module: broker_output
+            component_config: { ... }
+    ```
+
+### 2.3. Components
+- **Definition:** The fundamental building blocks of a flow. Each component runs in its own thread (or multiple threads if `num_instances` > 1).
+- **Lifecycle:**
+    1. Reads an `Event` (containing a `Message` or timer/cache data) from its input queue (`get_next_event`).
+    2. (Optional) Applies `input_transforms` to the `Message`.
+    3. (Optional) Selects specific data from the `Message` using `input_selection` (`get_input_data`).
+    4. Executes its core logic within the `invoke(message, data)` method.
+    5. (Optional) Produces a result.
+    6. If a result is produced, it's wrapped in `message.previous` and passed to the next component's input queue via `send_message`.
+- **Base Class:** Custom components MUST inherit from `solace_ai_connector.components.component_base.ComponentBase`.
+- **Configuration:** Defined within the `components:` list of a flow (standard app) or app (simplified app). Key fields include `name`/`component_name`, `component_module`/`component_class`, `component_config`, `input_transforms`, `input_selection`.
+    ```yaml
+    # Example Component Definition in YAML (within a flow or simplified app)
+    components:
+      - name: my_processor # Use 'component_name' in standard flows
+        component_module: my_processing_module # Or component_class for code-based
+        num_instances: 2 # Optional: Run 2 threads for this component
+        component_config:
+          threshold: 0.8
+          api_endpoint: ${ENDPOINT_URL}
+        input_transforms: # Optional
+          - type: copy
+            source_expression: input.payload:raw_text
+            dest_expression: user_data.processing:text_to_process
+        input_selection: # Optional (defaults to 'previous:')
+          source_expression: user_data.processing
+        subscriptions: # Simplified Apps only
+          - topic: "ingress/data/>"
+    ```
+- **Built-in Components:** The framework provides many pre-built components (e.g., `broker_input`, `broker_output`, LLM integrations, database interactions, `pass_through`, `aggregate`, `iterate`, `message_filter`).
+
+### 2.4. Messages (`solace_ai_connector.common.message.Message`)
+- **Definition:** The primary data structure passed between components within a flow. It's essentially a wrapper around the data being processed, plus metadata and state.
+- **Key Attributes/Accessors:**
+    - `payload`: The main data payload of the original input message (e.g., from Solace). Accessed via `message.get_payload()` or `input.payload:` expression.
+    - `topic`: The topic of the original input message. Accessed via `message.get_topic()` or `input.topic:` expression.
+    - `user_properties`: Dictionary of user properties from the original input message. Accessed via `message.get_user_properties()` or `input.user_properties:` expression.
+    - `user_data`: A dictionary (`message.private_data`) for storing temporary or intermediate data during the flow's execution. Accessed via `user_data.<name>:` expression. Set via `dest_expression: user_data.<name>:...`.
+    - `previous`: Holds the *entire output* of the immediately preceding component in the flow. Accessed via `previous:` expression. Set automatically by the framework after `invoke` returns.
+    - `ack_callbacks`/`nack_callbacks`: Internal lists for managing message acknowledgements end-to-end.
+- **Data Access:** Use `message.get_data(expression)` to retrieve data using the expression syntax (see below). Use `message.set_data(expression, value)` primarily within transforms.
+    ```python
+    # Examples within a component's invoke method:
+    original_payload = message.get_data("input.payload")
+    user_id = message.get_data("input.user_properties:userId")
+    temp_value = message.get_data("user_data.temp:my_value")
+    previous_output = message.get_data("previous")
+    previous_result_field = message.get_data("previous:result_field")
+    static_val = message.get_data("static:hello")
+    # Using template within get_data (less common than in YAML)
+    greeting = message.get_data("template:Hello {{text://input.user_properties:name}}!")
+    ```
+
+### 2.5. Configuration (YAML)
+- **Format:** Standard YAML. Multiple files can be provided and are merged.
+- **Top-Level Keys:** `log`, `trace`, `shared_config`, `apps` (preferred), `flows` (backward compatibility).
+- **Environment Variables:** Use `${VAR_NAME}` or `${VAR_NAME, default_value}`.
+- **Dynamic Values (`invoke`):** Allows calling Python functions/methods or accessing attributes to generate configuration values dynamically at load time. Syntax:
+    ```yaml
+    key:
+      invoke:
+        module: <module_name> # OR
+        object: <nested_invoke_block_or_shared_ref>
+        # --- Choose ONE ---
+        function: <function_name>
+        attribute: <attribute_name>
+        # --- Optional for function ---
+        params:
+          positional: [arg1, arg2]
+          keyword: {kwarg1: val1}
+    # Simple invoke example: Get current year
+    current_year:
+      invoke:
+        module: datetime
+        object:
+          invoke:
+            function: date
+            params:
+              keyword: { year: 2024, month: 1, day: 1 } # Example, usually use date.today()
+        attribute: year
+    ```
+- **`evaluate_expression()`:** Within `invoke` blocks used in message processing contexts (like `component_config` evaluated per message, `input_transforms`), parameters can use `evaluate_expression(<expression_string>[, <type>])` to dynamically fetch data from the current `Message` at runtime. Supported types: `int`, `float`, `bool`, `str`.
+    ```yaml
+    # Example using evaluate_expression in component_config
+    component_config:
+      dynamic_threshold:
+        invoke:
+          module: invoke_functions
+          function: multiply
+          params:
+            positional:
+              - evaluate_expression("input.user_properties:base_value", float) # Get from message
+              - 0.9 # Static multiplier
+    ```
+- **`invoke_functions` Module:** Provides simple functions (`add`, `equal`, `if_else`, `uuid`, etc.) usable within `invoke` blocks.
+
+## 3. Configuration Details
+
+### 3.1. App Configuration (`apps:`)
+- **Standard App:**
+    ```yaml
+    apps:
+      - name: my_standard_app
+        num_instances: 1 # Optional: Default 1
+        app_config: # Optional: App-level config accessible via self.get_config()
+          app_param: value
+        flows:
+          - name: flow1
+            components: [...]
+          - name: flow2
+            components: [...]
+    ```
+- **Simplified App:**
+    ```yaml
+    apps:
+      - name: my_simplified_app
+        num_instances: 1 # Optional: Scales the whole app definition
+        broker:
+          # Connection details (url, vpn, user, pass) - REQUIRED
+          input_enabled: true # REQUIRED to receive
+          output_enabled: false # Optional
+          request_reply_enabled: false # Optional
+          queue_name: "q/my_app/in" # REQUIRED if input_enabled
+          # Other optional broker settings (encoding, format, create_queue, etc.)
+        app_config: # Optional: App-level config
+          api_key: ${API_KEY}
+        components:
+          - name: processor1
+            component_module: my_module # OR component_class: MyClass
+            component_config: {...}
+            subscriptions: # REQUIRED if input_enabled
+              - topic: "data/input/>"
+            num_instances: 1 # Optional: Scales only this component
+            input_transforms: [...] # Optional
+            input_selection: {...} # Optional
+          # - name: processor2 ...
+    ```
+- **`broker` Section (Simplified App):** Defines connection, input queue, subscriptions (implicitly collected from components), output behavior, and request-reply settings. Controls creation of implicit `BrokerInput`, `BrokerOutput`, `SubscriptionRouter`, `RequestResponseFlowController`.
+
+### 3.2. Flow Configuration (`flows:`) (Standard Apps Only)
+- `name`: Unique flow name.
+- `components`: List of component configurations for this flow.
+
+### 3.3. Component Configuration (`components:`)
+- `name` (Simplified) / `component_name` (Standard): Unique component name within the app/flow.
+- `component_module`: Python module name (e.g., `broker_input`, `my_custom_component`) OR
+- `component_class`: Direct Python class reference (used with code-based apps). Takes precedence.
+- `component_config`: Dictionary passed to the component's `__init__`. Structure depends on the component. Can use `invoke` and `evaluate_expression`.
+- `input_transforms`: (Optional) List of transform definitions applied *before* `input_selection` and `invoke`.
+- `input_selection`: (Optional) Dictionary specifying the data to be passed as the `data` argument to `invoke`. Default is `source_expression: previous`. Uses `source_expression` or `source_value`.
+- `queue_depth`: (Optional) Max size of the component's input queue. Default 5.
+- `num_instances`: (Optional) Number of threads for this component. Default 1.
+- `subscriptions`: (Simplified Apps Only) List of topic subscriptions (`{topic: "..."}`). Required if `broker.input_enabled` is true.
+
+### 3.4. Expression Syntax
+- Format: `<data_type>[:<qualifier>][:<index>]`
+- **`data_type`**:
+    - `input`: Original message (`payload`, `topic`, `user_properties`).
+    - `input.payload`, `input.topic`, `input.topic_levels`, `input.user_properties`: Specific parts of the original message.
+    - `previous`: The entire result object returned by the previous component's `invoke`.
+    - `user_data.<name>`: Access data stored in the message's private storage.
+    - `static:<value>`: A literal string value.
+    - `template:<template_string>`: A string template.
+    - `item`, `index`: (Within `map`, `reduce`, `filter` transforms) The current list item or its index.
+    - `keyword_args`: (Within `map`, `reduce`, `filter` transforms) Access named arguments like `current_value`, `accumulated_value`.
+    - `invoke_data`: (Within `user_processor`) The data passed to the component's `invoke`.
+    - `self`: (Within `evaluate_expression`) Reference to the component instance itself.
+- **`qualifier`**: Optional, depends on `data_type`.
+- **`index`**: Dot-separated path for nested dictionaries/objects or integer for list indices (e.g., `my_list.0.name`).
+
+### 3.5. Templates (`template:`)
+- Format: `template:Text {{<encoding>://<expression>}} more text.`
+- `encoding`: (Optional, defaults to `text`) `json`, `yaml`, `text`, `base64`, `datauri:<mime_type>`.
+- `expression`: Standard expression syntax.
+
+### 3.6. Transforms (`input_transforms:`)
+- **Purpose:** Modify the `Message` object before `input_selection` and `invoke`. Applied sequentially.
+- **Structure:** List of dictionaries, each with:
+    - `type`: Name of the transform (e.g., `copy`, `map`, `reduce`, `filter`, `append`).
+    - `source_expression` or `source_value`: Input data for the transform.
+    - `dest_expression`: Where to store the transform's output (often `user_data.<name>:...`).
+    - Other transform-specific parameters.
+    ```yaml
+    # Example Transform: Copy payload field to user_data
+    input_transforms:
+      - type: copy
+        source_expression: input.payload:user_id
+        dest_expression: user_data.session:current_user_id
+    ```
+- **Base Class:** `solace_ai_connector.transforms.transform_base.TransformBase`.
+- **Common Transforms:**
+    - `copy`: Copies data from source to destination.
+    - `append`: Appends source data to a destination list.
+    - `map`: Iterates a source list, applies `source_expression` (using `item`, `index`) and optional `processing_function` to each item, stores results in `dest_list_expression` at the same index.
+    - `reduce`: Iterates a source list, applies `accumulator_function` (using `keyword_args:accumulated_value`, `keyword_args:current_value`) to aggregate results, stores final value in `dest_expression`.
+    - `filter`: Iterates a source list, applies `filter_function` (using `keyword_args:current_value`, `keyword_args:index`), copies items where function returns true to `dest_list_expression`.
+
+## 4. Developing Custom Components
+
+### 4.1. Requirements
+1.  **Inherit:** `from solace_ai_connector.components.component_base import ComponentBase`
+2.  **Define `info` Dictionary:**
+    ```python
+    # Example info dictionary
+    info = {
+        "class_name": "MyCustomComponent", # MUST match class name
+        "description": "What this component does.",
+        "config_parameters": [ # List describing config options
+            {"name": "param1", "required": True, "description": "...", "type": "string"},
+            {"name": "param2", "required": False, "default": 10, "description": "...", "type": "integer"},
+        ],
+        "input_schema": { # JSON schema for expected input 'data' to invoke
+            "type": "object",
+            "properties": {"input_field": {"type": "string"}},
+            "required": ["input_field"],
+        },
+        "output_schema": { # JSON schema for the expected return value of invoke
+            "type": "object",
+            "properties": {"output_field": {"type": "string"}},
+        },
+    }
+    ```
+3.  **Implement `__init__`:**
+    ```python
+    # Example __init__
+    from solace_ai_connector.components.component_base import ComponentBase
+    from .my_custom_component_info import info # Assuming info is in a separate file
+
+    class MyCustomComponent(ComponentBase):
+        def __init__(self, **kwargs):
+            # MUST call super().__init__ with the info dict
+            super().__init__(info, **kwargs)
+            # Access config using self.get_config() AFTER super().__init__
+            self.param1 = self.get_config("param1")
+            self.param2 = self.get_config("param2")
+            # Other initialization like setting up clients, etc.
+            log.info("%s Initialized with param1=%s, param2=%d",
+                     self.log_identifier, self.param1, self.param2)
+    ```
+4.  **Implement `invoke`:**
+    ```python
+    # Example invoke
+    from solace_ai_connector.common.message import Message
+    from typing import Any
+
+    # (Inside MyCustomComponent class)
+    def invoke(self, message: Message, data: Any) -> Any:
+        """
+        Core processing logic.
+        Args:
+            message: The full Message object (access payload, topic, user_data etc.).
+            data: The data selected by input_selection (or output of transforms).
+        Returns:
+            The result to be passed to the next component (becomes message.previous).
+            Return None to stop processing for this message in this flow branch.
+        """
+        log.debug("%s Received data: %s", self.log_identifier, data)
+        input_field = data.get("input_field", "")
+
+        # --- Example: Using cache ---
+        cache_key = f"processed:{input_field}"
+        cached_result = self.cache_service.get_data(cache_key)
+        if cached_result:
+            log.info("%s Returning cached result for %s", self.log_identifier, input_field)
+            return cached_result
+
+        # --- Example: Performing processing ---
+        result = f"Processed '{input_field}' with {self.param1} and {self.param2}"
+        output_data = {"output_field": result}
+
+        # --- Example: Storing result in cache ---
+        self.cache_service.add_data(cache_key, output_data, expiry=3600) # Cache for 1 hour
+
+        # --- Example: Scheduling a timer ---
+        # self.add_timer(delay_ms=5000, timer_id="post_process_check", payload={"key": cache_key})
+
+        # The returned value will be automatically put into message.previous
+        # for the next component.
+        return output_data
+    ```
+
+### 4.2. Key `ComponentBase` Methods/Attributes for Use
+- `self.get_config(key, default=None)`: Access component-specific config, falling back to app-level config. Handles `invoke` and `evaluate_expression`.
+    ```python
+    api_key = self.get_config("api_key") # Checks component, then app config
+    ```
+- `self.log_identifier`: String like `"[instance.flow.component_name]" ` for logging. Use with `log.info("%s Message processed", self.log_identifier)`.
+- `self.add_timer(delay_ms, timer_id, interval_ms=None, payload=None)`: Schedule a timer event. Handled by `handle_timer_event`.
+    ```python
+    # Schedule a one-off timer in 10 seconds
+    self.add_timer(10000, "my_timer", payload={"data": "context"})
+    # Schedule a recurring timer every 60 seconds, starting in 5 seconds
+    self.add_timer(5000, "recurring_check", interval_ms=60000)
+    ```
+- `self.cancel_timer(timer_id)`: Cancel a scheduled timer.
+- `self.cache_service`: Access the shared cache service (`add_data`, `get_data`, `remove_data`).
+    ```python
+    # Set data with 1-hour expiry
+    self.cache_service.add_data("my_key", {"some": "data"}, expiry=3600)
+    # Get data
+    value = self.cache_service.get_data("my_key")
+    if value:
+        log.info("%s Found in cache: %s", self.log_identifier, value)
+    ```
+- `self.is_broker_request_response_enabled()`: Check if RRC is configured.
+- `self.do_broker_request_response(message, stream=False, streaming_complete_expression=None)`: Perform broker request-reply. Returns response `Message` or a generator for streaming.
+    ```python
+    # Simple request-response
+    request_msg = Message(payload={"q": "info"}, topic="service/info")
+    try:
+        response_msg = self.do_broker_request_response(request_msg)
+        if response_msg:
+            log.info("%s RRC Response: %s", self.log_identifier, response_msg.get_payload())
+    except TimeoutError:
+        log.error("%s RRC timed out", self.log_identifier)
+    ```
+- `self.get_app()`: Get the parent `App` instance.
+- `self.enqueue(event)`: Send an `Event` to this component's own input queue (rarely needed).
+- `self.discard_current_message()`: Call within `invoke` to signal that the message should be dropped and acknowledged, preventing further processing in the flow.
+- `self.send_message(message)`: (Override only if needed) Sends the processed message to the next component. Default implementation handles enqueuing. Output components override this.
+- `self.get_next_event()`: (Override only for input components) Gets the next event (e.g., from broker, stdin, timer).
+- `self.get_acknowledgement_callback()`: (Override for input components needing ACK) Returns a function to be called when the message is fully processed downstream.
+- `self.get_negative_acknowledgement_callback()`: (Override for input components needing NACK) Returns a function to handle NACKs.
+- `self.handle_timer_event(timer_data)`: (Override) Called when a timer fires. `timer_data` is `{"timer_id": ..., "payload": ...}`.
+    ```python
+    def handle_timer_event(self, timer_data):
+        if timer_data["timer_id"] == "my_timer":
+            log.info("%s Timer fired! Payload: %s", self.log_identifier, timer_data["payload"])
+            # Do something based on timer
+    ```
+- `self.handle_cache_expiry_event(cache_data)`: (Override) Called when a cache item expires. `cache_data` is `{"key": ..., "metadata": ..., "expired_data": ...}`.
+- `self.stop_signal`: `threading.Event` to check if shutdown is requested (`while not self.stop_signal.is_set(): ...`).
+
+## 5. Developing Custom Apps (Code-Based)
+
+### 5.1. Requirements
+1.  **Inherit:** `from solace_ai_connector.flow.app import App`
+2.  **Define `app_config` Class Attribute:** This dictionary holds the *entire* app definition (broker, components, app-level config).
+    ```python
+    # Example Custom App Definition
+    from solace_ai_connector.flow.app import App
+    from solace_ai_connector.components.component_base import ComponentBase # For components
+    # Assume MyProcessor component is defined elsewhere or inline
+
+    class MyCustomApp(App):
+        # Define the entire app structure as a class attribute
+        # This 'app_config' defines the STRUCTURE and DEFAULTS for the app
+        app_config = {
+            "name": "my_code_defined_app", # Default name for instances of this app
+            "broker": {
+                "broker_type": "solace",
+                "broker_url": "ws://localhost:8080", # Default URL
+                "broker_vpn": "default",
+                "broker_username": "user",
+                "broker_password": "password",
+                "input_enabled": True,
+                "output_enabled": True,
+                "queue_name": "q/my_code_app/in",
+            },
+            "config": { # App-level config defaults accessible via self.get_config()
+                "global_threshold": 0.5,
+                "default_reply_topic": "replies/default",
+            },
+            "components": [
+                {
+                    "name": "main_processor",
+                    # Use component_class with the actual class reference
+                    "component_class": MyProcessor, # Assumes MyProcessor is imported/defined
+                    "component_config": {
+                        "processing_mode": "fast",
+                    },
+                    "subscriptions": [{"topic": "data/process/>"}],
+                }
+                # Add more components if needed
+            ]
+        }
+
+        # Optional: Define app_schema for validating the YAML 'app_config:' block
+        app_schema = {
+            "config_parameters": [
+                 {"name": "global_threshold", "required": False, "type": "float"},
+                 {"name": "default_reply_topic", "required": True, "type": "string"},
+                 # Add other parameters expected in the YAML 'app_config:' block
+            ]
+        }
+
+        # Optional: Override __init__ for custom app initialization logic
+        # def __init__(self, app_info: dict, **kwargs):
+        #     # app_info contains the merged config (YAML over code)
+        #     super().__init__(app_info, **kwargs)
+        #     # Custom app initialization, e.g., setting up shared resources
+        #     log.info("MyCustomApp instance created with name: %s", self.name)
+        #     # self.app_config (instance attribute) is now validated
+
+        # Optional: Add custom methods to the app class
+        # def get_reply_topic(self):
+        #     return self.get_config("default_reply_topic", "replies/fallback")
+
+    # --- Define the component used above (can be in the same file or imported) ---
+    class MyProcessor(ComponentBase):
+        info = {"class_name": "MyProcessor", ...} # Define component info
+        def __init__(self, **kwargs):
+            super().__init__(MyProcessor.info, **kwargs)
+            self.mode = self.get_config("processing_mode")
+            # Access app config (validated instance attribute):
+            self.threshold = self.get_app().get_config("global_threshold")
+
+        def invoke(self, message, data):
+            # ... processing logic using self.mode, self.threshold ...
+            reply_topic = self.get_app().get_config("default_reply_topic") # Example access
+            return {"result": "processed", "reply_to": reply_topic}
+
+    ```
+3.  **Reference in YAML:**
+    ```yaml
+    # Example YAML referencing the code-based app
+    apps:
+      - name: production_instance # Specific instance name
+        app_module: my_app_definition_module # Python file name (e.g., my_app_definition.py)
+        # Optional: Overrides for broker, config, components defined in code
+        broker:
+          broker_url: ${PROD_SOLACE_URL} # Override URL from env var
+          broker_password: ${PROD_SOLACE_PASS}
+        app_config: # This block is validated by MyCustomApp.app_schema
+          global_threshold: 0.7 # Override app-level config
+          default_reply_topic: "prod/replies" # Provide required value
+        # You can even override component configs, but structure must match code
+        # components:
+        #   - name: main_processor # Must match name in code config
+        #     component_config:
+        #       processing_mode: "accurate" # Override component config
+    ```
+
+### 5.2. Key `App` Methods/Attributes for Use (within Components via `self.get_app()`)
+- `app.get_config(key, default=None)`: Access app-level configuration defined in the `app_config:` block (merged from code and YAML, and validated if schema exists).
+- `app.send_message(payload, topic, user_properties=None)`: (Simplified Apps Only) Send a message via the implicit `BrokerOutput`. Useful for sending multiple/side-effect messages.
+    ```python
+    # Inside a component in a simplified app:
+    app = self.get_app()
+    app.send_message(payload={"status": "progress"}, topic="app/status")
+    ```
+
+## 6. Key Base Classes Recap
+- `solace_ai_connector.components.component_base.ComponentBase`: For all components.
+- `solace_ai_connector.flow.app.App`: For standard and custom apps.
+- `solace_ai_connector.transforms.transform_base.TransformBase`: For custom transforms (less common).
+- `solace_ai_connector.common.message.Message`: Data carrier between components.
+
+## 7. Built-in Components & Transforms
+- Numerous components exist for broker I/O, LLMs (LangChain, LiteLLM, OpenAI), vector stores (Chroma, etc.), databases (MongoDB), web search, aggregation, filtering, parsing, etc.
+- Transforms like `copy`, `map`, `reduce`, `filter`, `append` handle common data manipulations.
+- Refer to documentation (`docs/components/index.md`, `docs/transforms/index.md`) for details.
+
+## 8. Advanced Features
+- **Cache:** `self.cache_service` provides `add_data(key, value, expiry_seconds)`, `get_data(key)`, `remove_data(key)`. Supports memory or SQLAlchemy backends. See `docs/advanced_component_features.md`.
+- **Timers:** `self.add_timer(...)`, `self.cancel_timer(...)`, `handle_timer_event(...)`. See `docs/advanced_component_features.md`.
+- **Broker Request-Response:** `self.do_broker_request_response(...)`. Requires `request_reply_enabled: true` in simplified app `broker` config. See `docs/advanced_component_features.md`.
+- **Monitoring:** Components can optionally implement `get_metrics()` to provide performance data.
+
+## 9. Running the Connector
+- Command: `solace-ai-connector config1.yaml [config2.yaml ...]`
+- Configuration files are merged.
+- Environment variables (`${VAR}`) are substituted.
+- `invoke` blocks are processed.
+- Apps and their flows/components are instantiated and started.
+
+## 10. Comprehensive Examples
+
+### 10.1. Standard App with Custom Component
+
+**Goal:** Create a standard app that reads text from stdin, processes it with a custom component that adds a prefix, and prints the result to stdout.
+
+**Step 1: Define the Custom Component (`src/custom_echo.py`)**
+```python
+# src/custom_echo.py
+from solace_ai_connector.components.component_base import ComponentBase
+from solace_ai_connector.common.message import Message
+from solace_ai_connector.common.log import log
+from typing import Any
+
+# Define component information
+info = {
+    "class_name": "CustomEchoComponent",
+    "description": "A simple custom component that adds a prefix to input text.",
+    "config_parameters": [
+        {"name": "prefix", "required": False, "default": "Echo: ", "description": "Prefix to add.", "type": "string"},
+    ],
+    "input_schema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+    "output_schema": {"type": "object", "properties": {"processed_text": {"type": "string"}}},
+}
+
+class CustomEchoComponent(ComponentBase):
+    def __init__(self, **kwargs):
+        super().__init__(info, **kwargs)
+        self.prefix = self.get_config("prefix")
+        log.info("%s Initialized with prefix: '%s'", self.log_identifier, self.prefix)
+
+    def invoke(self, message: Message, data: Any) -> Any:
+        input_text = data.get("text", "")
+        processed_text = f"{self.prefix}{input_text}"
+        log.info("%s Processed text: '%s'", self.log_identifier, processed_text)
+        return {"processed_text": processed_text}
+
+```
+
+**Step 2: Define the Standard App YAML (`standard_echo_app.yaml`)**
+```yaml
+# standard_echo_app.yaml
+log:
+  stdout_log_level: INFO
+
+apps:
+  - name: standard_echo
+    flows:
+      - name: echo_flow
+        components:
+          # 1. Read from stdin
+          - component_name: input_reader
+            component_module: stdin_input
+            component_config:
+              prompt: "Enter text to echo: "
+
+          # 2. Process with custom component
+          - component_name: custom_processor
+            component_module: src.custom_echo # Path to the custom component module
+            component_base_path: . # Assume src is relative to where connector runs
+            component_config:
+              prefix: "Processed: " # Configure the custom component
+            # Input selection: takes the output of stdin_input ('previous')
+            # which matches the input_schema of CustomEchoComponent
+            input_selection:
+              source_expression: previous
+
+          # 3. Print to stdout
+          - component_name: output_writer
+            component_module: stdout_output
+            # Transform the output of custom_processor to match stdout_output's schema
+            input_transforms:
+              - type: copy
+                source_expression: previous:processed_text # Get field from custom component output
+                dest_expression: user_data.output:text # Map to 'text' field for stdout
+            input_selection:
+              source_expression: user_data.output
+```
+
+**Step 3: Run**
+```bash
+# Assuming src/custom_echo.py exists relative to current directory
+solace-ai-connector standard_echo_app.yaml
+```
+The connector will prompt for input, process it using `CustomEchoComponent`, and print the prefixed output.
+
+### 10.2. Simplified App with Custom Component
+
+**Goal:** Create a simplified app that receives messages from Solace, processes the payload with a custom component (appending a suffix), and sends the result back to a different Solace topic.
+
+**Step 1: Define the Custom Component (`src/custom_suffix.py`)**
+```python
+# src/custom_suffix.py
+from solace_ai_connector.components.component_base import ComponentBase
+from solace_ai_connector.common.message import Message
+from solace_ai_connector.common.log import log
+from typing import Any
+
+# Define component information
+info = {
+    "class_name": "CustomSuffixComponent",
+    "description": "Appends a configured suffix to the input payload.",
+    "config_parameters": [
+        {"name": "suffix", "required": False, "default": " - Processed", "description": "Suffix to append.", "type": "string"},
+    ],
+    # Expects the raw payload directly as input data
+    "input_schema": {"type": "any"},
+    # Outputs the modified payload directly
+    "output_schema": {"type": "any"},
+}
+
+class CustomSuffixComponent(ComponentBase):
+    def __init__(self, **kwargs):
+        super().__init__(info, **kwargs)
+        self.suffix = self.get_config("suffix")
+        log.info("%s Initialized with suffix: '%s'", self.log_identifier, self.suffix)
+
+    def invoke(self, message: Message, data: Any) -> Any:
+        # Assuming data is the payload (string or dict/list)
+        if isinstance(data, str):
+            processed_payload = data + self.suffix
+        elif isinstance(data, dict):
+            # Example: Add suffix to a specific field or modify the dict
+            processed_payload = data.copy() # Avoid modifying original
+            processed_payload["status"] = processed_payload.get("status", "") + self.suffix
+        else:
+            processed_payload = data # Pass through if not string/dict
+
+        log.info("%s Appended suffix, result: %s", self.log_identifier, processed_payload)
+
+        # --- Construct output for implicit BrokerOutput ---
+        # Get original topic to construct reply topic (example logic)
+        original_topic = message.get_topic()
+        reply_topic = original_topic.replace("request", "reply", 1) if original_topic else "replies/unknown"
+
+        return {
+            "payload": processed_payload,
+            "topic": reply_topic,
+            "user_properties": message.get_user_properties() # Propagate user props
+        }
+```
+
+**Step 2: Define the Simplified App YAML (`simplified_suffix_app.yaml`)**
+```yaml
+# simplified_suffix_app.yaml
+log:
+  stdout_log_level: INFO
+
+apps:
+  - name: simplified_suffix
+    broker:
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL:-ws://localhost:8080}
+      broker_vpn: ${SOLACE_BROKER_VPN:-default}
+      broker_username: ${SOLACE_BROKER_USERNAME:-user}
+      broker_password: ${SOLACE_BROKER_PASSWORD:-password}
+      input_enabled: true
+      output_enabled: true # Need output for sending reply
+      queue_name: "q/suffix_app/request"
+      payload_format: "json" # Assume incoming messages are JSON
+
+    components:
+      - name: suffix_processor
+        component_module: src.custom_suffix # Path to the custom component
+        component_base_path: . # Assume src is relative to where connector runs
+        component_config:
+          suffix: " (Processed by Simplified App)" # Configure the custom component
+        subscriptions:
+          - topic: "app/suffix/request/>" # Topic to listen on
+        # Select the payload directly as input for the custom component
+        input_selection:
+          source_expression: input.payload
+        # No input_transforms needed here as the component handles the output format
+```
+
+**Step 3: Run**
+```bash
+# Set Solace env vars first
+# export SOLACE_BROKER_URL=... etc.
+# Assuming src/custom_suffix.py exists relative to current directory
+solace-ai-connector simplified_suffix_app.yaml
+```
+Publish a JSON message (e.g., `{"data": "hello"}`) to a topic like `app/suffix/request/123`. The connector will consume it, process it with `CustomSuffixComponent`, and publish the modified payload (e.g., `{"data": "hello", "status": " (Processed by Simplified App)"}`) to the corresponding reply topic (e.g., `app/suffix/reply/123`).

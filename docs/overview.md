@@ -4,6 +4,7 @@
 - [AI Event Connector for Solace event brokers - Overview](#ai-event-connector-for-solace-event-brokers---overview)
   - [Architecture](#architecture)
     - [Apps](#apps)
+    - [Simplified App Mode](#simplified-app-mode)
     - [Components](#components)
     - [Built-in Components](#built-in-components)
   - [Configuration](#configuration)
@@ -36,6 +37,14 @@ Apps are logical groupings of flows that serve a common purpose. Each app can co
 Apps can be configured with their own settings, such as the number of instances to run. When a component within an app calls `get_config`, it will first check its own configuration for the key, and if it is not found, it will check the app configuration.
 
 For backward compatibility, if your configuration doesn't include an `apps` section, the connector will automatically create an app to contain the flows in your configuration. If the configuration came from a YAML file, the app name will be the name of the file without the extension. If there are multiple files, each file will be treated as a separate app.
+
+### Simplified App Mode
+
+For common use cases involving receiving from a single queue, processing with one or more components, and optionally sending output or performing request-reply, the connector offers a **Simplified App Mode**.
+
+Instead of explicitly defining a `flow` with `BrokerInput`, `BrokerOutput`, etc., you define an `app` with `broker` settings and a list of `components` with their `subscriptions`. The framework automatically generates the necessary underlying flow and internal components (`BrokerInput`, `SubscriptionRouter`, `BrokerOutput`) based on this simplified configuration. This significantly reduces boilerplate for straightforward applications.
+
+See the [Simplified App Mode](simplified-apps.md) documentation for detailed configuration and usage.
 
 ### Components
 

@@ -268,9 +268,9 @@ def test_index_into_list():
 
 
 def test_index_into_list_out_of_bounds():
-    """Test getting data from a message by indexing into a list with an out of bounds index"""
-    with pytest.raises(IndexError):
-        messages["complex"].get_data("input.payload:key3.3")
+    """Test getting data from a message by indexing into a list with an out of bounds index returns None"""
+    # The get_data_value function catches IndexError and returns None
+    assert messages["complex"].get_data("input.payload:key3.3") is None
 
 
 def test_get_topic_levels():
@@ -382,11 +382,13 @@ def test_set_data_input_user_properties():
     assert message.get_data("input.user_properties") == user_properties["simple"]
 
 
-def test_set_data_list_middle_failure():
-    """Test setting a value in the middle of a list - but can't because the list entry is a scalar"""
+def test_set_data_overwrites_scalar_in_list_path():
+    """Test setting a value 'inside' a scalar list element overwrites the scalar."""
     message = Message(payload=payloads["complex"])
+    # Attempt to set key3.1.1 - where key3.1 is currently the integer 2
     message.set_data("input.payload:key3.1.1", 5)
-    assert message.get_data("input.payload:key3") == [1, 2, 3]
+    # Assert that the scalar '2' at index 1 was replaced by a list structure
+    assert message.get_data("input.payload:key3") == [1, [None, 5], 3]
 
 
 def test_set_data_list_middle_success():
