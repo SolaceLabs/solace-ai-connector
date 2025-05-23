@@ -10,12 +10,14 @@ from enum import Enum
 from solace.messaging.messaging_service import (
     MessagingService,
     ReconnectionListener,
+    ServiceEvent,
     ReconnectionAttemptListener,
     ServiceInterruptionListener,
-    ServiceEvent,
 )
+from solace.messaging.resources.topic_subscription import TopicSubscription
+from solace.messaging.resources.topic import Topic
 from solace.messaging.resources.queue import Queue
-from solace.messaging.config.retry_strategy import RetryStrategy
+from solace.messaging.receiver.message_receiver import MessageHandler, InboundMessage
 from solace.messaging.receiver.persistent_message_receiver import (
     PersistentMessageReceiver,
 )
@@ -24,13 +26,11 @@ from solace.messaging.publisher.persistent_message_publisher import (
     MessagePublishReceiptListener,
     PublishReceipt,
 )
-from solace.messaging.receiver.message_receiver import MessageHandler, InboundMessage
-from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
+from solace.messaging.config.retry_strategy import RetryStrategy
 from solace.messaging.config.missing_resources_creation_configuration import (
     MissingResourcesCreationStrategy,
 )
-from solace.messaging.resources.topic_subscription import TopicSubscription
-from solace.messaging.resources.topic import Topic
+from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
 from solace import SOLACE_LOGGING_CONFIG
 
 from .messaging import Messaging
@@ -506,6 +506,72 @@ class SolaceMessaging(Messaging):
     ):
         sub = TopicSubscription.of(subscription)
         persistent_receiver.add_subscription(sub)
+
+    def add_topic_subscription(
+        self, topic_str: str, persistent_receiver: PersistentMessageReceiver
+    ):
+        """Adds a single topic subscription to the specified active PersistentMessageReceiver."""
+        if not self.messaging_service or not self.messaging_service.is_connected:
+            log.error(
+                f"{self.error_prefix} Cannot add subscription. Messaging service not connected."
+            )
+            return False
+        if not persistent_receiver or not persistent_receiver.is_running:
+            log.error(
+                f"{self.error_prefix} Cannot add subscription. Persistent receiver is not valid or not running."
+            )
+            return False
+        try:
+            sdk_topic_subscription = TopicSubscription.of(topic_str)
+            persistent_receiver.add_subscription(sdk_topic_subscription)
+            log.info(
+                f"{self.error_prefix} Successfully added subscription '{topic_str}' to receiver."
+            )
+            return True
+        except PubSubPlusClientError as e:
+            log.error(
+                f"{self.error_prefix} Error adding subscription '{topic_str}': {e}"
+            )
+            return False
+        except Exception as e:
+            log.error(
+                f"{self.error_prefix} Unexpected error adding subscription '{topic_str}': {e}",
+                exc_info=True,
+            )
+            return False
+
+    def remove_topic_subscription(
+        self, topic_str: str, persistent_receiver: PersistentMessageReceiver
+    ):
+        """Removes a single topic subscription from the specified active PersistentMessageReceiver."""
+        if not self.messaging_service or not self.messaging_service.is_connected:
+            log.error(
+                f"{self.error_prefix} Cannot remove subscription. Messaging service not connected."
+            )
+            return False
+        if not persistent_receiver or not persistent_receiver.is_running:
+            log.error(
+                f"{self.error_prefix} Cannot remove subscription. Persistent receiver is not valid or not running."
+            )
+            return False
+        try:
+            sdk_topic_subscription = TopicSubscription.of(topic_str)
+            persistent_receiver.remove_subscription(sdk_topic_subscription)
+            log.info(
+                f"{self.error_prefix} Successfully removed subscription '{topic_str}' from receiver."
+            )
+            return True
+        except PubSubPlusClientError as e:
+            log.error(
+                f"{self.error_prefix} Error removing subscription '{topic_str}': {e}"
+            )
+            return False
+        except Exception as e:
+            log.error(
+                f"{self.error_prefix} Unexpected error removing subscription '{topic_str}': {e}",
+                exc_info=True,
+            )
+            return False
 
     def ack_message(self, broker_message):
         if "_original_message" in broker_message:

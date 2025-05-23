@@ -1,5 +1,5 @@
 """This test component allows a tester to configure callback handlers for
- get_next_event, send_message and invoke methods"""
+get_next_event, send_message and invoke methods"""
 
 from ...component_base import ComponentBase
 
@@ -62,6 +62,6 @@ class HandlerCallback(ComponentBase):
 
     def invoke(self, message, data):
         if self.invoke_handler:
-            return self.invoke_handler(self, message, data)
+            return self.invoke_handler(self, message, data) or "None"
         else:
             return super().invoke(message, data)

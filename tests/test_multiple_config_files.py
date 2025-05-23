@@ -121,7 +121,7 @@ flows:
         connector = SolaceAiConnector(
             merged_config, config_filenames=[filename1, filename2]
         )
-        
+
         # Run the connector to create the apps
         connector.run()
 
@@ -150,11 +150,12 @@ flows:
 
 def test_component_config_inheritance():
     """Test that component configuration is inherited from app configuration"""
+
     # Define a handler function to test app config inheritance
     def invoke_handler(component, _message, _data):
         # Return the app-level config value
         return component.get_config("shared_config_value")
-    
+
     # Create a config file with app-level configuration
     with tempfile.NamedTemporaryFile(suffix=".yaml", mode="w+", delete=False) as f:
         f.write(
@@ -166,7 +167,8 @@ log:
 
 apps:
   - name: test_app
-    shared_config_value: app_level_value
+    app_config:
+      shared_config_value: app_level_value
     flows:
       - name: test_flow
         components:
@@ -184,10 +186,12 @@ apps:
         connector = None
         try:
             config = load_config(filename)
-            
+
             # Set the invoke_handler function
-            config["apps"][0]["flows"][0]["components"][0]["component_config"]["invoke_handler"] = invoke_handler
-            
+            config["apps"][0]["flows"][0]["components"][0]["component_config"][
+                "invoke_handler"
+            ] = invoke_handler
+
             connector = SolaceAiConnector(config)
             connector.run()
 
