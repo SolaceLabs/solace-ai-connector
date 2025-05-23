@@ -118,6 +118,22 @@ class DevBroker(Messaging):
     def ack_message(self, message):
         pass
 
+    def add_topic_subscription(self, topic_str: str, persistent_receiver=None):
+        """Adds a topic subscription to the default queue (matches SolaceMessaging interface)"""
+        queue_name = self.broker_properties.get("queue_name")
+        if not queue_name:
+            log.error("DevBroker: No default queue configured for subscription")
+            return False
+        return self.add_topic_to_queue(topic_str, queue_name)
+
+    def remove_topic_subscription(self, topic_str: str, persistent_receiver=None):
+        """Removes a topic subscription from the default queue (matches SolaceMessaging interface)"""
+        queue_name = self.broker_properties.get("queue_name")
+        if not queue_name:
+            log.error("DevBroker: No default queue configured for subscription")
+            return False
+        return self.remove_topic_from_queue(topic_str, queue_name)
+
     def add_topic_to_queue(self, topic_str: str, queue_name: str) -> bool:
         """Adds a topic subscription (regex pattern) to the specified queue's list of subscriptions."""
         if not self.connected:
