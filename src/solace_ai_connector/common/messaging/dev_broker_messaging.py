@@ -1,4 +1,4 @@
-"""This is a simple broker for testing purposes. It allows sending and receiving 
+"""This is a simple broker for testing purposes. It allows sending and receiving
 messages to/from queues. It supports subscriptions based on topics."""
 
 from typing import Dict, List, Any
@@ -48,6 +48,9 @@ class DevBroker(Messaging):
             if self.queues is None:
                 self.queues: Dict[str, queue.Queue] = {}
                 self.flow_kv_store.set("dev_broker:queues", self.queues)
+
+        # Need this to be able to use the same interface as the other brokers
+        self.persistent_receiver = {}
 
     def connect(self):
         self.connected = True
@@ -170,7 +173,10 @@ class DevBroker(Messaging):
 
         regex_pattern = self._subscription_to_regex(topic_str)
         with self.subscriptions_lock:
-            if regex_pattern in self.subscriptions and queue_name in self.subscriptions[regex_pattern]:
+            if (
+                regex_pattern in self.subscriptions
+                and queue_name in self.subscriptions[regex_pattern]
+            ):
                 self.subscriptions[regex_pattern].remove(queue_name)
                 if not self.subscriptions[regex_pattern]:  # If list becomes empty
                     del self.subscriptions[regex_pattern]
