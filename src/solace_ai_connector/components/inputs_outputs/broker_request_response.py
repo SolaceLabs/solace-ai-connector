@@ -311,8 +311,8 @@ class BrokerRequestResponse(BrokerBase):
                 )
                 if broker_message:
                     self.process_response(broker_message)
-            except Exception:
-                log.error("Error handling response.")
+            except Exception as e:
+                log.error("Error handling response.", trace=e)
 
     def handle_test_pass_through(self):
         while not self.stop_signal.is_set():
@@ -321,10 +321,11 @@ class BrokerRequestResponse(BrokerBase):
                 decoded_payload = self.decode_payload(message.get_payload())
                 message.set_payload(decoded_payload)
                 self.process_response(message)
-            except queue.Empty:
+            except queue.Empty as e:
+                log.debug("No messages in pass-through queue.", trace=e)
                 continue
-            except Exception:
-                log.error("Error handling test passthrough.")
+            except Exception as e:
+                log.error("Error handling test passthrough.", trace=e)
 
     def process_response(self, broker_message):
         if self.test_mode:
@@ -353,8 +354,8 @@ class BrokerRequestResponse(BrokerBase):
 
         try:
             metadata_stack = json.loads(metadata_json)
-        except json.JSONDecodeError:
-            log.error("Received response with invalid metadata JSON.")
+        except json.JSONDecodeError as e:
+            log.error("Received response with invalid metadata JSON.", trace=e)
             return
 
         if not metadata_stack:
@@ -363,8 +364,8 @@ class BrokerRequestResponse(BrokerBase):
 
         try:
             current_metadata = metadata_stack.pop()
-        except IndexError:
-            log.error("Received response with invalid metadata stack.")
+        except IndexError as e:
+            log.error("Received response with invalid metadata stack.", trace=e)
             return
         request_id = current_metadata.get("request_id")
         if not request_id:

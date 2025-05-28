@@ -168,7 +168,7 @@ class LiteLLMBase(ComponentBase):
 
     def load_balance(self, messages, stream):
         """load balance the messages"""
-        model=self.load_balancer_config[0]["model_name"]
+        model = self.load_balancer_config[0]["model_name"]
         try:
             response = self.router.completion(
                 model=model,
@@ -179,12 +179,12 @@ class LiteLLMBase(ComponentBase):
         except litellm.BadRequestError as e:
             # Handle context window exceeded error
             if "ContextWindowExceededError" in str(e):
-                log.error("Context window exceeded error")
+                log.error("Context window exceeded error", trace=e)
                 return self.context_exceeded_response(model)
-            log.error("Bad request error.")
+            log.error("Bad request error.", trace=e)
             raise ValueError("Error LiteLLM bad request") from None
         except Exception as e:
-            log.error("LiteLLM API connection error.")
+            log.error("LiteLLM API connection error.", trace=e)
             raise ValueError("Error LiteLLM API connection") from None
 
         log.debug("Load balancer responded")
@@ -235,15 +235,17 @@ class LiteLLMBase(ComponentBase):
                 f"2. Splitting your request into smaller chunks\n"
                 f"3. Summarizing or extracting only the most relevant parts of your content\n\n"
                 f"Technical details: Input is too long for requested model."
-            )
+            ),
         }
         # Create a ModelResponse object with the error message
         return ModelResponse(
             id=f"context-exceeded-{int(time.time())}",
-            choices=[{
-                "message": response_message,
-                "finish_reason": "context_window_exceeded",
-                "index": 0,
-            }],
-            model=model
+            choices=[
+                {
+                    "message": response_message,
+                    "finish_reason": "context_window_exceeded",
+                    "index": 0,
+                }
+            ],
+            model=model,
         )

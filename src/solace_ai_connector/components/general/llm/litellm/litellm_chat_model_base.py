@@ -158,10 +158,10 @@ class LiteLLMChatModelBase(LiteLLMBase):
             return {"content": response.choices[0].message.content}
         except APIConnectionError as e:
             error_str = str(e)
-            log.error("Error invoking LiteLLM")
+            log.error("Error invoking LiteLLM", trace=e)
             return {"content": error_str, "handle_error": True}
-        except Exception:
-            log.error("Error invoking LiteLLM")
+        except Exception as e:
+            log.error("Error invoking LiteLLM", trace=e)
             raise ValueError("Error invoking LiteLLM") from None
 
     def invoke_stream(self, message, messages):
@@ -222,14 +222,14 @@ class LiteLLMChatModelBase(LiteLLMBase):
 
         except APIConnectionError as e:
             error_str = str(e)
-            log.error("Error invoking LiteLLM")
+            log.error("Error invoking LiteLLM", trace=e)
             return {
                 "content": error_str,
                 "response_uuid": response_uuid,
                 "handle_error": True,
             }
-        except Exception:
-            log.error("Error invoking LiteLLM")
+        except Exception as e:
+            log.error("Error invoking LiteLLM", trace=e)
             raise ValueError("Error invoking LiteLLM") from None
 
         if self.stream_to_next_component:
