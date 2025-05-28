@@ -46,6 +46,26 @@ def convert_to_bytes(size_str):
     return int(size_str)
 
 
+# Helper function to handle trace formatting
+def _format_with_trace(message, trace):
+    try:
+        import traceback
+
+        if isinstance(trace, Exception):
+            # If it's an Exception object
+            stack_trace = traceback.format_exception(
+                type(trace), trace, trace.__traceback__
+            )
+            full_message = f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
+        else:
+            # Regular trace info
+            full_message = f"{message} | TRACE: {trace}"
+    except Exception:
+        # Fallback if there's an issue with the trace handling
+        full_message = f"{message} | TRACE: {trace}"
+    return full_message
+
+
 def setup_log(
     logFilePath,
     stdOutLogLevel,
@@ -146,58 +166,14 @@ def setup_log(
             formatted_message = message % args if args else message
             # Then add trace if available
             if trace and enableTrace:
-                # Handle various types of exception information
-                try:
-                    import traceback
-
-                    if isinstance(trace, Exception):
-                        # If it's an Exception object
-                        stack_trace = traceback.format_exception(
-                            type(trace), trace, trace.__traceback__
-                        )
-                        full_message = f"{formatted_message} | TRACE: {trace}\n{''.join(stack_trace)}"
-                    elif isinstance(trace, str) and any(
-                        err_keyword in trace.lower()
-                        for err_keyword in ["error", "exception", "traceback"]
-                    ):
-                        # If it's a string that looks like an error
-                        full_message = f"{formatted_message} | TRACE: {trace}"
-                    else:
-                        # Regular trace info
-                        full_message = f"{formatted_message} | TRACE: {trace}"
-                except Exception:
-                    # Fallback if there's an issue with the trace handling
-                    full_message = f"{formatted_message} | TRACE: {trace}"
+                full_message = _format_with_trace(formatted_message, trace)
             else:
                 full_message = formatted_message
             original_debug(full_message, **kwargs)
         else:
             # Handle case without formatting args
             if trace and enableTrace:
-                # Handle various types of exception information
-                try:
-                    import traceback
-
-                    if isinstance(trace, Exception):
-                        # If it's an Exception object
-                        stack_trace = traceback.format_exception(
-                            type(trace), trace, trace.__traceback__
-                        )
-                        full_message = (
-                            f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
-                        )
-                    elif isinstance(trace, str) and any(
-                        err_keyword in trace.lower()
-                        for err_keyword in ["error", "exception", "traceback"]
-                    ):
-                        # If it's a string that looks like an error
-                        full_message = f"{message} | TRACE: {trace}"
-                    else:
-                        # Regular trace info
-                        full_message = f"{message} | TRACE: {trace}"
-                except Exception:
-                    # Fallback if there's an issue with the trace handling
-                    full_message = f"{message} | TRACE: {trace}"
+                full_message = _format_with_trace(message, trace)
             else:
                 full_message = message
             original_debug(full_message, **kwargs)
@@ -210,58 +186,14 @@ def setup_log(
             formatted_message = message % args if args else message
             # Then add trace if available
             if trace and enableTrace:
-                # Handle various types of exception information
-                try:
-                    import traceback
-
-                    if isinstance(trace, Exception):
-                        # If it's an Exception object
-                        stack_trace = traceback.format_exception(
-                            type(trace), trace, trace.__traceback__
-                        )
-                        full_message = f"{formatted_message} | TRACE: {trace}\n{''.join(stack_trace)}"
-                    elif isinstance(trace, str) and any(
-                        err_keyword in trace.lower()
-                        for err_keyword in ["error", "exception", "traceback"]
-                    ):
-                        # If it's a string that looks like an error
-                        full_message = f"{formatted_message} | TRACE: {trace}"
-                    else:
-                        # Regular trace info
-                        full_message = f"{formatted_message} | TRACE: {trace}"
-                except Exception:
-                    # Fallback if there's an issue with the trace handling
-                    full_message = f"{formatted_message} | TRACE: {trace}"
+                full_message = _format_with_trace(formatted_message, trace)
             else:
                 full_message = formatted_message
             original_error(full_message, **kwargs)
         else:
             # Handle case without formatting args
             if trace and enableTrace:
-                # Handle various types of exception information
-                try:
-                    import traceback
-
-                    if isinstance(trace, Exception):
-                        # If it's an Exception object
-                        stack_trace = traceback.format_exception(
-                            type(trace), trace, trace.__traceback__
-                        )
-                        full_message = (
-                            f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
-                        )
-                    elif isinstance(trace, str) and any(
-                        err_keyword in trace.lower()
-                        for err_keyword in ["error", "exception", "traceback"]
-                    ):
-                        # If it's a string that looks like an error
-                        full_message = f"{message} | TRACE: {trace}"
-                    else:
-                        # Regular trace info
-                        full_message = f"{message} | TRACE: {trace}"
-                except Exception:
-                    # Fallback if there's an issue with the trace handling
-                    full_message = f"{message} | TRACE: {trace}"
+                full_message = _format_with_trace(message, trace)
             else:
                 full_message = message
             original_error(full_message, **kwargs)
