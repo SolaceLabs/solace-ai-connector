@@ -394,11 +394,12 @@ class ComponentBase:
                     self.name,
                     self.log_identifier,
                 )
-            except Exception:
+            except Exception as e:
                 log.error(
                     "[%s] %s Failed to initialize component-level RRC",
                     self.name,
                     self.log_identifier,
+                    trace=e,
                 )
                 # Decide if this should be fatal
                 raise ValueError("Failed to initialize component-level RRC") from None
@@ -566,16 +567,21 @@ class ComponentBase:
                         self.log_identifier,
                     )
                     return None
-                except TimeoutError:  # Catch timeout specifically
-                    log.error("[%s] %s RRC timed out", self.name, self.log_identifier)
-                    raise e  # Re-raise timeout
-                except Exception:
+                except TimeoutError as e:  # Catch timeout specifically
+                    log.error(
+                        "[%s] %s RRC timed out", self.name, self.log_identifier, trace=e
+                    )
+                    raise ValueError("RRC timed out") from None  # Re-raise timeout
+                except Exception as e:
                     log.error(
                         "[%s] %s Error during RRC call",
                         self.name,
                         self.log_identifier,
+                        trace=e,
                     )
-                    raise e  # Re-raise other exceptions
+                    raise ValueError(
+                        "Error during RRC call"
+                    ) from None  # Re-raise other exceptions
         else:
             # No controller found
             raise ValueError(

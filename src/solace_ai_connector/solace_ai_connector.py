@@ -62,8 +62,8 @@ class SolaceAiConnector:
             log.info("Received keyboard interrupt - stopping")
 
             raise KeyboardInterrupt from None
-        except Exception:
-            log.error("Error during Solace AI Event Connector startup")
+        except Exception as e:
+            log.error("Error during Solace AI Event Connector startup", trace=e)
             raise ValueError("An error occurred during startup") from None
 
     def create_apps(self):
@@ -192,8 +192,8 @@ class SolaceAiConnector:
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt from None
-        except Exception:
-            log.error("Error creating apps")
+        except Exception as e:
+            log.error("Error creating apps", trace=e)
             raise ValueError("An error occurred during app creation") from None
 
     def create_internal_app(self, app_name: str, flows: List[Dict[str, Any]]) -> App:
@@ -284,8 +284,8 @@ class SolaceAiConnector:
         for app in self.apps:
             try:
                 app.cleanup()
-            except Exception:
-                log.error("Error cleaning up app")
+            except Exception as e:
+                log.error("Error cleaning up app", trace=e)
         self.apps.clear()
         self.flows.clear()  # Keep for backward compatibility refs?
 
@@ -294,8 +294,8 @@ class SolaceAiConnector:
             try:
                 while not queue.empty():
                     queue.get_nowait()
-            except Exception:
-                log.error(f"Error cleaning queue {queue_name}")
+            except Exception as e:
+                log.error(f"Error cleaning queue {queue_name}", trace=e)
         self.flow_input_queues.clear()
 
         if hasattr(self, "trace_queue") and self.trace_queue:
@@ -321,6 +321,7 @@ class SolaceAiConnector:
         log_file_level = log_config.get("log_file_level", "INFO")
         log_file = log_config.get("log_file", "solace_ai_connector.log")
         log_format = log_config.get("log_format", "pipe-delimited")
+        enable_trace = log_config.get("enable_trace", True)
 
         # Get logback values
         logback = log_config.get("logback", {})
@@ -331,6 +332,7 @@ class SolaceAiConnector:
             log_file_level,
             log_format,
             logback,
+            enable_trace,
         )
 
     def setup_trace(self):
@@ -372,8 +374,8 @@ class SolaceAiConnector:
                         if self.stop_signal.is_set():
                             break
                         continue
-        except Exception:
-            log.error("Error in trace handler thread")
+        except Exception as e:
+            log.error("Error in trace handler thread", trace=e)
 
     def validate_config(self):
         """Validate the configuration structure."""

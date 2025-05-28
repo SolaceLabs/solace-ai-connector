@@ -37,6 +37,7 @@ log:
   log_file_level: DEBUG
   log_file: ${LOG_FILE}
   log_format: jsonl
+  enable_trace: False
   logback: 
     rollingpolicy:
       file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz"

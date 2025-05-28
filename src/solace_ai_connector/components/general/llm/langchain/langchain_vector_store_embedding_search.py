@@ -100,8 +100,8 @@ class LangChainVectorStoreEmbeddingsSearch(LangChainVectorStoreEmbeddingsBase):
         )
         try:
             result = self.vector_store.similarity_search(text, k=k)
-        except Exception:
-            log.error("Error while searching in the vector store")
+        except Exception as e:
+            log.error("Error while searching in the vector store", trace=e)
             raise ValueError("Error while searching in the vector store.") from None
         log.debug("Searched and got result")
         # Clean up the result by looping through all the Documents and extracting the metadata and page_content

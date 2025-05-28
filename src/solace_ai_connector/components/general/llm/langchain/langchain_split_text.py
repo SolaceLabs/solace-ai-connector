@@ -79,8 +79,8 @@ class LangChainTextSplitter(LangChainBase):
         try:
             chunks = self.component.split_text(data)
             return chunks
-        except Exception:
-            log.error("Error splitting text")
+        except Exception as e:
+            log.error("Error splitting text", trace=e)
             return []
 
 
@@ -105,6 +105,6 @@ class SingleChunkSplitter:
         """
         try:
             return [data]
-        except Exception:
-            log.error("Error wrapping data")
+        except Exception as e:
+            log.error("Error wrapping data", trace=e)
             return []
