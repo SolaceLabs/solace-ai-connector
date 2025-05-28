@@ -46,12 +46,33 @@ def convert_to_bytes(size_str):
     return int(size_str)
 
 
+# Helper function to handle trace formatting
+def _format_with_trace(message, trace):
+    try:
+        import traceback
+
+        if isinstance(trace, Exception):
+            # If it's an Exception object
+            stack_trace = traceback.format_exception(
+                type(trace), trace, trace.__traceback__
+            )
+            full_message = f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
+        else:
+            # Regular trace info
+            full_message = f"{message} | TRACE: {trace}"
+    except Exception:
+        # Fallback if there's an issue with the trace handling
+        full_message = f"{message} | TRACE: {trace}"
+    return full_message
+
+
 def setup_log(
     logFilePath,
     stdOutLogLevel,
     fileLogLevel,
     logFormat,
     logBack,
+    enableTrace=False,
 ):
     """
     Set up the configuration for the logger.
@@ -132,3 +153,51 @@ def setup_log(
 
     log.addHandler(file_handler)
     log.addHandler(stream_handler)
+
+    # Save the original logging methods
+    original_debug = log.debug
+    original_error = log.error
+
+    # Define a wrapper function for debug logs with trace support
+    def debug_wrapper(message, *args, trace=None, **kwargs):
+        # Handle both string formatting args and trace
+        if args and isinstance(message, str):
+            # Format the message first with args
+            formatted_message = message % args if args else message
+            # Then add trace if available
+            if trace and enableTrace:
+                full_message = _format_with_trace(formatted_message, trace)
+            else:
+                full_message = formatted_message
+            original_debug(full_message, **kwargs)
+        else:
+            # Handle case without formatting args
+            if trace and enableTrace:
+                full_message = _format_with_trace(message, trace)
+            else:
+                full_message = message
+            original_debug(full_message, **kwargs)
+
+    # Define a wrapper function for error logs with trace support
+    def error_wrapper(message, *args, trace=None, **kwargs):
+        # Handle both string formatting args and trace
+        if args and isinstance(message, str):
+            # Format the message first with args
+            formatted_message = message % args if args else message
+            # Then add trace if available
+            if trace and enableTrace:
+                full_message = _format_with_trace(formatted_message, trace)
+            else:
+                full_message = formatted_message
+            original_error(full_message, **kwargs)
+        else:
+            # Handle case without formatting args
+            if trace and enableTrace:
+                full_message = _format_with_trace(message, trace)
+            else:
+                full_message = message
+            original_error(full_message, **kwargs)
+
+    # Always replace the logging methods, regardless of enableTrace
+    log.debug = debug_wrapper
+    log.error = error_wrapper

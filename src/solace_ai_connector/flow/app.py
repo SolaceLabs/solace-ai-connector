@@ -114,10 +114,10 @@ class App:
                 # Store controller instance (already done by assignment above)
             except Exception as e:
                 log.error(
-                    "Failed to initialize RequestResponseFlowController for app '%s': %s",
+                    "Failed to initialize RequestResponseFlowController for app '%s'.",
                     self.name,
-                    e,
                     exc_info=True,
+                    trace=e,
                 )
                 # Decide if this should be a fatal error for the app
                 raise e
@@ -208,8 +208,8 @@ class App:
                 self.flow_input_queues[flow_config.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
 
-        except Exception:
-            log.error("Error initializing flows for app", self.name)
+        except Exception as e:
+            log.error("Error initializing flows for app", self.name, trace=e)
             raise ValueError(
                 f"Error initializing flows for app '{self.name}'. Check the configuration."
             )
@@ -354,17 +354,17 @@ class App:
                 pass  # RRC's internal app/flow will be cleaned by connector.cleanup()
             except Exception as e:
                 log.error(
-                    "Error cleaning up RequestResponseFlowController in app %s: %s",
+                    "Error cleaning up RequestResponseFlowController in app %s",
                     self.name,
-                    e,
+                    trace=e,
                 )
             self.request_response_controller = None
 
         for flow in self.flows:
             try:
                 flow.cleanup()
-            except Exception:
-                log.error(f"Error cleaning up flow in app {self.name}")
+            except Exception as e:
+                log.error(f"Error cleaning up flow in app {self.name}", trace=e)
         self.flows.clear()
         self.flow_input_queues.clear()
         self._broker_output_component = None  # Clear cache
@@ -460,9 +460,9 @@ class App:
             self._broker_output_component.enqueue(event)
         except Exception as e:
             log.error(
-                "App '%s' failed to enqueue message to BrokerOutput: %s",
+                "App '%s' failed to enqueue message to BrokerOutput.",
                 self.name,
-                e,
+                trace=e,
                 exc_info=True,
             )
 

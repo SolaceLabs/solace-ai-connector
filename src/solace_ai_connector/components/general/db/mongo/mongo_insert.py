@@ -115,20 +115,25 @@ class MongoDBInsertComponent(MongoDBBaseComponent):
                     try:
                         # Clean the datetime string by removing redundant timezone indicators
                         cleaned_value = value.strip()
-                        
+
                         # Handle common problematic patterns:
                         # 1. "Z UTC" - Z already indicates UTC, so remove " UTC"
                         if cleaned_value.endswith(" UTC") and "Z" in cleaned_value:
                             cleaned_value = cleaned_value[:-4].strip()
-                        
+
                         # 2. Multiple spaces or other whitespace issues
-                        elif " UTC" in cleaned_value and cleaned_value.count(" UTC") > 1:
+                        elif (
+                            " UTC" in cleaned_value and cleaned_value.count(" UTC") > 1
+                        ):
                             # Remove duplicate UTC indicators
                             cleaned_value = cleaned_value.replace(" UTC UTC", " UTC")
                         parsed_date = dateutil.parser.parse(cleaned_value)
                         return parsed_date
                     except Exception as cleanup_error:
-                        log.error(f"[mongo_insert] Failed to parse even after cleanup. Original: '{value}', Cleaned: '{cleaned_value}', Cleanup Error: {cleanup_error}")
+                        log.error(
+                            "[mongo_insert] Failed to parse even after cleanup.",
+                            trace=f"Original: '{value}', Cleaned: '{cleaned_value}', Cleanup Error: {cleanup_error}",
+                        )
                         # Provide helpful error message with suggestions
                         error_msg = (
                             f"Unable to parse datetime string: '{value}'. "

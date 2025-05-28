@@ -69,8 +69,8 @@ class WebsocketOutput(WebsocketBase):
                 self.discard_current_message()
                 return None
 
-        except Exception:
-            log.error("Error sending message via WebSocket.")
+        except Exception as e:
+            log.error("Error sending message via WebSocket.", trace=e)
             self.discard_current_message()
             return None
 
