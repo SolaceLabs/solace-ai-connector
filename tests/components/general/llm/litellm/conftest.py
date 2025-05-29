@@ -1,19 +1,40 @@
-"""Pytest fixtures for LLM component tests."""
+"""Pytest fixtures for LiteLLM component tests."""
 
-# Removed sys.path manipulations.
-# It's expected that the project is installed in editable mode
-# in the test environment (e.g., via 'pip install -e .'),
-# making 'solace_ai_connector' directly importable.
-
+import sys
+import os
 import pytest
 from unittest.mock import patch
 from threading import Lock  # Keep this import for fixtures if they create Locks directly
+
+# Add the src directory to the path so we can import solace_ai_connector
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..', 'src'))
 
 from solace_ai_connector.common.message import Message
 from solace_ai_connector.components.general.llm.litellm.litellm_base import (
     litellm_info_base as litellm_base_module_info_dict,
 )
 from solace_ai_connector.common.monitoring import Metrics
+from solace_ai_connector.common.log import setup_log, log
+
+
+@pytest.fixture(autouse=True)
+def setup_litellm_logging():
+    """Set up logging with trace enabled for LiteLLM tests."""
+    # Reset any handlers that might be attached to the logger
+    for handler in log.handlers[:]:
+        log.removeHandler(handler)
+    
+    # Set up logging with trace enabled
+    setup_log(
+        logFilePath="litellm_test_logs.log",
+        stdOutLogLevel="INFO",
+        fileLogLevel="DEBUG",
+        logFormat="pipe-delimited",
+        logBack={},
+        enableTrace=True
+    )
+    
+    yield
 
 
 @pytest.fixture
