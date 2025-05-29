@@ -182,9 +182,15 @@ class App:
                     for i in range(num_instances):
                         flow_instance = self.create_flow(flow_config, index, i)
                         flow_input_queue = flow_instance.get_flow_input_queue()
-                        # Use flow name and instance index for unique queue key if needed
-                        queue_key = f"{flow_config.get('name')}_{i}"
-                        self.flow_input_queues[queue_key] = flow_input_queue
+                         # Use flow name without index for single instance flows
+                        flow_name = flow_config.get('name')
+                        if num_instances == 1:
+                            # For single instance flows, don't add an index
+                            self.flow_input_queues[flow_name] = flow_input_queue
+                        else:
+                            # For multiple instances, add an index
+                            queue_key = f"{flow_name}_{i}"
+                            self.flow_input_queues[queue_key] = flow_input_queue
                         self.flows.append(flow_instance)
             else:
                 # --- Simplified App Mode ---
