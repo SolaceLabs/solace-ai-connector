@@ -73,10 +73,11 @@ class SubscriptionRouter(ComponentBase):
             # Access the flow this component belongs to via the parent app
             flow = self.get_app().flows[0]
             flow_component_groups = flow.component_groups
-        except (AttributeError, IndexError):
+        except (AttributeError, IndexError) as e:
             log.error(
                 "%s Could not access flow component groups. Cannot build routing targets.",
                 self.log_identifier,
+                trace=e,
             )
             return
 
@@ -148,11 +149,11 @@ class SubscriptionRouter(ComponentBase):
                         regex_list.append(re.compile(regex_str))
                     except re.error as e:
                         log.error(
-                            "%s Invalid regex generated from subscription '%s' for component '%s': %s",
+                            "%s Invalid regex generated from subscription '%s' for component '%s'",
                             self.log_identifier,
                             topic,
                             comp_name,
-                            e,
+                            trace=e,
                         )
 
             if regex_list:
@@ -188,6 +189,7 @@ class SubscriptionRouter(ComponentBase):
             "%s Attempting to route message with topic: '%s'",
             self.log_identifier,
             msg_topic,
+            trace=message,
         )
 
         for target_component, regex_list in self.component_targets:
@@ -217,6 +219,7 @@ class SubscriptionRouter(ComponentBase):
                             target_component.name,
                             e,
                             exc_info=True,
+                            trace=e,
                         )
                         # Let error handling proceed (ComponentBase will NACK original message)
                         raise e

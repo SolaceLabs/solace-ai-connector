@@ -109,7 +109,7 @@ class BrokerOutput(BrokerBase):
             log.info("Discarding message due to TTL expiration.")
             return
 
-        log.debug("Sending message to broker.")
+        log.debug("Sending message to broker.", trace=message)
         user_context = None
         if self.propagate_acknowledgements:
             user_context = {

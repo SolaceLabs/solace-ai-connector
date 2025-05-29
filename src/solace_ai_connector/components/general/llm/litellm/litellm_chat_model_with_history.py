@@ -53,8 +53,10 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
         try:
             if clear_history_but_keep_depth is not None:
                 clear_history_but_keep_depth = max(0, int(clear_history_but_keep_depth))
-        except (TypeError, ValueError):
-            log.error("Invalid clear_history_but_keep_depth value. Defaulting to 0.")
+        except (TypeError, ValueError) as e:
+            log.error(
+                "Invalid clear_history_but_keep_depth value. Defaulting to 0.", trace=e
+            )
             clear_history_but_keep_depth = 0
         messages = data.get("messages", [])
         stream = data.get("stream")

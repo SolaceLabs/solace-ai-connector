@@ -108,11 +108,11 @@ class WebsocketBase(ComponentBase, ABC):
 
     def run_server(self):
         if self.socketio:
-            self.http_server = WSGIServer(('0.0.0.0', self.listen_port), self.app)
+            self.http_server = WSGIServer(("0.0.0.0", self.listen_port), self.app)
             self.http_server.serve_forever()
 
     def stop_server(self):
-        if hasattr(self, 'http_server') and self.http_server.started:
+        if hasattr(self, "http_server") and self.http_server.started:
             try:
                 self.http_server.stop(timeout=10)
             except Exception as e:
@@ -121,7 +121,7 @@ class WebsocketBase(ComponentBase, ABC):
             self.socketio.stop()
         except Exception as e:
             pass
-          
+
     def get_sockets(self):
         if not self.sockets:
             self.sockets = self.kv_store_get("websocket_connections") or {}
@@ -132,10 +132,12 @@ class WebsocketBase(ComponentBase, ABC):
         if socket_id == "*":
             for socket in sockets.values():
                 socket.emit("message", payload)
-            log.debug("Message sent to all WebSocket connections")
+            log.debug("Message sent to all WebSocket connections", trace=payload)
         elif socket_id in sockets:
             sockets[socket_id].emit("message", payload)
-            log.debug("Message sent to WebSocket connection %s", socket_id)
+            log.debug(
+                "Message sent to WebSocket connection %s", socket_id, trace=payload
+            )
         else:
             log.error("No active connection found for socket_id: %s", socket_id)
             return False

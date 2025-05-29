@@ -94,9 +94,10 @@ class BrokerInput(BrokerBase):
             for sub_dict in initial_subscriptions:
                 if isinstance(sub_dict, dict) and "topic" in sub_dict:
                     self.active_subscriptions.add(sub_dict["topic"])
-                elif isinstance(sub_dict, str): # Support simple string list for backward compatibility
+                elif isinstance(
+                    sub_dict, str
+                ):  # Support simple string list for backward compatibility
                     self.active_subscriptions.add(sub_dict)
-
 
         self.connect()
 
@@ -141,18 +142,18 @@ class BrokerInput(BrokerBase):
             if callback is not None:
                 msg.add_negative_acknowledgements(callback)
             else:
-                log.error("No callback for negative acknowledgement found. ")
+                log.error("No callback for negative acknowledgement found.")
 
             payload = self.decode_payload(payload)
 
-            log.debug("Received message from broker.")
+            log.debug("Received message from broker.", trace=payload)
 
             # update the message with the decoded payload
             msg.payload = payload
 
             return msg
         except Exception as e:
-            log.error("Error receiving message from broker")
+            log.error("Error receiving message from broker", trace=e)
             self.handle_negative_acknowledgements(msg, e)
             raise ValueError("Error receiving message from broker") from None
 
@@ -226,8 +227,10 @@ class BrokerInput(BrokerBase):
         success = False
         # Check for SolaceMessaging-like service
         if hasattr(self.messaging_service, "add_topic_subscription"):
-            if hasattr(self.messaging_service, "persistent_receiver") and \
-               self.messaging_service.persistent_receiver is not None:
+            if (
+                hasattr(self.messaging_service, "persistent_receiver")
+                and self.messaging_service.persistent_receiver is not None
+            ):
                 success = self.messaging_service.add_topic_subscription(
                     topic_str, self.messaging_service.persistent_receiver
                 )
@@ -239,7 +242,9 @@ class BrokerInput(BrokerBase):
                 )
                 return False
         # Check for DevBrokerMessaging-like service
-        elif hasattr(self.messaging_service, "add_topic_to_queue"):  # DevBrokerMessaging
+        elif hasattr(
+            self.messaging_service, "add_topic_to_queue"
+        ):  # DevBrokerMessaging
             queue_name = self.broker_properties.get("queue_name")
             if not queue_name:
                 log.error(
@@ -283,8 +288,10 @@ class BrokerInput(BrokerBase):
         success = False
         # Check for SolaceMessaging-like service
         if hasattr(self.messaging_service, "remove_topic_subscription"):
-            if hasattr(self.messaging_service, "persistent_receiver") and \
-               self.messaging_service.persistent_receiver is not None:
+            if (
+                hasattr(self.messaging_service, "persistent_receiver")
+                and self.messaging_service.persistent_receiver is not None
+            ):
                 success = self.messaging_service.remove_topic_subscription(
                     topic_str, self.messaging_service.persistent_receiver
                 )
@@ -296,7 +303,9 @@ class BrokerInput(BrokerBase):
                 )
                 return False
         # Check for DevBrokerMessaging-like service
-        elif hasattr(self.messaging_service, "remove_topic_from_queue"):  # DevBrokerMessaging
+        elif hasattr(
+            self.messaging_service, "remove_topic_from_queue"
+        ):  # DevBrokerMessaging
             queue_name = self.broker_properties.get("queue_name")
             if not queue_name:
                 log.error(
