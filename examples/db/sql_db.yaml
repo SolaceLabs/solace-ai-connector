@@ -1,0 +1,137 @@
+# SQL Database Components example
+
+---
+log:
+  stdout_log_level: INFO
+  log_file_level: INFO
+  log_file: solace_ai_connector.log
+
+trace:
+  trace_file: solace_ai_connector_trace.log
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+
+flows:
+  # Data ingestion to SQL database
+  # Example input for inserting data into a SQL table
+  # {
+  #   "table_name": "users",
+  #   "data": {
+  #     "id": 1,
+  #     "name": "Alice",
+  #     "email": "alice@example.com"
+  #   },
+  #   "on_duplicate_update_columns": ["name", "email"]
+  # }
+  #
+  # Or for multiple rows:
+  # {
+  #   "table_name": "users",
+  #   "data": [
+  #     {"id": 2, "name": "Bob", "email": "bob@example.com"},
+  #     {"id": 3, "name": "Carol", "email": "carol@example.com"}
+  #   ],
+  #   "on_duplicate_update_columns": ["name", "email"]
+  # }
+
+  - name: sql_insert
+    components:
+      # Data Input from Solace broker
+      - component_name: solace_data_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: data_ingest
+          broker_subscriptions:
+            - topic: data/ingest
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Insert into SQL database  
+      - component_name: sql_insert
+        component_module: sql_insert
+        component_config:
+          database_type: postgres # or mysql
+          sql_host: ${SQL_HOST}
+          sql_port: ${SQL_PORT}
+          sql_user: ${SQL_USER}
+          sql_password: ${SQL_PASSWORD}
+          sql_database: ${SQL_DB}
+
+        input_selection:
+          source_expression: input:payload
+
+  # Data query from SQL database
+  # Example input for querying data from a SQL table
+  # Example input for querying data from a SQL table
+  # {
+  #   "query": "SELECT * FROM users WHERE id = %s",
+  #   "params": [1],
+  #   "fetch_results": true
+  # }
+  #
+  # Or with named parameters (if supported by your DB driver):
+  # {
+  #   "query": "SELECT * FROM users WHERE name = %(name)s",
+  #   "params": {"name": "Alice"},
+  #   "fetch_results": true
+  # }
+  #
+  # For DML operations (e.g., UPDATE) without fetching results:
+  # {
+  #   "query": "UPDATE users SET email = %s WHERE id = %s",
+  #   "params": ["alice@newdomain.com", 1],
+  #   "fetch_results": false
+  # }
+  - name: sql_query
+    components:
+      # Data Input from Solace broker
+      - component_name: solace_data_input
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: data_query
+          broker_subscriptions:
+            - topic: data/query
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # Query SQL database  
+      - component_name: sql_execute
+        component_module: sql_execute
+        component_config:
+          database_type: postgres # or mysql
+          sql_host: ${SQL_HOST}
+          sql_port: ${SQL_PORT}
+          sql_user: ${SQL_USER}
+          sql_password: ${SQL_PASSWORD}
+          sql_database: ${SQL_DB}
+
+        input_selection:
+          source_expression: input:payload
+
+      # Send messages back to broker
+      - component_name: solace_output
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_value: data/query/output
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

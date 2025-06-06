@@ -132,6 +132,7 @@ def import_module(module, base_path=None, component_package=None):
                     ".components.general.llm.openai",
                     ".components.general.llm.litellm",
                     ".components.general.db.mongo",
+                    ".components.general.db.sql",
                     ".components.general.websearch",
                     ".components.inputs_outputs",
                     ".transforms",

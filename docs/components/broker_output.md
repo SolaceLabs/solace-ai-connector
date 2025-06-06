@@ -17,6 +17,7 @@ component_config:
   reconnection_strategy: <string>
   retry_interval: <string>
   retry_count: <string>
+  create_queue_on_start: <string>
   payload_encoding: <string>
   payload_format: <string>
   propagate_acknowledgements: <string>
@@ -36,6 +37,7 @@ component_config:
 | reconnection_strategy | False | forever_retry | Reconnection strategy for the broker (forever_retry, parametrized_retry) |
 | retry_interval | False | 10000 | Reconnection retry interval in seconds for the broker |
 | retry_count | False | 10 | Number of reconnection retries. Only used if reconnection_strategy is parametrized_retry |
+| create_queue_on_start | False | True | Create a queue for the broker |
 | payload_encoding | False | utf-8 | Encoding for the payload (utf-8, base64, gzip, none) |
 | payload_format | False | json | Format for the payload (json, yaml, text) |
 | propagate_acknowledgements | False | True | Propagate acknowledgements from the broker to the previous components |

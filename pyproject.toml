@@ -94,6 +94,12 @@ mongodb = [
     "pymongo==4.10.1",
 ]
 
+# SQL database
+sql = [
+    "mysql_connector_python==9.3.0",
+    "psycopg2_binary==2.9.9",
+]
+
 # Web Socket
 websocket = [
     "Flask==3.0.3",
@@ -298,6 +304,10 @@ all = [
     
     # From mongodb
     "pymongo==4.10.1",
+
+    # From sql
+    "mysql_connector_python==9.3.0",
+    "psycopg2_binary==2.9.9",
     
     # From websocket
     "Flask==3.0.3",
