@@ -5,6 +5,7 @@ import queue
 import traceback
 import os
 import time
+import random
 
 from datetime import datetime
 from typing import List, Dict, Any
@@ -252,8 +253,26 @@ class SolaceAiConnector:
         if flow_input_queue:
             event = Event(EventType.MESSAGE, message)
             flow_input_queue.put(event)
-        else:
-            log.error("Can't send message to flow %s. Not found", flow_name)
+            return True
+        
+        # If not found, check if this might be a multi-instance flow
+        # by looking for keys with the pattern flow_name_N
+        matching_queues = [
+            (name, queue) for name, queue in self.flow_input_queues.items()
+            if name.startswith(f"{flow_name}_") and name[len(flow_name)+1:].isdigit()
+        ]
+
+        if matching_queues:
+            # Randomly select one instance
+            name, queue = random.choice(matching_queues)
+            event = Event(EventType.MESSAGE, message)
+            queue.put(event)
+            log.debug("Sent message to flow %s (randomly selected instance of multi-instance flow)", name)
+            return True
+
+        # No matching flow found
+        log.error("Can't send message to flow %s. Not found", flow_name)
+        return False
 
     def wait_for_flows(self):
         """Wait for the flows to finish"""
