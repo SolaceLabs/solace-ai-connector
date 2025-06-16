@@ -88,6 +88,7 @@ def setup_log(
     """
 
     log.handlers = []
+    # Set the global logger level to the lowest of the two levels
     log.setLevel(min(stdOutLogLevel, fileLogLevel))
 
     if not _ini_config_applied:
@@ -157,7 +158,7 @@ def setup_log(
 
     log.addHandler(file_handler)
 
-        # Save the original logging methods
+    # Save the original logging methods
     original_debug = log.debug
     original_error = log.error
 
