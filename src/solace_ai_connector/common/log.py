@@ -1,11 +1,13 @@
 import sys
 import logging
+import logging.config
 import logging.handlers
 import json
 import os
 from datetime import datetime
 
-
+# Global flag to indicate if INI configuration was successfully applied
+_ini_config_applied = False
 log = logging.getLogger("solace_ai_connector")
 
 
@@ -46,33 +48,12 @@ def convert_to_bytes(size_str):
     return int(size_str)
 
 
-# Helper function to handle trace formatting
-def _format_with_trace(message, trace):
-    try:
-        import traceback
-
-        if isinstance(trace, Exception):
-            # If it's an Exception object
-            stack_trace = traceback.format_exception(
-                type(trace), trace, trace.__traceback__
-            )
-            full_message = f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
-        else:
-            # Regular trace info
-            full_message = f"{message} | TRACE: {trace}"
-    except Exception:
-        # Fallback if there's an issue with the trace handling
-        full_message = f"{message} | TRACE: {trace}"
-    return full_message
-
-
 def setup_log(
     logFilePath,
     stdOutLogLevel,
     fileLogLevel,
     logFormat,
     logBack,
-    enableTrace=False,
 ):
     """
     Set up the configuration for the logger.
@@ -85,13 +66,15 @@ def setup_log(
         logBack (dict): Rolling log file configuration.
     """
 
-    # Set the global logger level to the lowest of the two levels
+    log.handlers = []
     log.setLevel(min(stdOutLogLevel, fileLogLevel))
 
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(stdOutLogLevel)
-    stream_formatter = logging.Formatter("%(message)s")
-    stream_handler.setFormatter(stream_formatter)
+    if not _ini_config_applied:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(stdOutLogLevel)
+        stream_formatter = logging.Formatter("%(message)s")
+        stream_handler.setFormatter(stream_formatter)
+        log.addHandler(stream_handler)
 
     if logFormat == "jsonl":
         file_formatter = JsonlFormatter()
@@ -152,52 +135,41 @@ def setup_log(
     file_handler.setLevel(fileLogLevel)
 
     log.addHandler(file_handler)
-    log.addHandler(stream_handler)
 
-    # Save the original logging methods
-    original_debug = log.debug
-    original_error = log.error
-
-    # Define a wrapper function for debug logs with trace support
-    def debug_wrapper(message, *args, trace=None, **kwargs):
-        # Handle both string formatting args and trace
-        if args and isinstance(message, str):
-            # Format the message first with args
-            formatted_message = message % args if args else message
-            # Then add trace if available
-            if trace and enableTrace:
-                full_message = _format_with_trace(formatted_message, trace)
-            else:
-                full_message = formatted_message
-            original_debug(full_message, **kwargs)
-        else:
-            # Handle case without formatting args
-            if trace and enableTrace:
-                full_message = _format_with_trace(message, trace)
-            else:
-                full_message = message
-            original_debug(full_message, **kwargs)
-
-    # Define a wrapper function for error logs with trace support
-    def error_wrapper(message, *args, trace=None, **kwargs):
-        # Handle both string formatting args and trace
-        if args and isinstance(message, str):
-            # Format the message first with args
-            formatted_message = message % args if args else message
-            # Then add trace if available
-            if trace and enableTrace:
-                full_message = _format_with_trace(formatted_message, trace)
-            else:
-                full_message = formatted_message
-            original_error(full_message, **kwargs)
-        else:
-            # Handle case without formatting args
-            if trace and enableTrace:
-                full_message = _format_with_trace(message, trace)
-            else:
-                full_message = message
-            original_error(full_message, **kwargs)
-
-    # Always replace the logging methods, regardless of enableTrace
-    log.debug = debug_wrapper
-    log.error = error_wrapper
+# Module-level logging configuration using generic environment variables
+# This code will run once when the module is first imported.
+if os.getenv("LOGGING_CONFIG_ENABLE", "false").lower() == "true":
+    ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
+    
+    if not ini_path_from_env:
+        print(
+            "LOGGING_CONFIG_ENABLE is true, but LOGGING_CONFIG_PATH is not set. "
+            "Proceeding with default programmatic logging.",
+            file=sys.stderr
+        )
+    elif not os.path.exists(ini_path_from_env):
+        print(
+            f"LOGGING_CONFIG_ENABLE is true, but the INI file specified by "
+            f"LOGGING_CONFIG_PATH ('{ini_path_from_env}') was not found. "
+            "Proceeding with default programmatic logging.",
+            file=sys.stderr
+        )
+    else:
+        try:
+            logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=False)
+            module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
+            module_init_logger.info(
+                f"Logging configured via INI file '{ini_path_from_env}' "
+                "(specified by LOGGING_CONFIG_PATH) from solace_ai_connector.common.log module import."
+            )
+            _ini_config_applied = True # Set flag if INI load is successful
+        except Exception as e:
+            print(
+                f"Error configuring logging from INI file '{ini_path_from_env}': {e}. "
+                "Proceeding with default programmatic logging.",
+                file=sys.stderr
+            )
+# else:
+    # LOGGING_CONFIG_ENABLE is false or not set.
+    # The application will rely on the programmatic setup_log() or Python's default.
+    # print("LOGGING_CONFIG_ENABLE is false. Proceeding with default programmatic logging.", file=sys.stderr)
