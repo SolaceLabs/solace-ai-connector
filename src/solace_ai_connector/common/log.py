@@ -136,21 +136,16 @@ def setup_log(
 
     log.addHandler(file_handler)
 
-# Module-level logging configuration using generic environment variables
+# Module-level logging configuration based on LOGGING_CONFIG_PATH
 # This code will run once when the module is first imported.
-if os.getenv("LOGGING_CONFIG_ENABLE", "false").lower() == "true":
-    ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
-    
-    if not ini_path_from_env:
+# If LOGGING_CONFIG_PATH is set and points to a valid file, INI-based logging is used.
+# Otherwise, programmatic logging via setup_log() will be used.
+ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
+
+if ini_path_from_env:
+    if not os.path.exists(ini_path_from_env):
         print(
-            "LOGGING_CONFIG_ENABLE is true, but LOGGING_CONFIG_PATH is not set. "
-            "Proceeding with default programmatic logging.",
-            file=sys.stderr
-        )
-    elif not os.path.exists(ini_path_from_env):
-        print(
-            f"LOGGING_CONFIG_ENABLE is true, but the INI file specified by "
-            f"LOGGING_CONFIG_PATH ('{ini_path_from_env}') was not found. "
+            f"LOGGING_CONFIG_PATH is set to '{ini_path_from_env}', but the file was not found. "
             "Proceeding with default programmatic logging.",
             file=sys.stderr
         )
@@ -170,6 +165,6 @@ if os.getenv("LOGGING_CONFIG_ENABLE", "false").lower() == "true":
                 file=sys.stderr
             )
 # else:
-    # LOGGING_CONFIG_ENABLE is false or not set.
+    # LOGGING_CONFIG_PATH is not set.
     # The application will rely on the programmatic setup_log() or Python's default.
-    # print("LOGGING_CONFIG_ENABLE is false. Proceeding with default programmatic logging.", file=sys.stderr)
+    # print("LOGGING_CONFIG_PATH is not set. Proceeding with default programmatic logging.", file=sys.stderr)
