@@ -76,6 +76,10 @@ _MODULE_ORIGINAL_DEBUG = log.debug
 _MODULE_ORIGINAL_ERROR = log.error
 _TRACE_ENABLED = False  # Global flag to track trace enablement
 
+def _update_trace_enabled(enabled):
+    global _TRACE_ENABLED
+    _TRACE_ENABLED = enabled
+
 def _create_module_wrapper_with_trace(original_method):
     def wrapper(message, *args, trace=None, **kwargs):
         if args and isinstance(message, str):
