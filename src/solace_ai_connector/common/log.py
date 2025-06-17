@@ -81,13 +81,13 @@ def _module_debug_wrapper_with_trace(message, *args, trace=None, **kwargs):
             full_message = _format_with_trace(formatted_message, trace)
         else:
             full_message = formatted_message
-        _MODULE_ORIGINAL_DEBUG(full_message, **kwargs)
+        _MODULE_ORIGINAL_DEBUG(full_message, stacklevel=2, **kwargs)
     else:
         if trace:
             full_message = _format_with_trace(message, trace)
         else:
             full_message = message
-        _MODULE_ORIGINAL_DEBUG(full_message, **kwargs)
+        _MODULE_ORIGINAL_DEBUG(full_message, stacklevel=2, **kwargs)
 
 def _module_error_wrapper_with_trace(message, *args, trace=None, **kwargs):
     if args and isinstance(message, str):
@@ -96,13 +96,13 @@ def _module_error_wrapper_with_trace(message, *args, trace=None, **kwargs):
             full_message = _format_with_trace(formatted_message, trace)
         else:
             full_message = formatted_message
-        _MODULE_ORIGINAL_ERROR(full_message, **kwargs)
+        _MODULE_ORIGINAL_ERROR(full_message, stacklevel=2, **kwargs)
     else:
         if trace:
             full_message = _format_with_trace(message, trace)
         else:
             full_message = message
-        _MODULE_ORIGINAL_ERROR(full_message, **kwargs)
+        _MODULE_ORIGINAL_ERROR(full_message, stacklevel=2, **kwargs)
 
 def setup_log(
     logFilePath,
@@ -115,12 +115,6 @@ def setup_log(
     # If INI configuration was successfully applied, do not allow this programmatic setup
     # to reconfigure the 'solace_ai_connector' logger (the global 'log' object).
     if _ini_config_applied:
-        # This print helps confirm setup_log is called but correctly respects the flag.
-        print(
-            f"DIAGNOSTIC: setup_log() called for 'solace_ai_connector' logger, "
-            f"but _ini_config_applied is True. Skipping programmatic reconfiguration.",
-            file=sys.stderr
-        )
         return
 
     """
