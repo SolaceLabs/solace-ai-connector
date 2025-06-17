@@ -9,6 +9,7 @@ from datetime import datetime
 # Global flag to indicate if INI configuration was successfully applied
 _ini_config_applied = False
 log = logging.getLogger("solace_ai_connector")
+logging.captureWarnings(True)
 
 
 class JsonFormatter(logging.Formatter):
@@ -68,6 +69,41 @@ def _format_with_trace(message, trace):
     return full_message
 
 
+# These wrappers will be applied to the global 'log' instance at the end of the module.
+# Trace is considered always enabled for these wrappers.
+_MODULE_ORIGINAL_DEBUG = log.debug
+_MODULE_ORIGINAL_ERROR = log.error
+
+def _module_debug_wrapper_with_trace(message, *args, trace=None, **kwargs):
+    if args and isinstance(message, str):
+        formatted_message = message % args if args else message
+        if trace:
+            full_message = _format_with_trace(formatted_message, trace)
+        else:
+            full_message = formatted_message
+        _MODULE_ORIGINAL_DEBUG(full_message, **kwargs)
+    else:
+        if trace:
+            full_message = _format_with_trace(message, trace)
+        else:
+            full_message = message
+        _MODULE_ORIGINAL_DEBUG(full_message, **kwargs)
+
+def _module_error_wrapper_with_trace(message, *args, trace=None, **kwargs):
+    if args and isinstance(message, str):
+        formatted_message = message % args if args else message
+        if trace:
+            full_message = _format_with_trace(formatted_message, trace)
+        else:
+            full_message = formatted_message
+        _MODULE_ORIGINAL_ERROR(full_message, **kwargs)
+    else:
+        if trace:
+            full_message = _format_with_trace(message, trace)
+        else:
+            full_message = message
+        _MODULE_ORIGINAL_ERROR(full_message, **kwargs)
+
 def setup_log(
     logFilePath,
     stdOutLogLevel,
@@ -76,6 +112,17 @@ def setup_log(
     logBack,
     enableTrace=False,
 ):
+    # If INI configuration was successfully applied, do not allow this programmatic setup
+    # to reconfigure the 'solace_ai_connector' logger (the global 'log' object).
+    if _ini_config_applied:
+        # This print helps confirm setup_log is called but correctly respects the flag.
+        print(
+            f"DIAGNOSTIC: setup_log() called for 'solace_ai_connector' logger, "
+            f"but _ini_config_applied is True. Skipping programmatic reconfiguration.",
+            file=sys.stderr
+        )
+        return
+
     """
     Set up the configuration for the logger.
 
@@ -158,54 +205,6 @@ def setup_log(
 
     log.addHandler(file_handler)
 
-    # Save the original logging methods
-    original_debug = log.debug
-    original_error = log.error
-
-    # Define a wrapper function for debug logs with trace support
-    def debug_wrapper(message, *args, trace=None, **kwargs):
-        # Handle both string formatting args and trace
-        if args and isinstance(message, str):
-            # Format the message first with args
-            formatted_message = message % args if args else message
-            # Then add trace if available
-            if trace and enableTrace:
-                full_message = _format_with_trace(formatted_message, trace)
-            else:
-                full_message = formatted_message
-            original_debug(full_message, **kwargs)
-        else:
-            # Handle case without formatting args
-            if trace and enableTrace:
-                full_message = _format_with_trace(message, trace)
-            else:
-                full_message = message
-            original_debug(full_message, **kwargs)
-
-    # Define a wrapper function for error logs with trace support
-    def error_wrapper(message, *args, trace=None, **kwargs):
-        # Handle both string formatting args and trace
-        if args and isinstance(message, str):
-            # Format the message first with args
-            formatted_message = message % args if args else message
-            # Then add trace if available
-            if trace and enableTrace:
-                full_message = _format_with_trace(formatted_message, trace)
-            else:
-                full_message = formatted_message
-            original_error(full_message, **kwargs)
-        else:
-            # Handle case without formatting args
-            if trace and enableTrace:
-                full_message = _format_with_trace(message, trace)
-            else:
-                full_message = message
-            original_error(full_message, **kwargs)
-
-    # Always replace the logging methods, regardless of enableTrace
-    log.debug = debug_wrapper
-    log.error = error_wrapper
-
 # Module-level logging configuration based on LOGGING_CONFIG_PATH
 # This code will run once when the module is first imported.
 # If LOGGING_CONFIG_PATH is set and points to a valid file, INI-based logging is used.
@@ -221,7 +220,11 @@ if ini_path_from_env:
         )
     else:
         try:
-            logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=False)
+            # Setting disable_existing_loggers=True will disable any loggers that existed
+            # prior to this call if they are also defined in the INI file.
+            # This is crucial for ensuring that library loggers (like litellm)
+            # which might have default handlers, only use the handlers defined in the INI.
+            logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=True)
             module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
             module_init_logger.info(
                 f"Logging configured via INI file '{ini_path_from_env}' "
@@ -238,3 +241,8 @@ if ini_path_from_env:
     # LOGGING_CONFIG_PATH is not set.
     # The application will rely on the programmatic setup_log() or Python's default.
     # print("LOGGING_CONFIG_PATH is not set. Proceeding with default programmatic logging.", file=sys.stderr)
+
+# Apply the module-level trace-enabled wrappers to the global 'log' instance.
+# This ensures that log.debug and log.error always handle the 'trace' kwarg.
+log.debug = _module_debug_wrapper_with_trace
+log.error = _module_error_wrapper_with_trace
