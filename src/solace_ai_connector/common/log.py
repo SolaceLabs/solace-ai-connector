@@ -71,21 +71,22 @@ def _format_with_trace(message, trace):
 
 
 # These wrappers will be applied to the global 'log' instance at the end of the module.
-# Trace is considered always enabled for these wrappers.
+# Trace is conditionally enabled based on the enableTrace parameter.
 _MODULE_ORIGINAL_DEBUG = log.debug
 _MODULE_ORIGINAL_ERROR = log.error
+_TRACE_ENABLED = False  # Global flag to track trace enablement
 
 def _create_module_wrapper_with_trace(original_method):
     def wrapper(message, *args, trace=None, **kwargs):
         if args and isinstance(message, str):
             formatted_message = message % args if args else message
-            if trace:
+            if trace and _TRACE_ENABLED:
                 full_message = _format_with_trace(formatted_message, trace)
             else:
                 full_message = formatted_message
             original_method(full_message, stacklevel=2, **kwargs)
         else:
-            if trace:
+            if trace and _TRACE_ENABLED:
                 full_message = _format_with_trace(message, trace)
             else:
                 full_message = message
