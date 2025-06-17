@@ -6,6 +6,7 @@ import json
 import os
 from datetime import datetime
 
+
 # Global flag to indicate if INI configuration was successfully applied
 _ini_config_applied = False
 log = logging.getLogger("solace_ai_connector")
@@ -74,35 +75,26 @@ def _format_with_trace(message, trace):
 _MODULE_ORIGINAL_DEBUG = log.debug
 _MODULE_ORIGINAL_ERROR = log.error
 
-def _module_debug_wrapper_with_trace(message, *args, trace=None, **kwargs):
-    if args and isinstance(message, str):
-        formatted_message = message % args if args else message
-        if trace:
-            full_message = _format_with_trace(formatted_message, trace)
+def _create_module_wrapper_with_trace(original_method):
+    def wrapper(message, *args, trace=None, **kwargs):
+        if args and isinstance(message, str):
+            formatted_message = message % args if args else message
+            if trace:
+                full_message = _format_with_trace(formatted_message, trace)
+            else:
+                full_message = formatted_message
+            original_method(full_message, stacklevel=2, **kwargs)
         else:
-            full_message = formatted_message
-        _MODULE_ORIGINAL_DEBUG(full_message, stacklevel=2, **kwargs)
-    else:
-        if trace:
-            full_message = _format_with_trace(message, trace)
-        else:
-            full_message = message
-        _MODULE_ORIGINAL_DEBUG(full_message, stacklevel=2, **kwargs)
+            if trace:
+                full_message = _format_with_trace(message, trace)
+            else:
+                full_message = message
+            original_method(full_message, stacklevel=2, **kwargs)
+    return wrapper
 
-def _module_error_wrapper_with_trace(message, *args, trace=None, **kwargs):
-    if args and isinstance(message, str):
-        formatted_message = message % args if args else message
-        if trace:
-            full_message = _format_with_trace(formatted_message, trace)
-        else:
-            full_message = formatted_message
-        _MODULE_ORIGINAL_ERROR(full_message, stacklevel=2, **kwargs)
-    else:
-        if trace:
-            full_message = _format_with_trace(message, trace)
-        else:
-            full_message = message
-        _MODULE_ORIGINAL_ERROR(full_message, stacklevel=2, **kwargs)
+_module_debug_wrapper_with_trace = _create_module_wrapper_with_trace(_MODULE_ORIGINAL_DEBUG)
+_module_error_wrapper_with_trace = _create_module_wrapper_with_trace(_MODULE_ORIGINAL_ERROR)
+
 
 def setup_log(
     logFilePath,
@@ -128,7 +120,6 @@ def setup_log(
         logBack (dict): Rolling log file configuration.
     """
 
-    log.handlers = []
     # Set the global logger level to the lowest of the two levels
     log.setLevel(min(stdOutLogLevel, fileLogLevel))
 
