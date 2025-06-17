@@ -21,7 +21,25 @@ litellm_info_base = {
         {
             "name": "load_balancer",
             "required": False,
-            "description": ("Add a list of models to load balancer."),
+            "description": (
+                "A list of models to configure for the LiteLLM load balancer. "
+                "Each item in the list is a dictionary defining a model and must contain:\n"
+                "  - 'model_name': An alias for this model configuration (e.g., 'my-openai-model', 'my-bedrock-claude').\n"
+                "  - 'litellm_params': A dictionary of parameters passed directly to LiteLLM for this model.\n"
+                "    Common 'litellm_params' include:\n"
+                "      - 'model': The actual model identifier (e.g., 'gpt-4o', 'anthropic.claude-3-sonnet-20240229-v1:0').\n"
+                "      - 'api_key': Required for many providers like OpenAI, Anthropic direct (but NOT for AWS Bedrock).\n"
+                "      - 'api_base': The base URL for the API endpoint, if not default.\n"
+                "      - 'temperature', 'max_tokens', etc., as supported by LiteLLM and the provider.\n"
+                "    For AWS Bedrock models:\n"
+                "      - 'model' format: 'bedrock/<provider>.<model_id>' (e.g., 'bedrock/anthropic.claude-3-sonnet-20240229-v1:0').\n"
+                "      - 'api_key' is NOT used.\n"
+                "      - AWS credentials (aws_access_key_id, aws_secret_access_key, aws_session_token (optional), aws_region_name) "
+                "can be provided directly in 'litellm_params'. If not, LiteLLM (via Boto3) attempts to use standard AWS environment variables "
+                "(e.g., AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION/AWS_REGION_NAME).\n"
+                "      - 'aws_region_name' is generally required for Bedrock, either in 'litellm_params' or as an environment variable.\n"
+                "      - Other Bedrock-specific params like 'model_id' (for provisioned throughput) or 'aws_bedrock_runtime_endpoint' can be included."
+            ),
             "default": "",
         },
         {
@@ -168,7 +186,8 @@ class LiteLLMBase(ComponentBase):
 
     def load_balance(self, messages, stream):
         """load balance the messages"""
-        model = self.load_balancer_config[0]["model_name"]
+        params = self.load_balancer_config[0].get("litellm_params", {})
+        model = params["model"]
         try:
             response = self.router.completion(
                 model=model,
@@ -216,13 +235,27 @@ class LiteLLMBase(ComponentBase):
 
     def validate_model_config(self, config):
         """Validate the model config and throw a descriptive error if it's invalid."""
-        for model in config:
-            params = model.get("litellm_params", {})
-            if not all([params.get("model"), params.get("api_key")]):
+        for model_entry in config:  # 'config' is the list from load_balancer
+            params = model_entry.get("litellm_params", {})
+            model_identifier = params.get("model")
+            model_alias = model_entry.get("model_name")
+
+            if not model_identifier:
                 raise ValueError(
-                    f"Each model configuration requires both a model name and an API key, neither of which can be None.\n"
-                    f"Received config: {model}"
-                ) from None
+                    f"Missing 'model' in 'litellm_params' for model alias '{model_alias}'."
+                )
+
+            if model_identifier.startswith("bedrock/"):
+                # Bedrock-specific validation
+                log.info(
+                    "Ensure AWS profile is set up correctly or AWS credentials, including aws_access_key_id, aws_secret_access_key, and aws_region_name are provided."
+                )
+            else:
+                # Validation for other providers (e.g., OpenAI, Anthropic direct)
+                if not params.get("api_key"):
+                    raise ValueError(
+                        f"Missing 'api_key' in 'litellm_params' for non-Bedrock model '{model_identifier}' (alias '{model_alias}')."
+                    )
 
     def context_exceeded_response(self, model):
         """Create a response for when context is too large for any model"""
