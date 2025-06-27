@@ -1,0 +1,114 @@
+# This process demonstrates using AWS Bedrock for text embeddings with the LiteLLM component.
+# It will subscribe to `bedrock/demo/embed_request` and expect an event with the payload:
+# {
+#   "items": ["<text to embed>", "<another text to embed>", ...] 
+#   OR
+#   "items": "<single text to embed>"
+# }
+#
+# Output (the embedding vectors) is published to the topic `bedrock/demo/embed_request/response`.
+#
+# Prerequisites:
+# 1. AWS Credentials:
+#    Ensure your AWS credentials are configured correctly for Boto3 to access Bedrock.
+#    This can be done via:
+#    - Standard AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, 
+#      AWS_SESSION_TOKEN (if using temporary credentials), AWS_REGION_NAME or AWS_DEFAULT_REGION).
+#    - Or, by providing aws_access_key_id, aws_secret_access_key, and aws_region_name
+#      directly in the 'litellm_params' for the model below.
+# 2. Boto3 Installation:
+#    The LiteLLM library requires 'boto3' to interact with AWS Bedrock.
+#    Install it if you haven't already: pip install boto3
+# 3. LiteLLM Installation:
+#    Ensure LiteLLM is installed: pip install litellm
+#
+# Required ENV variables (examples):
+# - AWS_BEDROCK_EMBEDDING_MODEL (e.g., "bedrock/amazon.titan-embed-text-v1")
+# - AWS_REGION_NAME (or AWS_DEFAULT_REGION, or provide in litellm_params) - e.g., "us-east-1"
+# - AWS_ACCESS_KEY_ID_BEDROCK (optional, if providing credentials directly in litellm_params via env var)
+# - AWS_SECRET_ACCESS_KEY_BEDROCK (optional, if providing credentials directly in litellm_params via env var)
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# Note: If not providing credentials directly in litellm_params, ensure standard
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables are set.
+
+---
+log:
+  stdout_log_level: DEBUG
+  log_file_level: DEBUG
+  log_file: ${LOG_FILE:-solace_ai_connector_bedrock_embedding.log} # Default log file
+  log_format: jsonl
+  logback: 
+    rollingpolicy:
+      file-name-pattern: "${LOG_FILE:-solace_ai_connector_bedrock_embedding.log}.%d{yyyy-MM-dd}.%i.gz"
+      max-file-size: 100MB
+      max-history: 5
+      total-size-cap: 1GB
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+      reconnection_strategy: forever_retry 
+      retry_interval: 10000 
+
+flows:
+  - name: Bedrock LLM Embedding Demo
+    components:
+      # Input from a Solace broker
+      - component_name: solace_input_bedrock_embed
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: bedrock_demo_embed_request_q
+          broker_subscriptions:
+            - topic: bedrock/demo/embed_request
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # LiteLLM embedding request to AWS Bedrock
+      - component_name: bedrock_embedding_request
+        component_module: litellm_embeddings
+        component_config:
+          timeout: 60 # Request timeout in seconds
+          # Retry and allowed_fails policies can be configured here
+          load_balancer:
+            - model_name: "amazon-titan-embed-text" # Alias for this model configuration
+              litellm_params:
+                model: bedrock/amazon.titan-embed-text-v2:0
+                # Option 1: Provide credentials directly using environment variables for the values.
+                aws_access_key_id: "${AWS_ACCESS_KEY_ID}" 
+                aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+                aws_region_name: "${AWS_REGION_NAME}" # Default to us-east-1 if env var not set
+                
+            # Add more Bedrock or other provider embedding models here
+        input_transforms:
+          - type: copy
+            source_expression: input.payload:items # Expects "items" field in input JSON
+            dest_expression: user_data.embedding_input:items
+        input_selection:
+          source_expression: user_data.embedding_input
+
+      # Send response (embeddings) back to Solace broker
+      - component_name: solace_output_bedrock_embed
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous:embeddings # The output from litellm_embeddings is in 'embeddings'
+            dest_expression: user_data.output:payload.embeddings
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

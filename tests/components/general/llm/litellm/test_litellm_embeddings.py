@@ -145,3 +145,71 @@ class TestLiteLLMEmbeddings:
 
         # Verify the result
         assert result == {"embeddings": []}
+
+    @patch(
+        "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+    )
+    def test_invoke_with_bedrock_embedding_model(
+        self,
+        mock_router,
+        mock_message_fixture,
+        valid_bedrock_embedding_load_balancer_config,  # Use the new fixture
+    ):
+        """Test invoke method with a Bedrock embedding model."""
+        mock_router_instance = mock_router.return_value
+        mock_router_instance.embedding.return_value = {
+            "data": [{"embedding": [0.7, 0.8, 0.9]}]
+        }
+
+        component = LiteLLMEmbeddings(
+            config={
+                "component_config": {
+                    "load_balancer": valid_bedrock_embedding_load_balancer_config
+                }
+            }
+        )
+        component.router = mock_router_instance
+
+        data = {"items": "Test sentence for Bedrock"}
+        result = component.invoke(mock_message_fixture, data)
+
+        assert result == {"embeddings": [[0.7, 0.8, 0.9]]}
+        mock_router_instance.embedding.assert_called_once_with(
+            model=valid_bedrock_embedding_load_balancer_config[0]["model_name"],
+            input="Test sentence for Bedrock",
+        )
+
+    @patch(
+        "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+    )
+    def test_invoke_with_bedrock_embedding_model_with_creds(
+        self,
+        mock_router,
+        mock_message_fixture,
+        valid_bedrock_embedding_load_balancer_config_with_creds,  # Use fixture with creds
+    ):
+        """Test invoke method with a Bedrock embedding model configured with explicit credentials."""
+        mock_router_instance = mock_router.return_value
+        mock_router_instance.embedding.return_value = {
+            "data": [{"embedding": [0.11, 0.22, 0.33]}]
+        }
+
+        component = LiteLLMEmbeddings(
+            config={
+                "component_config": {
+                    "load_balancer": valid_bedrock_embedding_load_balancer_config_with_creds
+                }
+            }
+        )
+        component.router = mock_router_instance
+
+        data = {"items": "Test sentence for Bedrock with creds"}
+        result = component.invoke(mock_message_fixture, data)
+
+        assert result == {"embeddings": [[0.11, 0.22, 0.33]]}
+        mock_router_instance.embedding.assert_called_once_with(
+            model=valid_bedrock_embedding_load_balancer_config_with_creds[0][
+                "model_name"
+            ],
+            input="Test sentence for Bedrock with creds",
+        )

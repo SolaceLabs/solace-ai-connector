@@ -47,6 +47,74 @@ component_config:
 | llm_mode | False | none | The mode for streaming results: 'none' or 'stream'. 'stream' will just stream the results to the named flow. 'none' will wait for the full response. |
 | stream_batch_size | False | 15 | The minimum number of words in a single streaming result. Default: 15. |
 
+## Using AWS Bedrock with LiteLLMChatModel
+
+The `LiteLLMChatModel` component can leverage AWS Bedrock as a provider for LLM models through its `load_balancer` configuration. This allows you to use models hosted on Bedrock, such as those from Anthropic (Claude), AI21 Labs, Cohere, Meta, Stability AI, and Amazon itself.
+
+### Bedrock Configuration in `load_balancer`
+
+When configuring a Bedrock model within the `load_balancer` list, pay attention to the following in the `litellm_params` for that model entry:
+
+*   **`model` (Model Identifier)**: This is crucial and must follow a specific format for Bedrock:
+    *   Format: `"bedrock/<provider>.<model_id>"`
+    *   Example: `"bedrock/anthropic.claude-3-sonnet-20240229-v1:0"` for Claude 3 Sonnet.
+    *   Example: `"bedrock/amazon.titan-text-express-v1"` for Amazon Titan Text Express.
+    *   You can find the exact model IDs in the AWS Bedrock console or AWS documentation.
+
+*   **AWS Credentials & Region**:
+    *   **`api_key`**: This parameter is **NOT** used for Bedrock models. If provided, a warning will be logged, but it will be ignored.
+    *   **Authentication Methods**:
+        1.  **Environment Variables (Recommended)**: LiteLLM (via Boto3) will automatically attempt to use AWS credentials configured in your environment. This typically involves setting:
+            *   `AWS_ACCESS_KEY_ID`
+            *   `AWS_SECRET_ACCESS_KEY`
+            *   `AWS_SESSION_TOKEN` (if using temporary credentials)
+            *   `AWS_REGION_NAME` or `AWS_DEFAULT_REGION` (e.g., `us-east-1`)
+        2.  **Directly in `litellm_params`**: You can provide AWS credentials directly within the `litellm_params` dictionary for a specific model. This is generally less recommended for production environments.
+            *   `aws_access_key_id`: Your AWS Access Key ID.
+            *   `aws_secret_access_key`: Your AWS Secret Access Key.
+            *   `aws_session_token`: (Optional) Your AWS Session Token if using temporary credentials.
+            *   `aws_region_name`: The AWS region where the Bedrock model is hosted (e.g., `"us-east-1"`). This is generally required. If you provide `aws_access_key_id` and `aws_secret_access_key` in `litellm_params`, it's strongly recommended to also provide `aws_region_name` here.
+    *   **`aws_region_name`**: Whether using environment variables or direct parameters, specifying the AWS region is important.
+
+*   **Other Bedrock-Specific Parameters**:
+    *   Some Bedrock models might support or require additional parameters. These can be included in the `litellm_params` dictionary. For example, if using provisioned throughput, you might need to pass a specific `model_id` that refers to your provisioned model.
+    *   `aws_bedrock_runtime_endpoint`: If you are using a custom Bedrock runtime endpoint (e.g., VPC endpoint), you can specify it here.
+
+### Boto3 Installation Requirement
+
+To interact with AWS Bedrock, LiteLLM relies on the AWS SDK for Python, `boto3`. Ensure that `boto3` is installed in the Python environment where the Solace AI Connector is running:
+```bash
+pip install boto3
+```
+
+### Example Configuration
+
+Below is an excerpt from an example YAML configuration ([`examples/llm/litellm_bedrock_chat.yaml`](../../examples/llm/litellm_bedrock_chat.yaml)) showing how to set up a Bedrock model:
+
+```yaml
+# ... (other parts of the config) ...
+      - component_name: bedrock_llm_request
+        component_module: litellm_chat_model
+        component_config:
+          llm_mode: none
+          timeout: 180
+          load_balancer:
+            - model_name: "claude3-sonnet-bedrock" # User-defined alias
+              litellm_params:
+                model: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
+                # Option 1: Provide credentials directly (using env vars for values)
+                aws_access_key_id: "${AWS_ACCESS_KEY_ID_BEDROCK}" 
+                aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY_BEDROCK}"
+                aws_region_name: "${AWS_REGION_NAME:-us-east-1}" # Default if env var not set
+                
+                # Option 2: Rely on standard AWS environment variables (remove above aws_* keys)
+                # Ensure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION_NAME are set.
+
+                temperature: 0.5
+                max_tokens: 1024
+# ... (rest of the config) ...
+```
+Refer to the full [`examples/llm/litellm_bedrock_chat.yaml`](../../examples/llm/litellm_bedrock_chat.yaml) for a complete, runnable example.
 
 ## Component Input Schema
 
