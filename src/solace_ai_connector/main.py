@@ -148,7 +148,7 @@ def main():
         sac.stop()
         sac.cleanup()
         print("Solace AI Connector exited successfully!")
-        sys.exit(0)
+        os._exit(0)
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
