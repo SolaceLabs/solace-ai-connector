@@ -78,6 +78,8 @@ def expandvars_with_defaults(text):
 
 def merge_config(dict1, dict2):
     """Merge a new configuration into an existing configuration."""
+    if dict2 is None:
+        return dict1
     merged = {}
     for key in set(dict1.keys()).union(dict2.keys()):
         if key in dict1 and key in dict2:
