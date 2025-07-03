@@ -121,7 +121,7 @@ class SolaceAiConnector:
                             app_info.get("name"),
                         )
 
-                    for i in range(num_instances):
+                    for _ in range(num_instances):
 
                         # Does this have a custom App module
                         app_module = app_info.get("app_module", None)

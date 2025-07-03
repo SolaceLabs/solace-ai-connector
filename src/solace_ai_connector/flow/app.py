@@ -215,7 +215,7 @@ class App:
                 self.flows.append(flow_instance)
 
         except Exception as e:
-            log.error("Error initializing flows for app", self.name, trace=e)
+            log.error(f"Error initializing flows for app {self.name}", trace=e)
             raise ValueError(
                 f"Error initializing flows for app '{self.name}'. Check the configuration."
             )
