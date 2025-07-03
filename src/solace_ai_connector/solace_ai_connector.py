@@ -311,8 +311,8 @@ class SolaceAiConnector:
         # Clean up queues
         for queue_name, q in self.flow_input_queues.items():
             try:
-                while not queue.empty():
-                    queue.get_nowait()
+                while not q.empty():
+                    q.get_nowait()
             except Exception as e:
                 log.error(f"Error cleaning queue {queue_name}", trace=e)
         self.flow_input_queues.clear()

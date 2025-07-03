@@ -78,6 +78,12 @@ def expandvars_with_defaults(text):
 
 def merge_config(dict1, dict2):
     """Merge a new configuration into an existing configuration."""
+    if dict1 is None and dict2 is None:
+        return {}
+    if dict1 is None:
+        return dict2
+    if dict2 is None:
+        return dict1
     merged = {}
     for key in set(dict1.keys()).union(dict2.keys()):
         if key in dict1 and key in dict2:
@@ -148,7 +154,7 @@ def main():
         sac.stop()
         sac.cleanup()
         print("Solace AI Connector exited successfully!")
-        sys.exit(0)
+        os._exit(0)
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
