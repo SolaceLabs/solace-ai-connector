@@ -64,10 +64,6 @@ def import_from_directories(module_name, base_path=None):
 
 
 def get_subdirectories(path=None):
-    # script_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # directory = os.curdir
-    # if path:
-    #     directory = path
     subdirectories = []
     for dirpath, dirnames, _ in os.walk(path):
         subdirectories.extend([os.path.join(dirpath, name) for name in dirnames])
@@ -112,12 +108,11 @@ def import_module(module, base_path=None, component_package=None):
     if component_package:
         install_package(component_package)
 
-    if base_path:
-        if base_path not in sys.path:
+    if base_path and base_path not in sys.path:
             sys.path.append(base_path)
     try:
         return importlib.import_module(module)
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as er:
         # If the module does not have a path associated with it, try
         # importing it from the known prefixes - annoying that this
         # is necessary. It seems you can't dynamically import a module
@@ -157,7 +152,7 @@ def import_module(module, base_path=None, component_package=None):
                             ) from None
                     except Exception:
                         raise ImportError(
-                            f"Module load error for {full_name}"
+                            f"Module load error for {full_name}. Please ensure that all required dependencies are installed and parameters are correct. Error: {str(er)}"
                         ) from None
         raise ModuleNotFoundError(f"Module '{module}' not found") from None
 
@@ -189,7 +184,6 @@ def invoke_config(config, allow_source_expression=False):
 
     if module:
         obj = import_module(module, base_path=path)
-        # obj = import_module(module)
 
     if obj:
         if attribute:
@@ -232,10 +226,6 @@ def call_function(function, params, allow_source_expression):
                 value.startswith("evaluate_expression(")
                 or value.startswith("source_expression(")
             ):
-                # if not allow_source_expression:
-                #     raise ValueError(
-                #         "evaluate_expression() is not allowed in this context"
-                #     )
                 (expression, data_type) = extract_evaluate_expression(value)
                 positional[index] = create_lambda_function_for_source_expression(
                     expression, data_type=data_type
@@ -437,14 +427,12 @@ def decode_payload(payload, encoding, payload_format):
                         payload_format,
                     )
                     # Keep decoded_payload as original bytes if utf-8 fails
-                    pass  # decoded_payload remains the original byte payload
 
         except UnicodeDecodeError as e:
             log.error("Error decoding payload with encoding '%s'.", encoding, trace=e)
             # Decide how to handle - raise error or return raw bytes?
             # Returning raw bytes might be safer if subsequent steps can handle it.
             # For now, let's keep decoded_payload as the original bytes.
-            pass  # decoded_payload remains the original byte payload
         except Exception as e:
             log.error(
                 "Unexpected error during payload decoding with encoding '%s'.",
@@ -740,7 +728,6 @@ def remove_data_value(data_object, expression):
                     "is not a dictionary or list",
                     expression,
                 )
-                return
 
 
 def deep_merge(d, u):
