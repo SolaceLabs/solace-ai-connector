@@ -80,3 +80,41 @@ def minimal_component_config(valid_load_balancer_config):
 @pytest.fixture
 def mock_message_fixture():
     return Message(payload={"text": "hello"}, topic="test/topic")
+
+
+@pytest.fixture
+def valid_bedrock_embedding_load_balancer_config():
+    """Provides a minimal valid load_balancer configuration for Bedrock embeddings (env creds)."""
+    return [
+        {
+            "model_name": "bedrock-titan-embed",
+            "litellm_params": {
+                "model": "bedrock/amazon.titan-embed-text-v1",
+                # Assuming AWS creds are in environment
+            },
+        }
+    ]
+
+
+@pytest.fixture
+def valid_bedrock_embedding_load_balancer_config_with_creds():
+    """Provides a valid load_balancer configuration for Bedrock embeddings with explicit creds."""
+    return [
+        {
+            "model_name": "bedrock-titan-embed-creds",
+            "litellm_params": {
+                "model": "bedrock/amazon.titan-embed-text-v1",
+                "aws_access_key_id": "fake_access_key",
+                "aws_secret_access_key": "fake_secret_key",
+                "aws_region_name": "us-east-1",
+            },
+        }
+    ]
+
+
+@pytest.fixture
+def minimal_bedrock_embedding_component_config(
+    valid_bedrock_embedding_load_balancer_config,
+):
+    """Minimal config for LiteLLMBase with Bedrock embedding."""
+    return {"load_balancer": valid_bedrock_embedding_load_balancer_config}

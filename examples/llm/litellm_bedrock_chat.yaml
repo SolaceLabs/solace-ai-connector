@@ -1,0 +1,132 @@
+# This process demonstrates using AWS Bedrock with the LiteLLM component.
+# It will subscribe to `bedrock/demo/question` and expect an event with the payload:
+# {
+#   "text": "<question or request as text>"
+# }
+#
+# Output is published to the topic `bedrock/demo/question/response`.
+#
+# Prerequisites:
+# 1. AWS Credentials:
+#    Ensure your AWS credentials are configured correctly for Boto3 to access Bedrock.
+#    This can be done via:
+#    - Standard AWS environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, 
+#      AWS_SESSION_TOKEN (if using temporary credentials), AWS_REGION_NAME or AWS_DEFAULT_REGION).
+#    - Or, by providing aws_access_key_id, aws_secret_access_key, and aws_region_name
+#      directly in the 'litellm_params' for each model below.
+# 2. Boto3 Installation:
+#    The LiteLLM library requires 'boto3' to interact with AWS Bedrock.
+#    Install it if you haven't already: pip install boto3
+# 3. LiteLLM Installation:
+#    Ensure LiteLLM is installed: pip install litellm
+#
+# Required ENV variables:
+# - AWS_ACCESS_KEY_ID_BEDROCK (if providing credentials directly in litellm_params)
+# - AWS_SECRET_ACCESS_KEY_BEDROCK (if providing credentials directly in litellm_params)
+# - AWS_REGION_NAME (or AWS_DEFAULT_REGION, or provide in litellm_params) - e.g., "us-east-1"
+# - AWS_MODEL (e.g., "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0")
+# - AWS_ARN (e.g., "arn:aws:bedrock:us-east-2:xxx:inference-profile/us.anthropic.claude-3-5-sonnet-20240620-v1:0")
+# - SOLACE_BROKER_URL
+# - SOLACE_BROKER_USERNAME
+# - SOLACE_BROKER_PASSWORD
+# - SOLACE_BROKER_VPN
+# Note: If not providing credentials directly in litellm_params, ensure standard
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables are set.
+
+---
+log:
+  stdout_log_level: DEBUG
+  log_file_level: DEBUG
+  log_file: ${LOG_FILE} # Default log file if LOG_FILE env var is not set
+  log_format: jsonl
+  logback: 
+    rollingpolicy:
+      file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz"
+      max-file-size: 100MB
+      max-history: 5
+      total-size-cap: 1GB
+
+shared_config:
+  - broker_config: &broker_connection
+      broker_type: solace
+      broker_url: ${SOLACE_BROKER_URL}
+      broker_username: ${SOLACE_BROKER_USERNAME}
+      broker_password: ${SOLACE_BROKER_PASSWORD}
+      broker_vpn: ${SOLACE_BROKER_VPN}
+      reconnection_strategy: forever_retry 
+      retry_interval: 10000 
+
+flows:
+  - name: Bedrock LLM Chat Demo
+    components:
+      # Input from a Solace broker
+      - component_name: solace_input_bedrock
+        component_module: broker_input
+        component_config:
+          <<: *broker_connection
+          broker_queue_name: bedrock_demo_question_q
+          broker_subscriptions:
+            - topic: demo/question
+              qos: 1
+          payload_encoding: utf-8
+          payload_format: json
+
+      # LiteLLM request to AWS Bedrock
+      - component_name: bedrock_llm_request
+        component_module: litellm_chat_model
+        component_config:
+          llm_mode: none # Options: none or stream
+          timeout: 180 # Request timeout in seconds
+          # Retry and allowed_fails policies can be configured here as per litellm_chat.yaml example
+          load_balancer:
+            - model_name: "anthropic.claude-3-5-sonnet-20240620-v1:0" # Alias for this model configuration
+              litellm_params:
+                model: ${AWS_MODEL} #"bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0"
+                model_id: ${AWS_ARN} #"arn:aws:bedrock:us-east-2:xxx:inference-profile/us.anthropic.claude-3-5-sonnet-20240620-v1:0"
+                # Option 1: Provide credentials directly using environment variables for the values.
+                aws_access_key_id: "${AWS_ACCESS_KEY_ID}" 
+                aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+                aws_region_name: "${AWS_REGION_NAME}" # Default to us-east-1 if env var not set
+
+                temperature: 0.5
+                max_tokens: 1024
+            # Example for another Bedrock model (e.g., Haiku)
+            # - model_name: "claude3-haiku-bedrock"
+            #   litellm_params:
+            #     model: "bedrock/anthropic.claude-3-haiku-20240307-v1:0"
+            #     aws_access_key_id: "${AWS_ACCESS_KEY_ID}" 
+            #     aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+            #     aws_region_name: "${AWS_REGION_NAME:-us-east-1}"
+            #     temperature: 0.7
+            # Add more Bedrock or other provider models here
+        input_transforms:
+          - type: copy
+            source_expression: |
+              template:You are a helpful AI assistant. Please help with the user's request below:
+              <user-question>
+              {{text://input.payload:text}}
+              </user-question>
+            dest_expression: user_data.llm_input:messages.0.content
+          - type: copy
+            source_expression: static:user
+            dest_expression: user_data.llm_input:messages.0.role
+        input_selection:
+          source_expression: user_data.llm_input
+
+      # Send response back to Solace broker
+      - component_name: solace_output_bedrock
+        component_module: broker_output
+        component_config:
+          <<: *broker_connection
+          payload_encoding: utf-8
+          payload_format: json
+          copy_user_properties: true
+        input_transforms:
+          - type: copy
+            source_expression: previous
+            dest_expression: user_data.output:payload
+          - type: copy
+            source_expression: template:{{text://input.topic}}/response
+            dest_expression: user_data.output:topic
+        input_selection:
+          source_expression: user_data.output

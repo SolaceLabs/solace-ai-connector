@@ -4,9 +4,9 @@
 | --- | --- |
 | [aggregate](aggregate.md) | Aggregate messages into one message. |
 | [assembly](assembly.md) | Assembles messages till criteria is met, the output will be the assembled message |
-| [broker_input](broker_input.md) | Connect to a messaging broker and receive messages from it. The component will output the payload, topic, and user properties of the message. (Used implicitly in Simplified App Mode if `input_enabled: true`). |
-| [broker_output](broker_output.md) | Connect to a messaging broker and send messages to it. Note that this component requires that the data is transformed into the input schema. (Used implicitly in Simplified App Mode if `output_enabled: true`). |
-| [broker_request_response](broker_request_response.md) | Connect to a messaging broker, send request messages, and receive responses. This component combines the functionality of broker_input and broker_output with additional request-response handling. (Used implicitly by the framework in Simplified App Mode if `request_reply_enabled: true`). |
+| [broker_input](broker_input.md) | Connect to a messaging broker and receive messages from it. The component will output the payload, topic, and user properties of the message. |
+| [broker_output](broker_output.md) | Connect to a messaging broker and send messages to it. Note that this component requires that the data is transformed into the input schema. |
+| [broker_request_response](broker_request_response.md) | This component sends request messages to a broker and waits for correlated responses, handling both outbound requests and inbound responses within a single component. This is performed asynchronously, allowing to to handle multiple requests and responses at the same time.  |
 | [delay](delay.md) | A simple component that simply passes the input to the output, but with a configurable delay. |
 | [error_input](error_input.md) | Receive processing errors from the Solace AI Event Connector. Note that the input_selection configuration is ignored. This component should be used to create a flow that handles errors from other flows.  |
 | [file_output](file_output.md) | File output component |
@@ -29,9 +29,11 @@
 | [openai_chat_model_with_history](openai_chat_model_with_history.md) | OpenAI chat model component with conversation history |
 | [parser](parser.md) | Parse input from the given type to output type. |
 | [pass_through](pass_through.md) | What goes in comes out |
+| [sql_base](sql_base.md) | Base component for SQL database operations. |
+| [sql_execute](sql_execute.md) | Executes an arbitrary SQL query against the database. |
+| [sql_insert](sql_insert.md) | Inserts data into a SQL database table. |
 | [stdin_input](stdin_input.md) | STDIN input component. The component will prompt for input, which will then be placed in the message payload using the output schema below. The component will wait for its output message to be acknowledged before prompting for the next input. |
 | [stdout_output](stdout_output.md) | STDOUT output component |
-| [SubscriptionRouter](../simplified-apps.md#routing) | (Internal component for simplified apps) Routes incoming messages from the implicit `BrokerInput` to the appropriate user-defined component based on topic subscriptions defined in the app configuration. See [Simplified App Mode](../simplified-apps.md) for details. |
 | [timer_input](timer_input.md) | An input that will generate a message at a specified interval. |
 | [user_processor](user_processor.md) | A component that allows the processing stage to be defined in the configuration file. |
 | [web_scraper](web_scraper.md) | Scrape javascript based websites. |

@@ -121,7 +121,7 @@ class SolaceAiConnector:
                             app_info.get("name"),
                         )
 
-                    for i in range(num_instances):
+                    for _ in range(num_instances):
 
                         # Does this have a custom App module
                         app_module = app_info.get("app_module", None)
@@ -311,8 +311,8 @@ class SolaceAiConnector:
         # Clean up queues
         for queue_name, q in self.flow_input_queues.items():
             try:
-                while not queue.empty():
-                    queue.get_nowait()
+                while not q.empty():
+                    q.get_nowait()
             except Exception as e:
                 log.error(f"Error cleaning queue {queue_name}", trace=e)
         self.flow_input_queues.clear()
