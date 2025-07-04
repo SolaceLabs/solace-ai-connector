@@ -11,6 +11,7 @@ import base64
 import gzip
 import json
 import yaml
+import unicodedata
 from copy import deepcopy
 from collections.abc import Mapping
 
@@ -379,6 +380,68 @@ def encode_payload(payload, encoding, payload_format):
         return formatted_payload
 
 
+def clean_json_string(json_str):
+    """Clean a JSON string by removing or replacing invalid control characters
+    and properly escaping unescaped newlines within string values"""
+    if not isinstance(json_str, str):
+        return json_str
+    
+    # Remove or replace problematic control characters while preserving valid JSON content
+    # Keep printable characters and valid whitespace
+    cleaned = ""
+    in_string = False  # Track if we're inside a JSON string value
+    escape_next = False  # Track if the next character is escaped
+    
+    for char in json_str:
+        # Handle string context tracking
+        if char == '"' and not escape_next:
+            in_string = not in_string
+            cleaned += char
+            continue
+        
+        # Handle escape sequences
+        if char == '\\' and not escape_next:
+            escape_next = True
+            cleaned += char
+            continue
+        
+        if escape_next:
+            cleaned += char
+            escape_next = False
+            continue
+        
+        # Inside strings, handle newlines and control characters specially
+        if in_string:
+            if char == '\n':
+                # Properly escape newlines in string values for valid JSON
+                cleaned += ' '
+            elif char == '\r':
+                # Properly escape carriage returns in string values
+                cleaned += ' '
+            elif char == '\t':
+                # Properly escape tabs in string values
+                cleaned += ' '
+            elif char.isprintable() or char == ' ':
+                # Keep other printable characters and spaces as-is
+                cleaned += char
+            else:
+                # For non-printable control characters inside strings, replace with space
+                category = unicodedata.category(char)
+                if category.startswith('C'):
+                    # Replace problematic control chars with space, but avoid double spaces
+                    if cleaned and cleaned[-1] != ' ':
+                        cleaned += ' '
+                else:
+                    cleaned += char
+        else:
+            # Outside strings, keep valid JSON structural characters and whitespace as-is
+            if char.isprintable() or char in ['\t', '\n', '\r', ' ']:
+                cleaned += char
+            # Skip other control characters outside strings
+    
+    return cleaned
+
+
 def decode_payload(payload, encoding, payload_format):
     decoded_payload = payload  # Start with original payload
 
@@ -461,10 +524,17 @@ def decode_payload(payload, encoding, payload_format):
         if isinstance(decoded_payload, str):
             try:
                 return json.loads(decoded_payload)
-            except json.JSONDecodeError as e:
-                log.error("Error decoding JSON payload string.", trace=e)
-                # Return original string or raise error? Let's raise.
-                raise ValueError("Invalid JSON payload") from None
+            except Exception as e:
+                try:
+                    log.warning(
+                        "Error decoding JSON payload string, trying to clean it up"
+                    )
+                    cleaned_payload = clean_json_string(decoded_payload)
+                    return json.loads(cleaned_payload)
+                except Exception as e:
+                    log.error(f"Unexpected error decoding JSON payload: {e}", trace=e)
+                    log.info("Payload content: %s", payload)
+                raise ValueError("Invalid JSON payload") from e
         else:
             # If it wasn't bytes or string, it might already be parsed (e.g., from dev broker)
             return decoded_payload
