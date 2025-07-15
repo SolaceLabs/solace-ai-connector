@@ -284,7 +284,7 @@ all = [
     
     # From qdrant-vector-store
     "langchain-qdrant==0.2.0",
-    "qdrant-client==1.10.1",
+    "qdrant-client==1.13.3",
     
     # From milvus-vector-store
     "langchain_milvus==0.1.8",
@@ -298,7 +298,7 @@ all = [
     # From webscraping
     "playwright==1.51.0",
     "beautifulsoup4==4.13.3",
-    
+    "python-dotenv==1.1.0",
     # From splitter
     "langchain-text-splitters==0.3.7",
     
@@ -331,10 +331,11 @@ installer = "pip"
 dependencies = [
   "pytest>=8.0.0",
   "pytest-mock>=3.0.0",
-  "pytest-cov>=4.0.0", # If you use coverage
-  # You might want to include 'llm' extras here if LLM tests need those deps
-  # e.g., "solace_ai_connector[llm,test]" if solace_ai_connector is the project name
-  # For now, we'll install extras explicitly in the run command as per plan.txt
+  "pytest-cov>=4.0.0",
+  "pytest-xdist>=3.5.0"
+]
+extra-dependencies = [
+   "solace_ai_connector[all]"
 ]
 
 # Specify minimum and maximum Python versions to test
