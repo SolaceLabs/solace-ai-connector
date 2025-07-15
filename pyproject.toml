@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "PyYAML==6.0.2",
-    "Requests==2.32.3",
+    "Requests~=2.32.3",
     "solace_pubsubplus==1.9.0",
     "SQLAlchemy==2.0.40",
     'pywin32>=306; sys_platform == "win32"',
