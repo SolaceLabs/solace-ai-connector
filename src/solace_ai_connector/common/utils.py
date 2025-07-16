@@ -534,7 +534,7 @@ def decode_payload(payload, encoding, payload_format):
                 except Exception as e:
                     log.error(f"Unexpected error decoding JSON payload: {e}", trace=e)
                     log.info("Payload content: %s", payload)
-                raise ValueError("Invalid JSON payload") from e
+                    raise ValueError("Invalid JSON payload") from e
         else:
             # If it wasn't bytes or string, it might already be parsed (e.g., from dev broker)
             return decoded_payload
