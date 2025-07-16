@@ -70,7 +70,7 @@ milvus-vector-store = [
 pgvector-vector-store = [
     "pgvector==0.3.6",
     "langchain-postgres==0.0.13",
-    "psycopg_binary==3.2.6",
+    "psycopg-binary==3.2.6",
 ]
 
 # LangChain core and utilities
@@ -97,7 +97,7 @@ mongodb = [
 # SQL database
 sql = [
     "mysql_connector_python==9.3.0",
-    "psycopg2_binary==2.9.9",
+    "psycopg2-binary==2.9.10",
 ]
 
 # Web Socket
@@ -293,7 +293,7 @@ all = [
     # From pgvector-vector-store
     "pgvector==0.3.6",
     "langchain-postgres==0.0.13",
-    "psycopg_binary==3.2.6",
+    "psycopg-binary==3.2.6",
     
     # From webscraping
     "playwright==1.51.0",
@@ -307,7 +307,7 @@ all = [
 
     # From sql
     "mysql_connector_python==9.3.0",
-    "psycopg2_binary==2.9.9",
+    "psycopg2-binary==2.9.10",
     
     # From websocket
     "Flask==3.0.3",
