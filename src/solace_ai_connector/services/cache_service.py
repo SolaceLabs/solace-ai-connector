@@ -34,6 +34,13 @@ class CacheStorageBackend(ABC):
     def get_all(self) -> Dict[str, Tuple[Any, Optional[Dict], Optional[float]]]:
         pass
 
+    def _send_expiry_event(self, component, key, metadata, value):
+        if component:
+            event = Event(
+                EventType.CACHE_EXPIRY,
+                {"key": key, "metadata": metadata, "expired_data": value},
+            )
+            component.enqueue(event)
 
 class InMemoryStorage(CacheStorageBackend):
 
@@ -47,7 +54,8 @@ class InMemoryStorage(CacheStorageBackend):
             if item is None:
                 return None
             if item["expiry"] and time.time() > item["expiry"]:
-                del self.store[key]
+                self._send_expiry_event(item["component"], key, item["metadata"], item["value"])
+                self.delete(key)
                 return None
             return item if include_meta else item["value"]
 
@@ -105,6 +113,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
+
     def get(self, key: str, include_meta=False) -> Any:
         session = self.Session()
         try:
@@ -112,8 +121,10 @@ class SQLAlchemyStorage(CacheStorageBackend):
             if item is None:
                 return None
             if item.expiry and time.time() > item.expiry:
-                session.delete(item)
-                session.commit()
+                self._send_expiry_event(self._get_component_from_reference(
+                        item.component_reference
+                    ), key, item.metadata, item.value)
+                self._delete_by_item(item)
                 return None
             if include_meta:
                 return {
@@ -147,7 +158,7 @@ class SQLAlchemyStorage(CacheStorageBackend):
                 item = CacheItem(key=key)
                 session.add(item)
             item.value = pickle.dumps(value)
-            item.expiry = time.time() + expiry if expiry else None
+            item.expiry = expiry
             item.item_metadata = pickle.dumps(metadata) if metadata else None
             item.component_reference = (
                 self._get_component_reference(component) if component else None
@@ -156,13 +167,21 @@ class SQLAlchemyStorage(CacheStorageBackend):
         finally:
             session.close()
 
+    def _delete_by_item(self, item: CacheItem):
+        if not item:
+            return
+        session = self.Session()
+        try:
+            session.delete(item)
+            session.commit()
+        finally:
+            session.close()
+
     def delete(self, key: str):
         session = self.Session()
         try:
             item = session.query(CacheItem).filter_by(key=key).first()
-            if item:
-                session.delete(item)
-                session.commit()
+            self._delete_by_item(item)
         finally:
             session.close()
 
@@ -236,9 +255,8 @@ class CacheService:
         self.storage.set(key, value, expiry, metadata, component)
         with self.lock:
             if expiry:
-                expiry_time = time.time() + expiry
-                if self.next_expiry is None or expiry_time < self.next_expiry:
-                    self.next_expiry = expiry_time
+                if self.next_expiry is None or expiry < self.next_expiry:
+                    self.next_expiry = expiry
                     self.expiry_event.set()
 
     def get_data(self, key: str) -> Any:
@@ -308,3 +326,4 @@ def create_storage_backend(backend_type: str = None, **kwargs) -> CacheStorageBa
         return SQLAlchemyStorage(connection_string)
     # Add more backend types here as needed
     raise ValueError(f"Unsupported storage backend: {backend_type}") from None
+
