@@ -74,117 +74,11 @@ class SolaceAiConnector:
             apps_config = self.config.get("apps", [])
 
             # If there are no apps defined but there are flows, create a default app
-            # This should be rare now that we handle this in main.py, but keeping for robustness
             if not apps_config and self.config.get("flows"):
-                # Use the first config filename as the app name if available
-                app_name = "default_app"
-                if self.config_filenames:
-                    # Extract filename without extension
-                    app_name = os.path.splitext(
-                        os.path.basename(self.config_filenames[0])
-                    )[0]
-
-                log.info("Creating default app '%s' from flows configuration", app_name)
-                # Create app info structure for the default app
-                default_app_info = {
-                    "name": app_name,
-                    "flows": self.config.get("flows", []),
-                    # Add default app_config if needed, or leave empty
-                    "app_config": {},
-                }
-                app = App(
-                    app_info=default_app_info,
-                    app_index=0,
-                    stop_signal=self.stop_signal,
-                    error_queue=self.error_queue,
-                    instance_name=self.instance_name,
-                    trace_queue=self.trace_queue,
-                    connector=self,
-                )
-                self.apps.append(app)
-
-                # For backward compatibility, also add flows to the flows list
-                self.flows.extend(app.flows)
-
-                # Add flow input queues to the connector's flow_input_queues
-                for name, queue in app.flow_input_queues.items():
-                    self.flow_input_queues[name] = queue
+                self._create_default_app()
             else:
                 # Create apps from the apps configuration
-                for index, app_info in enumerate(apps_config):
-                    log.info("Creating app %s", app_info.get("name"))
-                    num_instances = app_info.get("num_instances", 1)
-                    if num_instances < 1:
-                        num_instances = 1
-                        log.warning(
-                            "Number of instances for app %s is less than 1. Setting it to 1",
-                            app_info.get("name"),
-                        )
-
-                    for _ in range(num_instances):
-
-                        # Does this have a custom App module
-                        app_module = app_info.get("app_module", None)
-                        app_base_path = app_info.get("app_base_path", None)
-                        app_package = app_info.get("app_package", None)
-                        if app_module:
-                            imported_module = import_module(
-                                app_module, app_base_path, app_package
-                            )
-                            # Attempt to get info, but allow it to be missing for custom apps
-                            info = getattr(imported_module, "info", None)
-                            class_name = None
-                            if info:
-                                class_name = info.get("class_name")
-
-                            if class_name:
-                                app_class = getattr(imported_module, class_name)
-                            else:
-                                # If no class_name in info, assume the module itself might contain the App subclass
-                                # Look for a class inheriting from App in the module
-                                found_class = None
-                                for name, obj in imported_module.__dict__.items():
-                                    if (
-                                        isinstance(obj, type)
-                                        and issubclass(obj, App)
-                                        and obj is not App
-                                    ):
-                                        if found_class:
-                                            raise ValueError(
-                                                f"App module '{app_module}' contains multiple App subclasses. Specify class_name in info."
-                                            ) from None
-                                        found_class = obj
-                                if not found_class:
-                                    raise ValueError(
-                                        f"App module '{app_module}' does not contain an App subclass or define class_name in info."
-                                    ) from None
-                                app_class = found_class
-                                log.debug(
-                                    "Using App subclass %s found in module %s",
-                                    app_class.__name__,
-                                    app_module,
-                                )
-
-                        else:
-                            # Use the default App class
-                            app_class = App
-
-                        app_obj = app_class(
-                            app_info=app_info,
-                            app_index=index,
-                            stop_signal=self.stop_signal,
-                            error_queue=self.error_queue,
-                            instance_name=self.instance_name,
-                            trace_queue=self.trace_queue,
-                            connector=self,
-                        )
-                        self.apps.append(app_obj)
-
-                        # For backward compatibility, also add flows to the flows list
-                        self.flows.extend(app_obj.flows)
-                        # Add flow input queues to the connector's flow_input_queues
-                        for name, queue in app_obj.flow_input_queues.items():
-                            self.flow_input_queues[name] = queue
+                self._create_configured_apps(apps_config)
 
             # Run all apps
             for app_obj in self.apps:
@@ -196,6 +90,123 @@ class SolaceAiConnector:
         except Exception as e:
             log.error("Error creating apps", trace=e)
             raise ValueError("An error occurred during app creation") from None
+            
+    def _create_default_app(self):
+        """Create a default app from top-level flows configuration"""
+        # Use the first config filename as the app name if available
+        app_name = "default_app"
+        if self.config_filenames:
+            # Extract filename without extension
+            app_name = os.path.splitext(
+                os.path.basename(self.config_filenames[0])
+            )[0]
+
+        log.info("Creating default app '%s' from flows configuration", app_name)
+        # Create app info structure for the default app
+        default_app_info = {
+            "name": app_name,
+            "flows": self.config.get("flows", []),
+            "app_config": {},
+        }
+        
+        # Create and register the app
+        app = App(
+            app_info=default_app_info,
+            app_index=0,
+            stop_signal=self.stop_signal,
+            error_queue=self.error_queue,
+            instance_name=self.instance_name,
+            trace_queue=self.trace_queue,
+            connector=self,
+        )
+        self._register_app(app)
+        
+    def _create_configured_apps(self, apps_config):
+        """Create apps from the apps configuration"""
+        for index, app_info in enumerate(apps_config):
+            app_name = app_info.get("name")
+            log.info("Creating app %s", app_name)
+            
+            # Handle multiple instances if configured
+            num_instances = app_info.get("num_instances", 1)
+            if num_instances < 1:
+                num_instances = 1
+                log.warning(
+                    "Number of instances for app %s is less than 1. Setting it to 1",
+                    app_name,
+                )
+
+            for _ in range(num_instances):
+                # Get the appropriate app class (custom or default)
+                app_class = self._get_app_class(app_info)
+                
+                # Create and register the app instance
+                app_obj = app_class(
+                    app_info=app_info,
+                    app_index=index,
+                    stop_signal=self.stop_signal,
+                    error_queue=self.error_queue,
+                    instance_name=self.instance_name,
+                    trace_queue=self.trace_queue,
+                    connector=self,
+                )
+                self._register_app(app_obj)
+                
+    def _get_app_class(self, app_info):
+        """Determine the appropriate App class to use based on app_info"""
+        app_module = app_info.get("app_module")
+        if not app_module:
+            return App  # Use the default App class
+            
+        # Custom app module specified - import it
+        app_base_path = app_info.get("app_base_path")
+        app_package = app_info.get("app_package")
+        imported_module = import_module(app_module, app_base_path, app_package)
+        
+        # Try to get class name from module info
+        info = getattr(imported_module, "info", None)
+        class_name = info.get("class_name") if info else None
+        
+        if class_name:
+            # Use the specified class name
+            return getattr(imported_module, class_name)
+        
+        # No class name specified - look for App subclass in the module
+        found_class = None
+        for name, obj in imported_module.__dict__.items():
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, App)
+                and obj is not App
+            ):
+                if found_class:
+                    raise ValueError(
+                        f"App module '{app_module}' contains multiple App subclasses. Specify class_name in info."
+                    ) from None
+                found_class = obj
+                
+        if not found_class:
+            raise ValueError(
+                f"App module '{app_module}' does not contain an App subclass or define class_name in info."
+            ) from None
+            
+        log.debug(
+            "Using App subclass %s found in module %s",
+            found_class.__name__,
+            app_module,
+        )
+        return found_class
+        
+    def _register_app(self, app):
+        """Register an app with the connector"""
+        self.apps.append(app)
+        
+        # For backward compatibility, also add flows to the flows list
+        self.flows.extend(app.flows)
+        
+        # Add flow input queues to the connector's flow_input_queues
+        for name, queue in app.flow_input_queues.items():
+            self.flow_input_queues[name] = queue
 
     def create_internal_app(self, app_name: str, flows: List[Dict[str, Any]]) -> App:
         """
