@@ -101,61 +101,100 @@ def resolve_config_values(config, allow_source_expression=False):
 
 
 def import_module(module, base_path=None, component_package=None):
-    """Import a module by name or return the module object if it's already imported"""
-
+    """
+    Import a module by name or return the module object if it's already imported.
+    
+    Args:
+        module: Module name as string or an already imported module object
+        base_path: Optional base path to add to sys.path
+        component_package: Optional package to install if needed
+        
+    Returns:
+        The imported module object
+        
+    Raises:
+        ModuleNotFoundError: If the module cannot be found
+        ImportError: If there's an error during module import
+    """
+    # If already a module object, return it directly
     if isinstance(module, types.ModuleType):
         return module
 
+    # Install package if specified
     if component_package:
         install_package(component_package)
 
+    # Add base path to sys.path if provided
     if base_path and base_path not in sys.path:
-            sys.path.append(base_path)
+        sys.path.append(base_path)
+        
+    # Try direct import first
     try:
         return importlib.import_module(module)
-    except ModuleNotFoundError as er:
-        # If the module does not have a path associated with it, try
-        # importing it from the known prefixes - annoying that this
-        # is necessary. It seems you can't dynamically import a module
-        # that is listed in an __init__.py file :(
+    except ModuleNotFoundError as original_error:
+        # For modules without dots, try known prefixes
         if "." not in module:
-            for prefix_prefix in ["solace_ai_connector", "."]:
-                for prefix in [
-                    ".components",
-                    ".components.general",
-                    ".components.general.for_testing",
-                    ".components.general.llm.langchain",
-                    ".components.general.llm.openai",
-                    ".components.general.llm.litellm",
-                    ".components.general.db.mongo",
-                    ".components.general.db.sql",
-                    ".components.general.websearch",
-                    ".components.inputs_outputs",
-                    ".transforms",
-                    ".common",
-                ]:
-                    full_name = f"{prefix_prefix}{prefix}.{module}"
-                    try:
-                        if full_name.startswith("."):
-                            return importlib.import_module(
-                                full_name, package=__package__
-                            )
-                        else:
-                            return importlib.import_module(full_name)
-                    except ModuleNotFoundError as e:
-                        name = str(e.name)
-                        if (
-                            name != "solace_ai_connector"
-                            and name.split(".")[-1] != full_name.split(".")[-1]
-                        ):
-                            raise ModuleNotFoundError(
-                                f"Module '{full_name}' not found"
-                            ) from None
-                    except Exception:
-                        raise ImportError(
-                            f"Module load error for {full_name}. Please ensure that all required dependencies are installed and parameters are correct. Error: {str(er)}"
-                        ) from None
+            imported_module = _try_import_from_known_prefixes(module, original_error)
+            if imported_module:
+                return imported_module
+                
+        # If we get here, the module wasn't found
         raise ModuleNotFoundError(f"Module '{module}' not found") from None
+
+def _try_import_from_known_prefixes(module_name, original_error):
+    """
+    Try to import a module from known prefixes.
+    
+    Args:
+        module_name: The base module name to import
+        original_error: The original ModuleNotFoundError
+        
+    Returns:
+        The imported module if successful, None otherwise
+    """
+    # Known prefix combinations to try
+    prefix_prefixes = ["solace_ai_connector", "."]
+    prefixes = [
+        ".components",
+        ".components.general",
+        ".components.general.for_testing",
+        ".components.general.llm.langchain",
+        ".components.general.llm.openai",
+        ".components.general.llm.litellm",
+        ".components.general.db.mongo",
+        ".components.general.db.sql",
+        ".components.general.websearch",
+        ".components.inputs_outputs",
+        ".transforms",
+        ".common",
+    ]
+    
+    # Try each combination of prefixes
+    for prefix_prefix in prefix_prefixes:
+        for prefix in prefixes:
+            full_name = f"{prefix_prefix}{prefix}.{module_name}"
+            try:
+                # Handle relative imports differently
+                if full_name.startswith("."):
+                    return importlib.import_module(full_name, package=__package__)
+                else:
+                    return importlib.import_module(full_name)
+            except ModuleNotFoundError as e:
+                # Skip if this is clearly not the right module
+                name = str(e.name)
+                if (name != "solace_ai_connector" and
+                    name.split(".")[-1] != full_name.split(".")[-1]):
+                    continue
+            except Exception:
+                # For other exceptions, provide a helpful error message
+                raise ImportError(
+                    f"Module load error for {full_name}. Please ensure that all required "
+                    f"dependencies are installed and parameters are correct. "
+                    f"Error: {str(original_error)}"
+                ) from None
+    
+    # If we get here, the module wasn't found in any of the known prefixes
+    return None
 
 
 def invoke_config(config, allow_source_expression=False):
@@ -534,7 +573,7 @@ def decode_payload(payload, encoding, payload_format):
                 except Exception as e:
                     log.error(f"Unexpected error decoding JSON payload: {e}", trace=e)
                     log.info("Payload content: %s", payload)
-                raise ValueError("Invalid JSON payload") from e
+                    raise ValueError("Invalid JSON payload") from e
         else:
             # If it wasn't bytes or string, it might already be parsed (e.g., from dev broker)
             return decoded_payload

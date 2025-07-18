@@ -60,7 +60,6 @@ class ComponentBase:
         self.stop_thread_event = threading.Event()
         self.current_message = None
         self.current_message_has_been_discarded = False
-        self.event_message_repeat_sleep_time = 1
 
         self.log_identifier = f"[{self.instance_name}.{self.flow_name}.{self.name}] "
 
@@ -70,13 +69,6 @@ class ComponentBase:
         self.setup_component_broker_request_response()
 
         self.monitoring = Monitoring()
-
-    def grow_sleep_time(self):
-        if self.event_message_repeat_sleep_time < 60:
-            self.event_message_repeat_sleep_time *= 2
-
-    def reset_sleep_time(self):
-        self.event_message_repeat_sleep_time = 1
 
     def create_thread_and_run(self):
         self.thread = threading.Thread(target=self.run, daemon=True)
@@ -101,20 +93,9 @@ class ComponentBase:
                 event = self.get_next_event()
                 if event is not None:
                     self.process_event_with_tracing(event)
-                self.reset_sleep_time()
             except AssertionError as e:
-                try:
-                    self.stop_signal.wait(timeout=self.event_message_repeat_sleep_time)
-                except KeyboardInterrupt:
-                    self.handle_component_error(e, event)
-                self.grow_sleep_time()
                 self.handle_component_error(e, event)
             except Exception as e:
-                try:
-                    self.stop_signal.wait(timeout=self.event_message_repeat_sleep_time)
-                except KeyboardInterrupt:
-                    self.handle_component_error(e, event)
-                self.grow_sleep_time()
                 self.handle_component_error(e, event)
 
         self.stop_component()
@@ -594,7 +575,7 @@ class ComponentBase:
     def handle_negative_acknowledgements(self, message, exception):
         """Handle NACK for the message."""
         log.error(
-            "[%s] %s Component failed to process message",
+            "[%s] %s Component failed to process message. Sending Negative Acknowledgement.",
             self.name,
             self.log_identifier,
         )
