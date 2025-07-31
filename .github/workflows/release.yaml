@@ -21,15 +21,20 @@ jobs:
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_pypi.yml@main
     with:
       ENVIRONMENT: pypi
+      sonarqube_hotspot_check: true
       version: ${{ github.event.inputs.version }}
-      pypi-project: solace-ai-connector
-      whitesource_product_name: solaceai
-      whitesource_project_name: solace-ai-connector
+      whitesource_project_name: ${{ github.event.repository.name }}
+      whitesource_product_name: "solaceai"
+      pypi-project: ${{ github.event.repository.name }}
 
     secrets:
       COMMIT_KEY: ${{ secrets.COMMIT_KEY }}
       PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+      SONARQUBE_PROJECT_KEY: ${{ github.event.repository.owner }}_${{ github.event.repository.name }}
+      SONARQUBE_PROJECT_MAIN_BRANCH: "main"
+      SONARQUBE_QUERY_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
+      SONARQUBE_HOTSPOTS_API_URL: ${{ secrets.SONARQUBE_HOTSPOTS_API_URL }}
       WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
-      MANIFEST_AWS_REGION: ${{ vars.MANIFEST_AWS_REGION }}
       MANIFEST_AWS_ACCESS_KEY_ID: ${{ secrets.MANIFEST_READ_ONLY_AWS_ACCESS_KEY_ID }}
       MANIFEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.MANIFEST_READ_ONLY_AWS_SECRET_ACCESS_KEY }}
+      MANIFEST_AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
