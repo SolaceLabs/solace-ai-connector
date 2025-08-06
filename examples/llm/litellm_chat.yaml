@@ -79,13 +79,16 @@ flows:
         component_module: litellm_chat_model
         component_config:
           llm_mode: none # options: none or stream
+          suppress_debug_info: True
+          aiohttp_trust_env: True
+          ssl_verify: False # or add the PEM file path such as "client.pem"
           retry_policy: # retry the request per error type
             ContentPolicyViolationErrorRetries: 1
             AuthenticationErrorRetries: 1
             BadRequestErrorRetries: 1
             TimeoutErrorRetries: 1
             RateLimitErrorRetries: 1
-            InternalServerErrorRetries: 1    
+            InternalServerErrorRetries: 1
           allowed_fails_policy: # allow X failures per minute before cooling down
             ContentPolicyViolationErrorAllowedFails: 1000
             RateLimitErrorAllowedFails: 1000
