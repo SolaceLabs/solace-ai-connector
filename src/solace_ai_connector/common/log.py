@@ -190,42 +190,54 @@ def setup_log(
 
     log.addHandler(file_handler)
 
+def _configure_logging_from_env():
+    """Configure logging from LOGGING_CONFIG_PATH environment variable."""
+    global _ini_config_applied
+
+    ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
+
+    if ini_path_from_env:
+        if not os.path.exists(ini_path_from_env):
+            print(
+                f"LOGGING_CONFIG_PATH is set to '{ini_path_from_env}', but the file was not found. "
+                "Proceeding with default programmatic logging.",
+                file=sys.stderr
+            )
+        else:
+            try:
+                # Setting disable_existing_loggers=True will disable any loggers that existed
+                # prior to this call if they are also defined in the INI file.
+                # This is crucial for ensuring that library loggers (like litellm)
+                # which might have default handlers, only use the handlers defined in the INI.
+                logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=True)
+                module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
+                module_init_logger.info(
+                    f"Logging configured via INI file '{ini_path_from_env}' "
+                    "(specified by LOGGING_CONFIG_PATH) from solace_ai_connector.common.log module import."
+                )
+                _ini_config_applied = True # Set flag if INI load is successful
+                return True
+            except Exception as e:
+                print(
+                    f"Error configuring logging from INI file '{ini_path_from_env}': {e}. "
+                    "Proceeding with default programmatic logging.",
+                    file=sys.stderr
+                )
+    return False
+
+
+def reconfigure_logging():
+    """
+    Reconfigure logging from environment variables.
+    This can be called after environment variables have been loaded.
+    """
+    return _configure_logging_from_env()
+
 # Module-level logging configuration based on LOGGING_CONFIG_PATH
 # This code will run once when the module is first imported.
 # If LOGGING_CONFIG_PATH is set and points to a valid file, INI-based logging is used.
 # Otherwise, programmatic logging via setup_log() will be used.
-ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
-
-if ini_path_from_env:
-    if not os.path.exists(ini_path_from_env):
-        print(
-            f"LOGGING_CONFIG_PATH is set to '{ini_path_from_env}', but the file was not found. "
-            "Proceeding with default programmatic logging.",
-            file=sys.stderr
-        )
-    else:
-        try:
-            # Setting disable_existing_loggers=True will disable any loggers that existed
-            # prior to this call if they are also defined in the INI file.
-            # This is crucial for ensuring that library loggers (like litellm)
-            # which might have default handlers, only use the handlers defined in the INI.
-            logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=True)
-            module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
-            module_init_logger.info(
-                f"Logging configured via INI file '{ini_path_from_env}' "
-                "(specified by LOGGING_CONFIG_PATH) from solace_ai_connector.common.log module import."
-            )
-            _ini_config_applied = True # Set flag if INI load is successful
-        except Exception as e:
-            print(
-                f"Error configuring logging from INI file '{ini_path_from_env}': {e}. "
-                "Proceeding with default programmatic logging.",
-                file=sys.stderr
-            )
-# else:
-    # LOGGING_CONFIG_PATH is not set.
-    # The application will rely on the programmatic setup_log() or Python's default.
-    # print("LOGGING_CONFIG_PATH is not set. Proceeding with default programmatic logging.", file=sys.stderr)
+_configure_logging_from_env()
 
 # Apply the module-level trace-enabled wrappers to the global 'log' instance.
 # This ensures that log.debug and log.error always handle the 'trace' kwarg.
