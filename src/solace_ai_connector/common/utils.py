@@ -139,7 +139,7 @@ def import_module(module, base_path=None, component_package=None):
                 return imported_module
                 
         # If we get here, the module wasn't found
-        raise ModuleNotFoundError(f"Module '{module}' not found") from None
+        raise ModuleNotFoundError(f"Module '{module}' not found") from original_error
 
 def _try_import_from_known_prefixes(module_name, original_error):
     """
