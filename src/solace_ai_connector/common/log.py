@@ -198,10 +198,9 @@ def _configure_logging_from_env():
 
     if ini_path_from_env:
         if not os.path.exists(ini_path_from_env):
-            print(
+            log.debug(
                 f"LOGGING_CONFIG_PATH is set to '{ini_path_from_env}', but the file was not found. "
-                "Proceeding with default programmatic logging.",
-                file=sys.stderr
+                "Proceeding with default programmatic logging."
             )
         else:
             try:
@@ -211,17 +210,16 @@ def _configure_logging_from_env():
                 # which might have default handlers, only use the handlers defined in the INI.
                 logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=True)
                 module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
-                module_init_logger.info(
+                module_init_logger.debug(
                     f"Logging configured via INI file '{ini_path_from_env}' "
                     "(specified by LOGGING_CONFIG_PATH) from solace_ai_connector.common.log module import."
                 )
                 _ini_config_applied = True # Set flag if INI load is successful
                 return True
             except Exception as e:
-                print(
+                log.debug(
                     f"Error configuring logging from INI file '{ini_path_from_env}': {e}. "
-                    "Proceeding with default programmatic logging.",
-                    file=sys.stderr
+                    "Proceeding with default programmatic logging."
                 )
     return False
 
