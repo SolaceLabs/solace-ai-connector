@@ -76,6 +76,26 @@ litellm_info_base = {
             "default": 60,
         },
         {
+            "name": "suppress_debug_info",
+            "required": False,
+            "description": "Whether to suppress debug info in LiteLLM",
+            "default": False,
+            "type": "boolean",
+        },
+        {
+            "name": "aiohttp_trust_env",
+            "required": False,
+            "description": "Whether to trust environment variables for aiohttp",
+            "default": True,
+            "type": "boolean",
+        },
+        {
+            "name": "ssl_verify",
+            "required": False,
+            "description": "Whether to verify SSL certificates. Can be a boolean or a path to a PEM file.",
+            "default": False,
+        },
+        {
             "name": "retry_policy",
             "required": False,
             "description": (
@@ -103,7 +123,22 @@ class LiteLLMBase(ComponentBase):
         self.init_load_balancer()
 
     def init(self):
-        litellm.suppress_debug_info = True
+        # Get configuration parameters
+        suppress_debug_info = self.get_config("suppress_debug_info", False)
+        aiohttp_trust_env = self.get_config("aiohttp_trust_env", True)
+        ssl_verify = self.get_config("ssl_verify", False)
+
+        # Set LiteLLM parameters
+        litellm.suppress_debug_info = suppress_debug_info
+        litellm.aiohttp_trust_env = aiohttp_trust_env
+        litellm.ssl_verify = ssl_verify
+        
+        # Turn on debug if suppress_debug_info is True
+        if suppress_debug_info:
+            litellm._turn_on_debug()
+            
+        log.info(f"LiteLLM initialized with suppress_debug_info={suppress_debug_info}, aiohttp_trust_env={aiohttp_trust_env}, ssl_verify={ssl_verify}")
+        
         self.timeout = self.get_config("timeout")
         self.retry_policy_config = self.get_config("retry_policy")
         self.allowed_fails_policy_config = self.get_config("allowed_fails_policy")
