@@ -196,7 +196,7 @@ qdrant_ext_release = [
     "grpcio==1.73.1",
     "grpcio-tools==1.73.1",
     "h11==0.16.0",
-    "h2==4.2.0",
+    "h2==4.3.0",
     "hpack==4.1.0",
     "httpcore==1.0.9",
     "httpx==0.28.1",
