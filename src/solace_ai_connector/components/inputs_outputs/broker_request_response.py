@@ -223,6 +223,7 @@ class BrokerRequestResponse(BrokerBase):
 
     def __init__(self, **kwargs):
         super().__init__(info, **kwargs)
+        self._local_stop_signal = threading.Event()
         self.need_acknowledgement = False
         self.request_expiry_ms = self.get_config("request_expiry_ms")
         self.response_topic_prefix = ensure_slash_on_end(
@@ -249,6 +250,10 @@ class BrokerRequestResponse(BrokerBase):
             "streaming_complete_expression"
         )
         self.broker_type = self.broker_properties.get("broker_type", "solace")
+        if self.broker_type in ["test", "test_streaming", "test_bad_payload"]:
+            self.test_mode = True
+        else:
+            self.test_mode = False
         self.broker_properties["temporary_queue"] = True
         self.broker_properties["queue_name"] = self.reply_queue_name
         self.broker_properties["subscriptions"] = [
@@ -261,7 +266,6 @@ class BrokerRequestResponse(BrokerBase):
                 "qos": 1,
             },
         ]
-        self.test_mode = False
 
         self.response_topic_insertion_expression = self.get_config(
             "response_topic_insertion_expression"
@@ -272,8 +276,7 @@ class BrokerRequestResponse(BrokerBase):
                     f"input.payload:{self.response_topic_insertion_expression}"
                 )
 
-        if self.broker_type == "test" or self.broker_type == "test_streaming":
-            self.test_mode = True
+        if self.test_mode:
             self.setup_test_pass_through()
         else:
             self.connect()
@@ -304,7 +307,7 @@ class BrokerRequestResponse(BrokerBase):
         self.response_thread.start()
 
     def handle_responses(self):
-        while not self.stop_signal.is_set():
+        while not self._local_stop_signal.is_set():
             try:
                 broker_message = self.messaging_service.receive_message(
                     1000, self.reply_queue_name
@@ -315,11 +318,9 @@ class BrokerRequestResponse(BrokerBase):
                 log.error("Error handling response.", trace=e)
 
     def handle_test_pass_through(self):
-        while not self.stop_signal.is_set():
+        while not self._local_stop_signal.is_set():
             try:
                 message = self.pass_through_queue.get(timeout=1)
-                decoded_payload = self.decode_payload(message.get_payload())
-                message.set_payload(decoded_payload)
                 self.process_response(message)
             except queue.Empty as e:
                 log.debug("No messages in pass-through queue.", trace=e)
@@ -328,111 +329,123 @@ class BrokerRequestResponse(BrokerBase):
                 log.error("Error handling test passthrough.", trace=e)
 
     def process_response(self, broker_message):
-        if self.test_mode:
-            payload = broker_message.get_payload()
-            topic = broker_message.get_topic()
-            user_properties = broker_message.get_user_properties()
-        else:
-            payload = broker_message.get("payload")
-            payload = self.decode_payload(payload)
-            topic = broker_message.get("topic")
-            user_properties = broker_message.get("user_properties", {})
-
-            self.messaging_service.ack_message(broker_message)
-
-        if not user_properties:
-            log.error("Received response without user properties.")
-            return
-
-        streaming_complete_expression = None
-        metadata_json = get_data_value(
-            user_properties, self.user_properties_reply_metadata_key, True
-        )
-        if not metadata_json:
-            log.error("Received response without metadata.")
-            return
-
         try:
-            metadata_stack = json.loads(metadata_json)
-        except json.JSONDecodeError as e:
-            log.error("Received response with invalid metadata JSON.", trace=e)
-            return
+            if self.test_mode:
+                payload = broker_message.get_payload()
+                topic = broker_message.get_topic()
+                user_properties = broker_message.get_user_properties()
+            else:
+                payload = broker_message.get("payload")
+                topic = broker_message.get("topic")
+                user_properties = broker_message.get("user_properties", {})
 
-        if not metadata_stack:
-            log.error("Received response with empty metadata stack.")
-            return
+            try:
+                payload = self.decode_payload(payload)
+            except ValueError as e:
+                log.error(
+                    "Error decoding payload in request/response: %s", e, exc_info=True
+                )
+                payload = {
+                    "error": "Payload decode error",
+                    "details": str(e),
+                }
 
-        try:
-            current_metadata = metadata_stack.pop()
-        except IndexError as e:
-            log.error("Received response with invalid metadata stack.", trace=e)
-            return
-        request_id = current_metadata.get("request_id")
-        if not request_id:
-            log.error("Received response without request_id in metadata.")
-            return
+            if not user_properties:
+                log.error("Received response without user properties.")
+                return
 
-        cached_request = self.cache_service.get_data(request_id)
-        if not cached_request:
-            log.error("Received response for unknown request_id.")
-            return
-
-        stream = cached_request.get("stream", False)
-        streaming_complete_expression = cached_request.get(
-            "streaming_complete_expression"
-        )
-
-        response = {
-            "payload": payload,
-            "topic": topic,
-            "user_properties": user_properties,
-        }
-
-        # Update the metadata in the response
-        if metadata_stack:
-            set_data_value(
-                response["user_properties"],
-                self.user_properties_reply_metadata_key,
-                json.dumps(metadata_stack),
+            streaming_complete_expression = None
+            metadata_json = get_data_value(
+                user_properties, self.user_properties_reply_metadata_key, True
             )
-            # Put the last reply topic back in the user properties
-            set_data_value(
-                response["user_properties"],
-                self.user_properties_reply_topic_key,
-                metadata_stack[-1]["response_topic"],
-            )
-        else:
-            # Remove the metadata and reply topic from the user properties
-            remove_data_value(
-                response["user_properties"], self.user_properties_reply_metadata_key
-            )
-            remove_data_value(
-                response["user_properties"], self.user_properties_reply_topic_key
+            if not metadata_json:
+                log.error("Received response without metadata.")
+                return
+
+            try:
+                metadata_stack = json.loads(metadata_json)
+            except json.JSONDecodeError as e:
+                log.error("Received response with invalid metadata JSON.", trace=e)
+                return
+
+            if not metadata_stack:
+                log.error("Received response with empty metadata stack.")
+                return
+
+            try:
+                current_metadata = metadata_stack.pop()
+            except IndexError as e:
+                log.error("Received response with invalid metadata stack.", trace=e)
+                return
+            request_id = current_metadata.get("request_id")
+            if not request_id:
+                log.error("Received response without request_id in metadata.")
+                return
+
+            cached_request = self.cache_service.get_data(request_id)
+            if not cached_request:
+                log.error("Received response for unknown request_id.")
+                return
+
+            stream = cached_request.get("stream", False)
+            streaming_complete_expression = cached_request.get(
+                "streaming_complete_expression"
             )
 
-        message = Message(
-            payload=payload,
-            user_properties=user_properties,
-            topic=topic,
-        )
-        self.process_post_invoke(response, message)
+            response = {
+                "payload": payload,
+                "topic": topic,
+                "user_properties": user_properties,
+            }
 
-        # Only remove the cache entry if this isn't a streaming response or
-        # if it is the last piece of a streaming response
-        last_piece = True
-        if stream and streaming_complete_expression:
-            is_last = message.get_data(streaming_complete_expression)
-            if not is_last:
-                last_piece = False
-                self.cache_service.add_data(
-                    key=request_id,
-                    value=cached_request,
-                    expiry=self.request_expiry_ms / 1000,  # Reset expiry time
-                    component=self,
+            # Update the metadata in the response
+            if metadata_stack:
+                set_data_value(
+                    response["user_properties"],
+                    self.user_properties_reply_metadata_key,
+                    json.dumps(metadata_stack),
+                )
+                # Put the last reply topic back in the user properties
+                set_data_value(
+                    response["user_properties"],
+                    self.user_properties_reply_topic_key,
+                    metadata_stack[-1]["response_topic"],
+                )
+            else:
+                # Remove the metadata and reply topic from the user properties
+                remove_data_value(
+                    response["user_properties"], self.user_properties_reply_metadata_key
+                )
+                remove_data_value(
+                    response["user_properties"], self.user_properties_reply_topic_key
                 )
 
-        if last_piece:
-            self.cache_service.remove_data(request_id)
+            message = Message(
+                payload=payload,
+                user_properties=user_properties,
+                topic=topic,
+            )
+            self.process_post_invoke(response, message)
+
+            # Only remove the cache entry if this isn't a streaming response or
+            # if it is the last piece of a streaming response
+            last_piece = True
+            if stream and streaming_complete_expression:
+                is_last = message.get_data(streaming_complete_expression)
+                if not is_last:
+                    last_piece = False
+                    self.cache_service.add_data(
+                        key=request_id,
+                        value=cached_request,
+                        expiry=self.request_expiry_ms / 1000,  # Reset expiry time
+                        component=self,
+                    )
+
+            if last_piece:
+                self.cache_service.remove_data(request_id)
+        finally:
+            if not self.test_mode:
+                self.messaging_service.ack_message(broker_message)
 
     def invoke(self, message, data):
         request_id = str(uuid.uuid4())
@@ -537,10 +550,11 @@ class BrokerRequestResponse(BrokerBase):
 
         return None  # The actual result will be processed in handle_responses
 
-    def cleanup(self):
+    def stop_component(self):
         if self.response_thread:
+            self._local_stop_signal.set()
             self.response_thread.join()
-        super().cleanup()
+        super().stop_component()
 
     def get_metrics(self):
         # override because it removes messaging_service from the BrokerBase

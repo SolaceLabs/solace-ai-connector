@@ -2,8 +2,9 @@ import threading
 import queue
 import traceback
 import pprint
+import asyncio
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Optional, Dict, List
 
 from ..common.log import log
 from ..common.utils import resolve_config_values
@@ -14,6 +15,10 @@ from ..common.messaging.solace_messaging import ConnectionStatus
 from ..common.trace_message import TraceMessage
 from ..common.event import Event, EventType
 from ..flow.request_response_flow_controller import RequestResponseFlowController
+from ..flow.multi_session_request_response_manager import (
+    MultiSessionRequestResponseManager,
+)
+from ..common.session_config import SessionConfig
 from ..common.monitoring import Monitoring
 from ..common.monitoring import Metrics
 from ..common import Message_NACK_Outcome
@@ -44,6 +49,7 @@ class ComponentBase:
         self.put_errors_in_error_queue = kwargs.pop("put_errors_in_error_queue", True)
         self.parent_app = kwargs.pop("app", None)
         self._component_rrc = None  # Initialize component-level RRC attribute
+        self._multi_session_manager = None
 
         self.component_config = self.config.get("component_config") or {}
         self.broker_request_response_config = self.config.get(
@@ -64,9 +70,10 @@ class ComponentBase:
         self.log_identifier = f"[{self.instance_name}.{self.flow_name}.{self.name}] "
 
         self.validate_config()
-        self.setup_transforms()
-        self.setup_communications()
-        self.setup_component_broker_request_response()
+        self._setup_transforms()
+        self._setup_communications()
+        self._setup_component_broker_request_response()
+        self._setup_multi_session_request_response()
 
         self.monitoring = Monitoring()
 
@@ -316,7 +323,7 @@ class ComponentBase:
     def kv_store_set(self, key, value):
         self.flow_kv_store.set(key, value)
 
-    def setup_communications(self):
+    def _setup_communications(self):
         self.queue_max_depth = self.config.get(
             "component_queue_max_depth", DEFAULT_QUEUE_MAX_DEPTH
         )
@@ -328,7 +335,7 @@ class ComponentBase:
         else:
             self.input_queue = queue.Queue(maxsize=self.queue_max_depth)
 
-    def setup_component_broker_request_response(self):
+    def _setup_component_broker_request_response(self):
         """Initializes RRC if configured at the component level (backward compatibility)."""
         if (
             self.broker_request_response_config
@@ -387,6 +394,130 @@ class ComponentBase:
         else:
             self._component_rrc = None
 
+    def _setup_multi_session_request_response(self):
+        """Initializes the multi-session request/response manager if configured."""
+        multi_session_config = self.get_config("multi_session_request_response")
+        if multi_session_config and multi_session_config.get("enabled", False):
+            log.info(
+                "[%s] %s Multi-session request/response is enabled.",
+                self.name,
+                self.log_identifier,
+            )
+
+            # Try to get explicit default_broker_config first
+            default_broker_config = multi_session_config.get(
+                "default_broker_config", {}
+            )
+
+            # If not found, try to inherit from the parent app's broker config
+            if not default_broker_config and self.parent_app:
+                log.debug(
+                    "[%s] %s No explicit default_broker_config found, attempting to inherit from app's broker config.",
+                    self.name,
+                    self.log_identifier,
+                )
+                app_broker_config = self.parent_app.app_info.get("broker")
+                if app_broker_config:
+                    default_broker_config = app_broker_config
+                    log.info(
+                        "[%s] %s Using parent app's broker configuration as default for multi-session request/response.",
+                        self.name,
+                        self.log_identifier,
+                    )
+
+            # A default broker config is optional. If not provided, each session
+            # must be created with a full 'broker_config' override.
+            default_session_config = None
+            if default_broker_config:
+                try:
+                    default_session_config = SessionConfig(
+                        broker_config=default_broker_config
+                    )
+                except ValueError as e:
+                    raise ValueError(
+                        f"Invalid 'default_broker_config' for multi_session_request_response: {e}"
+                    ) from e
+            else:
+                log.info(
+                    "[%s] %s No default broker config found for multi-session mode. "
+                    "Each session must be created with a full 'broker_config' override.",
+                    self.name,
+                    self.log_identifier,
+                )
+
+            try:
+                self._multi_session_manager = MultiSessionRequestResponseManager(
+                    component=self,
+                    default_session_config=default_session_config,
+                    max_sessions=multi_session_config.get("max_sessions", 50),
+                )
+            except Exception as e:
+                log.error(
+                    "[%s] %s Failed to initialize multi-session manager",
+                    self.name,
+                    self.log_identifier,
+                    trace=e,
+                )
+                raise ValueError("Failed to initialize multi-session manager") from None
+
+    def create_request_response_session(
+        self, session_config: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Creates a new dynamic request/response session.
+
+        Args:
+            session_config: A dictionary of configuration values for this session.
+                            These values are merged with any defaults.
+
+        Returns:
+            The unique session ID of the newly created session.
+
+        Raises:
+            RuntimeError: If multi-session request/response is not enabled.
+        """
+        if not self._multi_session_manager:
+            raise RuntimeError(
+                "Multi-session request/response is not enabled for this component."
+            )
+        return self._multi_session_manager.create_session(session_config)
+
+    def destroy_request_response_session(self, session_id: str) -> bool:
+        """
+        Destroys a dynamic request/response session and cleans up its resources.
+
+        Args:
+            session_id: The ID of the session to destroy.
+
+        Returns:
+            True if the session was found and destroyed, False otherwise.
+
+        Raises:
+            RuntimeError: If multi-session request/response is not enabled.
+        """
+        if not self._multi_session_manager:
+            raise RuntimeError(
+                "Multi-session request/response is not enabled for this component."
+            )
+        return self._multi_session_manager.destroy_session(session_id)
+
+    def list_request_response_sessions(self) -> List[Dict[str, Any]]:
+        """
+        Returns a list of dictionaries containing detailed status for each
+        active dynamic session.
+
+        Returns:
+            A list of session status dictionaries.
+
+        Raises:
+            RuntimeError: If multi-session request/response is not enabled.
+        """
+        if not self._multi_session_manager:
+            raise RuntimeError(
+                "Multi-session request/response is not enabled for this component."
+            )
+        return self._multi_session_manager.list_sessions()
+
     def is_broker_request_response_enabled(self):
         """Checks if RRC is enabled either at App level or Component level."""
         app = self.get_app()
@@ -398,7 +529,7 @@ class ComponentBase:
             return True
         return False
 
-    def setup_transforms(self):
+    def _setup_transforms(self):
         self.transforms = Transforms(
             self.config.get("input_transforms", []), log_identifier=self.log_identifier
         )
@@ -412,11 +543,11 @@ class ComponentBase:
                 validate_config_block(
                     self.component_config, config_params, self.log_identifier
                 )
-            except ValueError:
+            except ValueError as e:
                 # Re-raise the error with more context
                 raise ValueError(
                     f"Configuration error in component '{self.name}': {e}"
-                ) from None
+                ) from e
         else:
             log.debug(
                 "%s No 'config_parameters' defined in module_info. Skipping config validation.",
@@ -503,6 +634,9 @@ class ComponentBase:
             pass
         if hasattr(self, "_component_rrc") and self._component_rrc:
             self._component_rrc = None
+        if hasattr(self, "_multi_session_manager") and self._multi_session_manager:
+            self._multi_session_manager.shutdown()
+            self._multi_session_manager = None
         if hasattr(self, "input_queue"):
             while not self.input_queue.empty():
                 try:
@@ -510,67 +644,137 @@ class ComponentBase:
                 except queue.Empty:
                     break
 
-    def do_broker_request_response(
-        self, message, stream=False, streaming_complete_expression=None
+    async def do_broker_request_response_async(
+        self,
+        message,
+        session_id: Optional[str] = None,
+        stream=False,
+        streaming_complete_expression=None,
+        wait_for_response: bool = True,
     ):
-        """Performs broker request-response using App-level or Component-level controller."""
-        app = self.get_app()
-        controller = None
+        """
+        Asynchronous wrapper for do_broker_request_response.
+        Runs the blocking call in a separate thread to avoid blocking the asyncio event loop.
 
-        # Prioritize App-level controller (new way)
-        if app and app.request_response_controller:
-            controller = app.request_response_controller
-            log.debug("[%s] %s Using App-level RRC.", self.name, self.log_identifier)
-        # Fallback to Component-level controller (old way)
-        elif hasattr(self, "_component_rrc") and self._component_rrc:
-            controller = self._component_rrc
-            log.debug(
-                "[%s] %s Using Component-level RRC.", self.name, self.log_identifier
-            )
+        Args:
+            message: The request message to send.
+            session_id: The ID of the dynamic session to use.
+            stream: Whether the response is expected to be streaming.
+            streaming_complete_expression: Expression to detect the end of a stream.
+            wait_for_response: If False, sends the request and returns immediately.
+        """
+        return await asyncio.to_thread(
+            self.do_broker_request_response,
+            message,
+            session_id=session_id,
+            stream=stream,
+            streaming_complete_expression=streaming_complete_expression,
+            wait_for_response=wait_for_response,
+        )
 
-        # If a controller was found (either way)
-        if controller:
-            # Use the found controller
-            generator = controller.do_broker_request_response(
-                message, stream, streaming_complete_expression
+    def do_broker_request_response(
+        self,
+        message,
+        session_id: Optional[str] = None,
+        stream=False,
+        streaming_complete_expression=None,
+        wait_for_response: bool = True,
+    ):
+        """
+        Performs broker request-response.
+        If session_id is provided, uses the dynamic multi-session manager.
+        Otherwise, falls back to the legacy App-level or Component-level controller.
+
+        Args:
+            message: The request message to send.
+            session_id: The ID of the dynamic session to use.
+            stream: Whether the response is expected to be streaming.
+            streaming_complete_expression: Expression to detect the end of a stream.
+            wait_for_response: If False, sends the request and returns immediately.
+        """
+        generator = None
+        # New multi-session path
+        if session_id:
+            if not self._multi_session_manager:
+                raise RuntimeError(
+                    "A session_id was provided, but multi-session request/response "
+                    "is not enabled for this component."
+                )
+            session = self._multi_session_manager.get_session(session_id)
+            generator = session.do_request_response(
+                message, stream, streaming_complete_expression, wait_for_response
             )
-            if stream:
-                return generator  # Return the generator directly for streaming
-            else:
-                # Get the first (and only) item for non-streaming
-                try:
-                    next_message, _ = next(generator)  # Ignore the 'last' flag
-                    return next_message
-                except StopIteration:
-                    log.warning(
-                        "[%s] %s RRC generator yielded no response.",
-                        self.name,
-                        self.log_identifier,
-                    )
-                    return None
-                except TimeoutError as e:  # Catch timeout specifically
-                    log.error(
-                        "[%s] %s RRC timed out", self.name, self.log_identifier, trace=e
-                    )
-                    raise ValueError("RRC timed out") from None  # Re-raise timeout
-                except Exception as e:
-                    log.error(
-                        "[%s] %s Error during RRC call",
-                        self.name,
-                        self.log_identifier,
-                        trace=e,
-                    )
-                    raise ValueError(
-                        "Error during RRC call"
-                    ) from None  # Re-raise other exceptions
+        # Legacy single-session path (backward compatibility)
         else:
-            # No controller found
-            raise ValueError(
-                f"Broker request-response is not enabled for app '{app.name if app else 'unknown'}' "
-                f"or component '{self.name}'. Ensure 'request_reply_enabled: true' is set in the app's "
-                f"'broker' config (recommended) or 'enabled: true' in the component's "
-                f"'broker_request_response' config (deprecated)."
+            app = self.get_app()
+            controller = None
+
+            # Prioritize App-level controller (new way)
+            if app and app.request_response_controller:
+                controller = app.request_response_controller
+                log.debug(
+                    "[%s] %s Using App-level RRC.", self.name, self.log_identifier
+                )
+            # Fallback to Component-level controller (old way)
+            elif hasattr(self, "_component_rrc") and self._component_rrc:
+                controller = self._component_rrc
+                log.debug(
+                    "[%s] %s Using Component-level RRC.", self.name, self.log_identifier
+                )
+
+            if not controller:
+                raise ValueError(
+                    f"Broker request-response is not enabled for app '{app.name if app else 'unknown'}' "
+                    f"or component '{self.name}'. Ensure 'request_reply_enabled: true' is set in the app's "
+                    f"'broker' config (recommended) or 'enabled: true' in the component's "
+                    f"'broker_request_response' config (deprecated)."
+                )
+
+            generator = controller.do_broker_request_response(
+                message, stream, streaming_complete_expression, wait_for_response
             )
+
+        # Common response handling for both paths
+        if not wait_for_response:
+            # For fire-and-forget, we must advance the generator once to trigger
+            # the initial send_message call within the controller.
+            try:
+                # The generator will execute until the first yield or a return.
+                # In the fire-and-forget case, it hits a 'return', which
+                # raises StopIteration.
+                next(generator)
+            except StopIteration:
+                # This is the expected outcome for a non-waiting call.
+                pass
+            return None  # Fire-and-forget, return immediately
+
+        if stream:
+            return generator  # Return the generator directly for streaming
+        else:
+            # Get the first (and only) item for non-streaming
+            try:
+                next_message, _ = next(generator)  # Ignore the 'last' flag
+                return next_message
+            except StopIteration:
+                log.warning(
+                    "[%s] %s RRC generator yielded no response.",
+                    self.name,
+                    self.log_identifier,
+                )
+                return None
+            except TimeoutError as e:  # Catch timeout specifically
+                log.error(
+                    "[%s] %s RRC timed out", self.name, self.log_identifier, trace=e
+                )
+                raise ValueError("RRC timed out") from e  # Re-raise timeout
+            except Exception as e:
+                log.error(
+                    "[%s] %s Error during RRC call",
+                    self.name,
+                    self.log_identifier,
+                    trace=e,
+                )
+                raise ValueError("Error during RRC call") from e
 
     def handle_negative_acknowledgements(self, message, exception):
         """Handle NACK for the message."""

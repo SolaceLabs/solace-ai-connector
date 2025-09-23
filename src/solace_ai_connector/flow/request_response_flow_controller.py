@@ -22,11 +22,13 @@ Each component can optionally create multiple of these using the configuration:
 
 import queue
 import time
+import threading
 from typing import Dict, Any
 
 from ..common.message import Message
 from ..common.event import Event, EventType
 from ..common.log import log
+from ..common.exceptions import SessionClosedError
 
 
 # This is a very basic component which will be stitched onto the final component in the flow
@@ -52,6 +54,7 @@ class RequestResponseFlowController:
         self.response_queue = None
         self.enqueue_time = None
         self.request_outstanding = False
+        self._is_shutdown = threading.Event()
 
         # Create the flow configuration
         flow_config = self.create_broker_request_response_flow_config()
@@ -95,10 +98,20 @@ class RequestResponseFlowController:
         flow.set_next_component(rrcComponent)
 
     def do_broker_request_response(
-        self, request_message, stream=False, streaming_complete_expression=None
+        self,
+        request_message,
+        stream=False,
+        streaming_complete_expression=None,
+        wait_for_response: bool = True,
     ):
+        if self._is_shutdown.is_set():
+            raise SessionClosedError("Request/response session has been closed.")
+
         # Send the message to the broker
         self.send_message(request_message, stream, streaming_complete_expression)
+
+        if not wait_for_response:
+            return
 
         # Now we will wait for the response
         now = time.time()
@@ -109,6 +122,8 @@ class RequestResponseFlowController:
             # until we receive the last message. Use the expression to determine
             # if this is the last message
             while True:
+                if self._is_shutdown.is_set():
+                    raise SessionClosedError("Request/response session has been closed.")
                 try:
                     # Calculate remaining time based on the most recent enqueue_time
                     now = time.time()
@@ -116,6 +131,10 @@ class RequestResponseFlowController:
                     remaining_timeout = max(0, self.request_expiry_s - elapsed_time)
 
                     event = self.response_queue.get(timeout=remaining_timeout)
+                    if event is None:  # Check for shutdown signal
+                        raise SessionClosedError(
+                            "Request/response session has been closed while waiting for a streaming response."
+                        )
                     if event.event_type == EventType.MESSAGE:
                         self.enqueue_time = time.time()
                         message = event.data
@@ -137,6 +156,10 @@ class RequestResponseFlowController:
         # and then stop the iterator
         try:
             event = self.response_queue.get(timeout=remaining_timeout)
+            if event is None:  # Check for shutdown signal
+                raise SessionClosedError(
+                    "Request/response session has been closed while waiting for a response."
+                )
             if event.event_type == EventType.MESSAGE:
                 message = event.data
                 yield message, True
@@ -179,3 +202,22 @@ class RequestResponseFlowController:
 
     def enqueue_response(self, event):
         self.response_queue.put(event)
+
+    def cleanup(self):
+        """
+        Cleans up the resources used by the controller, including its internal flow.
+        This will cause any waiting callers to fail with SessionClosedError.
+        """
+        if self._is_shutdown.is_set():
+            return
+        log.debug("Cleaning up RequestResponseFlowController.")
+        self._is_shutdown.set()
+
+        # Unblock any thread waiting on the response queue
+        try:
+            self.response_queue.put_nowait(None)
+        except queue.Full:
+            pass  # Queue is full, consumer will eventually get to None
+
+        if self.flow:
+            self.flow.cleanup()

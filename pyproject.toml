@@ -257,6 +257,7 @@ test = [
     "pytest>=8.0.0", # Example version, adjust as needed
     "pytest-mock>=3.0.0", # Example version
     "pytest-cov>=4.0.0", # If you use coverage
+    "pytest-asyncio>=1.2.0",
     # Add other test-specific dependencies here
 ]
 
@@ -337,7 +338,8 @@ dependencies = [
   "pytest>=8.0.0",
   "pytest-mock>=3.0.0",
   "pytest-cov>=4.0.0",
-  "pytest-xdist>=3.5.0"
+  "pytest-xdist>=3.5.0",
+  "pytest-asyncio>=1.2.0"
 ]
 extra-dependencies = [
    "solace_ai_connector[all]"
