@@ -266,7 +266,11 @@ def test_flow_create_component_group_with_class():
     mock_flow.connector.timer_manager = MagicMock()
     mock_flow.connector.cache_service = MagicMock()
     mock_flow.cache_service = MagicMock()  # Add missing cache_service attribute
-    mock_flow.app = MagicMock()
+    mock_flow.app = MagicMock(spec=App)
+    # Configure the mock app's get_config to return None, mimicking real behavior
+    # when a config key is not found. This prevents it from returning another MagicMock.
+    mock_flow.app.get_config.return_value = None
+    mock_flow.app.app_info = {}  # Add app_info attribute to the mock
     mock_flow.name = "test_flow"
     mock_flow.instance_name = "test_instance"
     mock_flow.put_errors_in_error_queue = True
@@ -455,6 +459,7 @@ def mock_component_for_get_config():
     mock_app.get_config = MagicMock(
         side_effect=lambda key, default=None: app_level_config.get(key, default)
     )
+    mock_app.app_info = {}  # Add app_info attribute to the mock
 
     # Mock ComponentBase instance
     mock_component = MagicMock(spec=ComponentBase)

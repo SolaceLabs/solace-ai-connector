@@ -9,93 +9,29 @@ This document describes advanced features available to custom components in the 
 
 ## Broker Request-Response
 
-Components can perform a request and get a response from the broker using the `do_broker_request_response` method. This method supports both simple request-response and streamed responses.
+Components can perform request-response operations with Solace brokers using two distinct modes, supporting both synchronous (blocking) and asynchronous (non-blocking) patterns.
 
-**Enabling Request-Response:**
+### Single-Session Mode (Default)
 
-*   **Simplified App Mode (Recommended):** Set `request_reply_enabled: true` within the `broker:` section of your simplified app definition in the YAML configuration. The framework automatically creates and manages a dedicated `RequestResponseFlowController` for the app, using the same broker connection details.
+This is the traditional and simplest approach, where a single, shared request-response session is automatically managed for an entire application.
 
-    ```yaml
-    # Simplified App Example
-    apps:
-      - name: my_requesting_app
-        broker:
-          # ... connection details ...
-          input_enabled: true
-          request_reply_enabled: true # Enable RRC for this app
-          # ... other broker settings ...
-        components:
-          - name: my_component
-            component_module: my_requesting_component
-            # ...
-    ```
+-   **Overview**: One shared session per app.
+-   **Configuration**: Enabled via the app-level `request_reply_enabled: true` setting in a simplified app's `broker` configuration.
+-   **Use Cases**: Ideal for most standard request-response scenarios where components within an app can share a single broker session.
 
-*   **Standard Flows / Component Level (Deprecated):** You could previously configure `broker_request_response` directly under a component's definition. This is now deprecated in favor of the app-level configuration in simplified apps.
+### Multi-Session Mode (Advanced)
 
-**Usage in Component `invoke`:**
+This mode provides fine-grained control, allowing a component to create, manage, and destroy multiple independent request-response sessions, each with potentially different broker configurations.
 
-Once enabled at the app level, any component within that app can use `self.do_broker_request_response()`:
+-   **Overview**: A component can manage multiple, independent sessions.
+-   **Configuration**: Enabled via the component-level `multi_session_request_response` configuration block.
+-   **Use Cases**: Perfect for multi-tenant applications, scenarios requiring connections to different broker environments, or when session isolation is needed for reliability.
 
-```python
-# Inside your component's invoke method
-if self.is_broker_request_response_enabled():
-    # Prepare your request message (payload, topic, user_properties)
-    request_message = Message(payload={"query": "data"}, topic="service/request")
+---
 
-    try:
-        # --- Simple Request-Response ---
-        response_message = self.do_broker_request_response(request_message)
-        if response_message:
-            response_payload = response_message.get_payload()
-            # Process the single response payload
-            log.info(f"Received response: {response_payload}")
-        else:
-            log.warning("Request-response returned no message.")
+**For detailed documentation on both modes, API usage, and complete examples, please see the comprehensive guide:**
 
-        # --- Streaming Request-Response ---
-        # streaming_complete_expression tells the controller how to identify the last chunk
-        streaming_complete_expr = "input.payload:is_last" # Example expression
-
-        response_generator = self.do_broker_request_response(
-            request_message,
-            stream=True,
-            streaming_complete_expression=streaming_complete_expr
-        )
-
-        aggregated_result = ""
-        for chunk_message, is_last in response_generator:
-            chunk_payload = chunk_message.get_payload()
-            log.info(f"Received chunk: {chunk_payload}")
-            aggregated_result += chunk_payload.get("text", "") # Example aggregation
-            if is_last:
-                log.info("Last chunk received.")
-                break # Exit loop after processing the last chunk
-
-        log.info(f"Aggregated streaming result: {aggregated_result}")
-
-    except TimeoutError:
-        log.error("Request-response timed out.")
-        # Handle timeout appropriately
-    except Exception as e:
-        log.error(f"Error during request-response: {e}", exc_info=True)
-        # Handle other errors
-else:
-    log.warning("Broker request-response is not enabled for this component/app.")
-
-```
-
-### Parameters for `do_broker_request_response`
-
-- `message`: The `Message` object containing the request payload, topic, and optional user properties.
-- `stream` (optional): Boolean indicating whether to expect a streamed response. Default is `False`.
-- `streaming_complete_expression` (optional): An expression (using [Expression Syntax](configuration.md#expression-syntax)) evaluated on each response chunk to determine if it's the last one. This is **required** when `stream=True`. The expression should evaluate to a truthy value for the last chunk.
-
-### Return Value
-
-- For non-streamed responses (`stream=False`): Returns the single response `Message` object, or `None` if no response is received before timeout.
-- For streamed responses (`stream=True`): Returns a generator that yields tuples of `(chunk_message, is_last)`.
-    - `chunk_message`: A `Message` object representing one chunk of the response.
-    - `is_last`: A boolean indicating if this chunk is the last one, based on the evaluation of `streaming_complete_expression`.
+-   **[Broker Request-Response Guide](guides/broker_request_response.md)**
 
 ## Memory Cache
 
