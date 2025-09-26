@@ -3,6 +3,7 @@ Component to route messages to different components based on topic subscriptions
 within a simplified app flow.
 """
 
+import logging
 import re
 from typing import List, Tuple, Pattern, Any
 
@@ -11,6 +12,8 @@ from ..common.log import log
 from ..common.message import Message
 from ..common.event import Event, EventType
 from ..common import Message_NACK_Outcome  # Import the missing name
+
+trace_logger = logging.getLogger("sam_trace")
 
 # Define the component information
 info = {
@@ -146,13 +149,9 @@ class SubscriptionRouter(ComponentBase):
                     regex_str = f"^{regex_str}$"
                     try:
                         regex_list.append(re.compile(regex_str))
-                    except re.error as e:
-                        log.error(
-                            "%s Invalid regex generated from subscription '%s' for component '%s'",
-                            self.log_identifier,
-                            topic,
-                            comp_name,
-                            trace=e,
+                    except re.error:
+                        log.exception(
+                            f"{self.log_identifier} Invalid regex generated from subscription '{topic}' for component '{comp_name}'"
                         )
 
             if regex_list:
@@ -183,13 +182,14 @@ class SubscriptionRouter(ComponentBase):
             )
             self.discard_current_message()  # Discard if unroutable - ACK will be called
             return None
-
-        log.debug(
-            "%s Attempting to route message with topic: '%s'",
-            self.log_identifier,
-            msg_topic,
-            trace=message,
-        )
+        if trace_logger.isEnabledFor(logging.DEBUG):
+            trace_logger.debug(
+                f"[{__name__}]{self.log_identifier} Attempting to route message with topic: '{msg_topic}'. Message: {message}"
+            )
+        else:
+            log.debug(
+                f"{self.log_identifier} Attempting to route message with topic: '{msg_topic}'"
+            )
 
         for target_component, regex_list in self.component_targets:
             for regex_pattern in regex_list:
@@ -212,13 +212,8 @@ class SubscriptionRouter(ComponentBase):
                         # and will be called by the target component later.
                         return None
                     except Exception as e:
-                        log.error(
-                            "%s Error enqueuing message to component '%s': %s",
-                            self.log_identifier,
-                            target_component.name,
-                            e,
-                            exc_info=True,
-                            trace=e,
+                        log.exception(
+                            f"{self.log_identifier} Error enqueuing message to component '{target_component.name}'"
                         )
                         # Let error handling proceed (ComponentBase will NACK original message)
                         raise e

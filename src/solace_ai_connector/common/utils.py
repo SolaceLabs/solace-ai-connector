@@ -551,9 +551,9 @@ def decode_payload(payload, encoding, payload_format):
             # Attempt to decode as utf-8 if it's still bytes
             try:
                 decoded_payload = decoded_payload.decode("utf-8")
-            except UnicodeDecodeError as e:
-                log.error(
-                    "Cannot parse JSON, payload is bytes and not valid utf-8.", trace=e
+            except UnicodeDecodeError:
+                log.exception(
+                    "Cannot parse JSON, payload is bytes and not valid utf-8."
                 )
                 raise ValueError(
                     "Invalid payload for JSON format: not valid utf-8 bytes"
@@ -582,9 +582,9 @@ def decode_payload(payload, encoding, payload_format):
             # Attempt to decode as utf-8 if it's still bytes
             try:
                 decoded_payload = decoded_payload.decode("utf-8")
-            except UnicodeDecodeError as e:
-                log.error(
-                    "Cannot parse YAML, payload is bytes and not valid utf-8.", trace=e
+            except UnicodeDecodeError:
+                log.exception(
+                    "Cannot parse YAML, payload is bytes and not valid utf-8."
                 )
                 raise ValueError(
                     "Invalid payload for YAML format: not valid utf-8 bytes"

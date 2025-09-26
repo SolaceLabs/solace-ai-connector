@@ -382,12 +382,9 @@ class ComponentBase:
                     self.name,
                     self.log_identifier,
                 )
-            except Exception as e:
-                log.error(
-                    "[%s] %s Failed to initialize component-level RRC",
-                    self.name,
-                    self.log_identifier,
-                    trace=e,
+            except Exception:
+                log.exception(
+                    f"[{self.name}] {self.log_identifier} Failed to initialize component-level RRC"
                 )
                 # Decide if this should be fatal
                 raise ValueError("Failed to initialize component-level RRC") from None
@@ -451,12 +448,9 @@ class ComponentBase:
                     default_session_config=default_session_config,
                     max_sessions=multi_session_config.get("max_sessions", 50),
                 )
-            except Exception as e:
-                log.error(
-                    "[%s] %s Failed to initialize multi-session manager",
-                    self.name,
-                    self.log_identifier,
-                    trace=e,
+            except Exception:
+                log.exception(
+                    f"[{self.name}] {self.log_identifier} Failed to initialize multi-session manager",
                 )
                 raise ValueError("Failed to initialize multi-session manager") from None
 
@@ -763,16 +757,13 @@ class ComponentBase:
                 )
                 return None
             except TimeoutError as e:  # Catch timeout specifically
-                log.error(
-                    "[%s] %s RRC timed out", self.name, self.log_identifier, trace=e
+                log.exception(
+                    f"[{self.name}] {self.log_identifier} RRC timed out"
                 )
                 raise ValueError("RRC timed out") from e  # Re-raise timeout
             except Exception as e:
-                log.error(
-                    "[%s] %s Error during RRC call",
-                    self.name,
-                    self.log_identifier,
-                    trace=e,
+                log.exception(
+                    f"[{self.name}] {self.log_identifier} Error during RRC call"
                 )
                 raise ValueError("Error during RRC call") from e
 

@@ -113,11 +113,8 @@ class App:
                 )
                 # Store controller instance (already done by assignment above)
             except Exception as e:
-                log.error(
-                    "Failed to initialize RequestResponseFlowController for app '%s'.",
-                    self.name,
-                    exc_info=True,
-                    trace=e,
+                log.exception(
+                    f"Failed to initialize RequestResponseFlowController for app '{self.name}'."
                 )
                 # Decide if this should be a fatal error for the app
                 raise e
@@ -358,18 +355,16 @@ class App:
                 # If not, cleanup might involve stopping its internal flow/app
                 # For now, we rely on the connector cleaning up all apps/flows
                 pass  # RRC's internal app/flow will be cleaned by connector.cleanup()
-            except Exception as e:
-                log.error(
-                    "Error cleaning up RequestResponseFlowController in app %s",
-                    self.name,
-                    trace=e,
+            except Exception:
+                log.exception(
+                    f"Error cleaning up RequestResponseFlowController in app {self.name}"
                 )
             self.request_response_controller = None
 
         for flow in self.flows:
             try:
                 flow.cleanup()
-            except Exception as e:
+            except Exception:
                 log.exception(f"Error cleaning up flow in app {self.name}")
         self.flows.clear()
         self.flow_input_queues.clear()
@@ -464,12 +459,9 @@ class App:
                 topic,
             )
             self._broker_output_component.enqueue(event)
-        except Exception as e:
-            log.error(
-                "App '%s' failed to enqueue message to BrokerOutput.",
-                self.name,
-                trace=e,
-                exc_info=True,
+        except Exception:
+            log.exception(
+                f"App '{self.name}' failed to enqueue message to BrokerOutput."
             )
 
     @classmethod

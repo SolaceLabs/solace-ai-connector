@@ -52,7 +52,7 @@ class TestInputComponent:
         self.next_component_queue = next_component_queue
 
     def enqueue(self, message):
-        log.debug("Input test component sending message.", trace=message)
+        log.debug(f"Input test component sending message. {message}")
         if not isinstance(message, Event):
             event = Event(EventType.MESSAGE, message)
         else:
