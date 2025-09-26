@@ -52,7 +52,7 @@ class PostgreSQLDatabase:
                 cursor.execute(query, params)
                 break
             except Exception as e:
-                log.error("Database error.", trace=e)
+                log.exception("Database error.")
                 sanity -= 1
                 if sanity == 0:
                     raise e

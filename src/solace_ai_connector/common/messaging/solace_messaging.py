@@ -108,9 +108,8 @@ class ServiceEventHandler(
         try:
             self.strategy = ConnectionStrategy(strategy)
         except ValueError as e:
-            log.error(
+            log.exception(
                 f"{self.error_prefix} Invalid reconnection strategy: {strategy}. Using default strategy.",
-                trace=e,
             )
             self.strategy = ConnectionStrategy.FOREVER_RETRY
 
@@ -420,9 +419,8 @@ class SolaceMessaging(Messaging):
                         **end_point_props,
                     }
                 except Exception as e:
-                    log.error(
-                        f"{self.error_prefix} Error setting max redelivery count",
-                        trace=e,
+                    log.exception(
+                        f"{self.error_prefix} Error setting max redelivery count"
                     )
 
             self.persistent_receiver.start()
@@ -460,7 +458,7 @@ class SolaceMessaging(Messaging):
                 self.connection_properties, ConnectionStatus.DISCONNECTED
             )
         except Exception as e:  # pylint: disable=broad-except
-            log.error(f"{self.error_prefix} Error disconnecting", trace=e)
+            log.exception(f"{self.error_prefix} Error disconnecting")
 
     def get_connection_status(self):
         return self.connection_properties["status"]
@@ -533,16 +531,13 @@ class SolaceMessaging(Messaging):
             )
             return True
         except PubSubPlusClientError as e:
-            log.error(
-                f"{self.error_prefix} Error adding subscription '{topic_str}'.",
-                trace=e,
+            log.exception(
+                f"{self.error_prefix} Error adding subscription '{topic_str}'."
             )
             return False
         except Exception as e:
-            log.error(
-                f"{self.error_prefix} Unexpected error adding subscription '{topic_str}'.",
-                exc_info=True,
-                trace=e,
+            log.exception(
+                f"{self.error_prefix} Unexpected error adding subscription '{topic_str}'."
             )
             return False
 
@@ -568,16 +563,13 @@ class SolaceMessaging(Messaging):
             )
             return True
         except PubSubPlusClientError as e:
-            log.error(
-                f"{self.error_prefix} Error removing subscription '{topic_str}'.",
-                trace=e,
+            log.exception(
+                f"{self.error_prefix} Error removing subscription '{topic_str}'."
             )
             return False
         except Exception as e:
-            log.error(
-                f"{self.error_prefix} Unexpected error removing subscription '{topic_str}'.",
-                exc_info=True,
-                trace=e,
+            log.exception(
+                f"{self.error_prefix} Unexpected error removing subscription '{topic_str}'."
             )
             return False
 

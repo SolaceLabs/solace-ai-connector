@@ -214,8 +214,8 @@ class App:
                 self.flow_input_queues[flow_config.get("name")] = flow_input_queue
                 self.flows.append(flow_instance)
 
-        except Exception as e:
-            log.error(f"Error initializing flows for app {self.name}", trace=e)
+        except Exception:
+            log.exception(f"Error initializing flows for app {self.name}")
             raise ValueError(
                 f"Error initializing flows for app '{self.name}'. Check the configuration."
             )
@@ -370,7 +370,7 @@ class App:
             try:
                 flow.cleanup()
             except Exception as e:
-                log.error(f"Error cleaning up flow in app {self.name}", trace=e)
+                log.exception(f"Error cleaning up flow in app {self.name}")
         self.flows.clear()
         self.flow_input_queues.clear()
         self._broker_output_component = None  # Clear cache

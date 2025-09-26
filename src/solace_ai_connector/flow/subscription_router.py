@@ -73,11 +73,10 @@ class SubscriptionRouter(ComponentBase):
             # Access the flow this component belongs to via the parent app
             flow = self.get_app().flows[0]
             flow_component_groups = flow.component_groups
-        except (AttributeError, IndexError) as e:
-            log.error(
+        except (AttributeError, IndexError):
+            log.exception(
                 "%s Could not access flow component groups. Cannot build routing targets.",
-                self.log_identifier,
-                trace=e,
+                self.log_identifier
             )
             return
 

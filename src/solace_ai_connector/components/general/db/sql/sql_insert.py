@@ -128,11 +128,11 @@ class SQLInsertComponent(SQLBaseComponent):
                 affected_rows
             )
             return {"affected_rows": affected_rows, "table_name": table_name}
-        except ValueError as ve:
-            log.error("ValueError during insert operation for table '%s'", table_name, trace=ve)
+        except ValueError:
+            log.exception("ValueError during insert operation for table '%s'", table_name)
             # Re-raise the ValueError to be caught by the component runner or flow controller
             raise
         except Exception as e:
-            log.error("Unexpected error during insert operation for table '%s'", table_name, trace=e)
+            log.exception("Unexpected error during insert operation for table '%s'", table_name)
             # Wrap unexpected errors in a ValueError or a more specific component error
             raise ValueError("An unexpected error occurred while inserting data into '%s': %s" % (table_name, e)) from e
