@@ -1,10 +1,12 @@
 """Output broker component for sending messages from the Solace AI Event Connector to a broker"""
-
+import logging
 from .broker_base import BrokerBase
 from .broker_base import base_info
 from ...common.log import log
 from ...common.utils import deep_merge
 from ...common.message import Message
+
+trace_logger = logging.getLogger("sam_trace")
 
 info = deep_merge(
     base_info,
@@ -109,7 +111,12 @@ class BrokerOutput(BrokerBase):
             log.info("Discarding message due to TTL expiration.")
             return
 
-        log.debug("Sending message to broker.", trace=message)
+        if (trace_logger.isEnabledFor(logging.DEBUG)):
+            # This is a heavy log
+            trace_logger.debug(f"[{__name__}] Sending message to broker: {payload}")
+        else:
+            log.debug("Sending message to broker.")
+
         user_context = None
         if self.propagate_acknowledgements:
             user_context = {
