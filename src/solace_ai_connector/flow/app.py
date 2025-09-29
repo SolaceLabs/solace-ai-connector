@@ -112,12 +112,12 @@ class App:
                     connector=self.connector,
                 )
                 # Store controller instance (already done by assignment above)
-            except Exception as e:
+            except Exception:
                 log.exception(
                     f"Failed to initialize RequestResponseFlowController for app '{self.name}'."
                 )
                 # Decide if this should be a fatal error for the app
-                raise e
+                raise
 
     def _validate_app_config(self):
         """Validates self.app_config against the class's app_schema."""

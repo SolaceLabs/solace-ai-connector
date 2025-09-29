@@ -105,6 +105,6 @@ class SingleChunkSplitter:
         """
         try:
             return [data]
-        except Exception as e:
+        except Exception:
             log.exception("Error wrapping data")
             return []

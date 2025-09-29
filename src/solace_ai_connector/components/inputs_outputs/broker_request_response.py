@@ -364,7 +364,7 @@ class BrokerRequestResponse(BrokerBase):
 
             try:
                 metadata_stack = json.loads(metadata_json)
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 log.exception("Received response with invalid metadata JSON.")
                 return
 
@@ -374,7 +374,7 @@ class BrokerRequestResponse(BrokerBase):
 
             try:
                 current_metadata = metadata_stack.pop()
-            except IndexError as e:
+            except IndexError:
                 log.exception("Received response with invalid metadata stack.")
                 return
             request_id = current_metadata.get("request_id")

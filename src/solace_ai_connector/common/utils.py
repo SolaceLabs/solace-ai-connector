@@ -491,7 +491,7 @@ def decode_payload(payload, encoding, payload_format):
             if isinstance(payload, str):
                 payload = payload.encode("ascii")  # Base64 is ASCII
             decoded_payload = base64.b64decode(payload)
-        except Exception as e:
+        except Exception:
             log.exception("Error decoding base64 payload")
             raise ValueError("Error decoding base64 payload") from None
     elif encoding == "gzip":
@@ -500,7 +500,7 @@ def decode_payload(payload, encoding, payload_format):
             if not isinstance(payload, (bytes, bytearray)):
                 raise TypeError("Gzip payload must be bytes or bytearray")
             decoded_payload = gzip.decompress(payload)
-        except Exception as e:
+        except Exception:
             log.exception("Error decompressing gzip payload")
             raise ValueError("Error decompressing gzip payload") from None
     # If encoding is utf-8, unicode_escape, or potentially others,
@@ -530,12 +530,12 @@ def decode_payload(payload, encoding, payload_format):
                     )
                     # Keep decoded_payload as original bytes if utf-8 fails
 
-        except UnicodeDecodeError as e:
+        except UnicodeDecodeError:
             log.exception("Error decoding payload with encoding '%s'.", encoding)
             # Decide how to handle - raise error or return raw bytes?
             # Returning raw bytes might be safer if subsequent steps can handle it.
             # For now, let's keep decoded_payload as the original bytes.
-        except Exception as e:
+        except Exception:
             log.exception(
                 "Unexpected error during payload decoding with encoding '%s'.",
                 encoding,
@@ -593,7 +593,7 @@ def decode_payload(payload, encoding, payload_format):
         if isinstance(decoded_payload, str):
             try:
                 return yaml.safe_load(decoded_payload)
-            except Exception as e:  # Catches YAML parsing errors
+            except Exception:  # Catches YAML parsing errors
                 log.exception("Error decoding YAML payload string")
                 raise ValueError("Invalid YAML payload") from None
         else:

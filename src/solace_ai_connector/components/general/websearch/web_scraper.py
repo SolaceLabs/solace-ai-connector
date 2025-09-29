@@ -89,7 +89,7 @@ class WebScraper(ComponentBase):
                 log.debug("Scraped the website.")
                 browser.close()
                 return resp
-            except Exception as e:
+            except Exception:
                 log.exception("Failed to scrape the website.")
                 browser.close()
                 return {

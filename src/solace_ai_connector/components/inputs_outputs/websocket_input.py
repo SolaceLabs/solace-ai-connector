@@ -84,6 +84,6 @@ class WebsocketInput(WebsocketBase):
                 "topic": message.get_topic(),
                 "user_properties": message.get_user_properties(),
             }
-        except Exception as e:
+        except Exception:
             log.exception("Error processing WebSocket message.")
             return None

@@ -211,12 +211,12 @@ class SubscriptionRouter(ComponentBase):
                         # original acknowledgements remain intact on the message
                         # and will be called by the target component later.
                         return None
-                    except Exception as e:
+                    except Exception:
                         log.exception(
                             f"{self.log_identifier} Error enqueuing message to component '{target_component.name}'"
                         )
                         # Let error handling proceed (ComponentBase will NACK original message)
-                        raise e
+                        raise
 
         log.warning(
             "%s No matching subscription found for topic '%s'. Discarding message.",

@@ -107,7 +107,7 @@ class ServiceEventHandler(
 
         try:
             self.strategy = ConnectionStrategy(strategy)
-        except ValueError as e:
+        except ValueError:
             log.exception(
                 f"{self.error_prefix} Invalid reconnection strategy: {strategy}. Using default strategy.",
             )
@@ -457,7 +457,7 @@ class SolaceMessaging(Messaging):
             change_connection_status(
                 self.connection_properties, ConnectionStatus.DISCONNECTED
             )
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception:  # pylint: disable=broad-except
             log.exception(f"{self.error_prefix} Error disconnecting")
 
     def get_connection_status(self):
@@ -530,12 +530,12 @@ class SolaceMessaging(Messaging):
                 f"{self.error_prefix} Successfully added subscription '{topic_str}' to receiver."
             )
             return True
-        except PubSubPlusClientError as e:
+        except PubSubPlusClientError:
             log.exception(
                 f"{self.error_prefix} Error adding subscription '{topic_str}'."
             )
             return False
-        except Exception as e:
+        except Exception:
             log.exception(
                 f"{self.error_prefix} Unexpected error adding subscription '{topic_str}'."
             )
@@ -562,12 +562,12 @@ class SolaceMessaging(Messaging):
                 f"{self.error_prefix} Successfully removed subscription '{topic_str}' from receiver."
             )
             return True
-        except PubSubPlusClientError as e:
+        except PubSubPlusClientError:
             log.exception(
                 f"{self.error_prefix} Error removing subscription '{topic_str}'."
             )
             return False
-        except Exception as e:
+        except Exception:
             log.exception(
                 f"{self.error_prefix} Unexpected error removing subscription '{topic_str}'."
             )
