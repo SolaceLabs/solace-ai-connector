@@ -2,6 +2,7 @@
 
 import os
 import signal
+import logging
 from abc import ABC, abstractmethod
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
@@ -9,6 +10,8 @@ from gevent.pywsgi import WSGIServer
 from ...common.log import log
 from ..component_base import ComponentBase
 from flask.logging import default_handler
+
+trace_logger = logging.getLogger("sam_trace")
 
 base_info = {
     "config_parameters": [
@@ -132,12 +135,16 @@ class WebsocketBase(ComponentBase, ABC):
         if socket_id == "*":
             for socket in sockets.values():
                 socket.emit("message", payload)
-            log.debug("Message sent to all WebSocket connections", trace=payload)
+            if trace_logger.isEnabledFor(logging.DEBUG):
+                trace_logger.debug(f"[{__name__}] Message sent to all WebSocket connections: {payload}")
+            else:
+                log.debug("Message sent to all WebSocket connections")
         elif socket_id in sockets:
             sockets[socket_id].emit("message", payload)
-            log.debug(
-                "Message sent to WebSocket connection %s", socket_id, trace=payload
-            )
+            if trace_logger.isEnabledFor(logging.DEBUG):
+                trace_logger.debug(f"[{__name__}] Message sent to WebSocket connection {socket_id}: {payload}")
+            else:
+                log.debug(f"Message sent to WebSocket connection {socket_id}")
         else:
             log.error("No active connection found for socket_id: %s", socket_id)
             return False

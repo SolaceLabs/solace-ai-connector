@@ -60,15 +60,15 @@ class WebsocketInput(WebsocketBase):
                 )
                 event = Event(EventType.MESSAGE, message)
                 self.process_event_with_tracing(event)
-            except json.JSONDecodeError as e:
-                log.error("Received invalid payload.", trace=e)
-            except AssertionError as e:
-                log.error("Error in payload format.", trace=e)
+            except json.JSONDecodeError:
+                log.exception("Received invalid payload.")
+            except AssertionError:
+                log.exception("Error in payload format.")
                 raise AssertionError(
                     "Error Payload format. Please check the payload format."
                 ) from None
             except Exception as e:
-                log.error("Error processing WebSocket message.", trace=e)
+                log.exception("Error processing WebSocket message.")
                 self.handle_component_error(e, event)
 
     def run(self):
@@ -84,6 +84,6 @@ class WebsocketInput(WebsocketBase):
                 "topic": message.get_topic(),
                 "user_properties": message.get_user_properties(),
             }
-        except Exception as e:
-            log.error("Error processing WebSocket message.", trace=e)
+        except Exception:
+            log.exception("Error processing WebSocket message.")
             return None

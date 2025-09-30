@@ -1,5 +1,5 @@
 """Input broker component for the Solace AI Event Connector"""
-
+import logging
 import time
 from solace.messaging.utils.manageable import ApiMetrics, Metric as SolaceMetrics
 
@@ -11,6 +11,7 @@ from ...common.message import Message
 from ...common.monitoring import Metrics
 from ...common import Message_NACK_Outcome
 
+trace_logger = logging.getLogger("sam_trace")
 
 info = deep_merge(
     base_info,
@@ -146,14 +147,18 @@ class BrokerInput(BrokerBase):
 
             payload = self.decode_payload(payload)
 
-            log.debug("Received message from broker.", trace=payload)
+            if (trace_logger.isEnabledFor(logging.DEBUG)):
+                # This is a heavy log
+                trace_logger.debug(f"[{__name__}] Received message from broker: {payload}")
+            else:
+                log.debug("Received message from broker.")
 
             # update the message with the decoded payload
             msg.payload = payload
 
             return msg
         except Exception as e:
-            log.error("Error receiving message from broker", trace=e)
+            log.exception("Error receiving message from broker")
             self.handle_negative_acknowledgements(msg, e)
             raise ValueError("Error receiving message from broker") from None
 

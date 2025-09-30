@@ -131,8 +131,7 @@ class MongoDBInsertComponent(MongoDBBaseComponent):
                         return parsed_date
                     except Exception as cleanup_error:
                         log.error(
-                            "[mongo_insert] Failed to parse even after cleanup.",
-                            trace=f"Original: '{value}', Cleaned: '{cleaned_value}', Cleanup Error: {cleanup_error}",
+                            f"[mongo_insert] Failed to parse even after cleanup. Original: '{value}', Cleaned: '{cleaned_value}', Cleanup Error: {cleanup_error}",
                         )
                         # Provide helpful error message with suggestions
                         error_msg = (

@@ -63,8 +63,8 @@ class SolaceAiConnector:
             log.info("Received keyboard interrupt - stopping")
 
             raise KeyboardInterrupt from None
-        except Exception as e:
-            log.error("Error during Solace AI Event Connector startup", trace=e)
+        except Exception:
+            log.exception("Error during Solace AI Event Connector startup")
             raise ValueError("An error occurred during startup") from None
 
     def create_apps(self):
@@ -87,8 +87,8 @@ class SolaceAiConnector:
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt from None
-        except Exception as e:
-            log.error("Error creating apps", trace=e)
+        except Exception:
+            log.exception("Error creating apps")
             raise ValueError("An error occurred during app creation") from None
             
     def _create_default_app(self):
@@ -314,8 +314,8 @@ class SolaceAiConnector:
         for app in self.apps:
             try:
                 app.cleanup()
-            except Exception as e:
-                log.error("Error cleaning up app", trace=e)
+            except Exception:
+                log.exception("Error cleaning up app")
         self.apps.clear()
         self.flows.clear()  # Keep for backward compatibility refs?
 
@@ -324,8 +324,8 @@ class SolaceAiConnector:
             try:
                 while not q.empty():
                     q.get_nowait()
-            except Exception as e:
-                log.error(f"Error cleaning queue {queue_name}", trace=e)
+            except Exception:
+                log.exception(f"Error cleaning queue {queue_name}")
         self.flow_input_queues.clear()
 
         if hasattr(self, "trace_queue") and self.trace_queue:
@@ -404,8 +404,8 @@ class SolaceAiConnector:
                         if self.stop_signal.is_set():
                             break
                         continue
-        except Exception as e:
-            log.error("Error in trace handler thread", trace=e)
+        except Exception:
+            log.exception("Error in trace handler thread")
 
     def validate_config(self):
         """Validate the configuration structure."""

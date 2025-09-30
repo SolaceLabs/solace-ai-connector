@@ -204,7 +204,7 @@ class TestServiceEventHandler:
                 "test_prefix:",
             )
             assert handler.strategy == ConnectionStrategy.FOREVER_RETRY
-            mock_log.error.assert_called_once()
+            mock_log.exception.assert_called_once()
 
     def test_on_reconnected(self, service_event_handler, connection_properties):
         """Test on_reconnected method"""

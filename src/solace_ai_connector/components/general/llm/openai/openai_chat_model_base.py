@@ -179,8 +179,8 @@ class OpenAIChatModelBase(ComponentBase):
                         temperature=self.temperature,
                     )
                     return {"content": response.choices[0].message.content}
-                except Exception as e:
-                    log.error("Error invoking OpenAI", trace=e)
+                except Exception:
+                    log.exception("Error invoking OpenAI")
                     max_retries -= 1
                     if max_retries <= 0:
                         raise ValueError("Max retries exceeded") from None
@@ -232,8 +232,8 @@ class OpenAIChatModelBase(ComponentBase):
                                 )
                             current_batch = ""
                             first_chunk = False
-            except Exception as e:
-                log.error("Error invoking OpenAI", trace=e)
+            except Exception:
+                log.exception("Error invoking OpenAI")
                 max_retries -= 1
                 if max_retries <= 0:
                     raise ValueError("Max retries exceeded") from None

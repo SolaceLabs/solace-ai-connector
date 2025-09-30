@@ -43,8 +43,8 @@ class MongoHandler:
                 self.local.client = MongoClient(connection_string)
                 self.local.db = self.local.client[self.database_name]
                 log.info("Successfully connected to MongoDB database")
-            except Exception as e:
-                log.error("Error connecting to MongoDB database", trace=e)
+            except Exception:
+                log.exception("Error connecting to MongoDB database")
                 raise ValueError("Failed to connect to MongoDB database") from None
         return self.local.db
 
@@ -125,8 +125,8 @@ class MongoHandler:
             result = list(cursor)
             result = self._remove_object_ids(result)
             return result
-        except Exception as e:
-            log.error("Error executing MongoDB query", trace=e)
+        except Exception:
+            log.exception("Error executing MongoDB query")
             raise ValueError("Failed to execute MongoDB query") from None
 
     def get_collections(self) -> List[str]:

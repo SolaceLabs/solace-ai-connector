@@ -51,11 +51,11 @@ class PostgreSQLDatabase:
                 cursor = self.cursor()
                 cursor.execute(query, params)
                 break
-            except Exception as e:
-                log.error("Database error.", trace=e)
+            except Exception:
+                log.exception("Database error.")
                 sanity -= 1
                 if sanity == 0:
-                    raise e
+                    raise
                 sleep(1)
 
         return cursor

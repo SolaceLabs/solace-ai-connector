@@ -50,9 +50,9 @@ class WebScraper(ComponentBase):
     def scrape(self, url):
         try:
             from playwright.sync_api import sync_playwright
-        except ImportError as e:
+        except ImportError:
             err_msg = "Please install playwright by running 'pip install playwright' and 'playwright install'."
-            log.error(err_msg, trace=e)
+            log.exception(err_msg)
             raise ValueError(err_msg) from None
 
         with sync_playwright() as p:
@@ -62,9 +62,9 @@ class WebScraper(ComponentBase):
                     headless=True,
                     timeout=self.timeout,
                 )  # Set headless=False to see the browser in action
-            except ImportError as e:
+            except ImportError:
                 err_msg = "Failed to launch the Chromium instance. Please install the browser binaries by running 'playwright install'"
-                log.error(err_msg, trace=e)
+                log.exception(err_msg)
                 raise ValueError(err_msg) from None
 
             resp = {}
@@ -89,8 +89,8 @@ class WebScraper(ComponentBase):
                 log.debug("Scraped the website.")
                 browser.close()
                 return resp
-            except Exception as e:
-                log.error("Failed to scrape the website.", trace=e)
+            except Exception:
+                log.exception("Failed to scrape the website.")
                 browser.close()
                 return {
                     "title": "",

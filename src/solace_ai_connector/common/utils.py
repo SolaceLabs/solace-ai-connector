@@ -55,8 +55,8 @@ def import_from_directories(module_name, base_path=None):
                     if path not in sys.path:
                         sys.path.insert(0, path)
                     spec.loader.exec_module(module)
-                except Exception as e:
-                    log.error("Exception importing %s", module_path, trace=e)
+                except Exception:
+                    log.exception("Exception importing %s", module_path)
                     raise ValueError(
                         f"Error importing module {module_path} - {module_name}"
                     ) from None
@@ -491,8 +491,8 @@ def decode_payload(payload, encoding, payload_format):
             if isinstance(payload, str):
                 payload = payload.encode("ascii")  # Base64 is ASCII
             decoded_payload = base64.b64decode(payload)
-        except Exception as e:
-            log.error("Error decoding base64 payload", trace=e)
+        except Exception:
+            log.exception("Error decoding base64 payload")
             raise ValueError("Error decoding base64 payload") from None
     elif encoding == "gzip":
         try:
@@ -500,8 +500,8 @@ def decode_payload(payload, encoding, payload_format):
             if not isinstance(payload, (bytes, bytearray)):
                 raise TypeError("Gzip payload must be bytes or bytearray")
             decoded_payload = gzip.decompress(payload)
-        except Exception as e:
-            log.error("Error decompressing gzip payload", trace=e)
+        except Exception:
+            log.exception("Error decompressing gzip payload")
             raise ValueError("Error decompressing gzip payload") from None
     # If encoding is utf-8, unicode_escape, or potentially others,
     # the result should be a string for further format parsing (JSON/YAML).
@@ -530,16 +530,15 @@ def decode_payload(payload, encoding, payload_format):
                     )
                     # Keep decoded_payload as original bytes if utf-8 fails
 
-        except UnicodeDecodeError as e:
-            log.error("Error decoding payload with encoding '%s'.", encoding, trace=e)
+        except UnicodeDecodeError:
+            log.exception("Error decoding payload with encoding '%s'.", encoding)
             # Decide how to handle - raise error or return raw bytes?
             # Returning raw bytes might be safer if subsequent steps can handle it.
             # For now, let's keep decoded_payload as the original bytes.
-        except Exception as e:
-            log.error(
+        except Exception:
+            log.exception(
                 "Unexpected error during payload decoding with encoding '%s'.",
                 encoding,
-                trace=e,
             )
             raise ValueError(
                 f"Unexpected error during payload decoding with encoding '{encoding}'"
@@ -552,9 +551,9 @@ def decode_payload(payload, encoding, payload_format):
             # Attempt to decode as utf-8 if it's still bytes
             try:
                 decoded_payload = decoded_payload.decode("utf-8")
-            except UnicodeDecodeError as e:
-                log.error(
-                    "Cannot parse JSON, payload is bytes and not valid utf-8.", trace=e
+            except UnicodeDecodeError:
+                log.exception(
+                    "Cannot parse JSON, payload is bytes and not valid utf-8."
                 )
                 raise ValueError(
                     "Invalid payload for JSON format: not valid utf-8 bytes"
@@ -571,7 +570,7 @@ def decode_payload(payload, encoding, payload_format):
                     cleaned_payload = clean_json_string(decoded_payload)
                     return json.loads(cleaned_payload)
                 except Exception as e:
-                    log.error(f"Unexpected error decoding JSON payload: {e}", trace=e)
+                    log.exception(f"Unexpected error decoding JSON payload: {e}")
                     log.info("Payload content: %s", payload)
                     raise ValueError("Invalid JSON payload") from e
         else:
@@ -583,9 +582,9 @@ def decode_payload(payload, encoding, payload_format):
             # Attempt to decode as utf-8 if it's still bytes
             try:
                 decoded_payload = decoded_payload.decode("utf-8")
-            except UnicodeDecodeError as e:
-                log.error(
-                    "Cannot parse YAML, payload is bytes and not valid utf-8.", trace=e
+            except UnicodeDecodeError:
+                log.exception(
+                    "Cannot parse YAML, payload is bytes and not valid utf-8."
                 )
                 raise ValueError(
                     "Invalid payload for YAML format: not valid utf-8 bytes"
@@ -594,8 +593,8 @@ def decode_payload(payload, encoding, payload_format):
         if isinstance(decoded_payload, str):
             try:
                 return yaml.safe_load(decoded_payload)
-            except Exception as e:  # Catches YAML parsing errors
-                log.error("Error decoding YAML payload string", trace=e)
+            except Exception:  # Catches YAML parsing errors
+                log.exception("Error decoding YAML payload string")
                 raise ValueError("Invalid YAML payload") from None
         else:
             # If it wasn't bytes or string, it might already be parsed
