@@ -6,7 +6,6 @@ import copy
 import json
 
 from .sql_base import SQLBaseComponent, info as base_info
-# from .....common.log import log
 log = logging.getLogger(__name__)
 
 # Component-specific information

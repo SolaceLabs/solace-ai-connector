@@ -16,7 +16,6 @@ import unicodedata
 from copy import deepcopy
 from collections.abc import Mapping
 
-# from .log import log
 log = logging.getLogger(__name__)
 
 def import_from_directories(module_name, base_path=None):

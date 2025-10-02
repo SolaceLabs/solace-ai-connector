@@ -4,7 +4,6 @@ from pymongo import MongoClient
 from typing import List, Dict, Any, Tuple
 import threading
 
-# from .....common.log import log
 log = logging.getLogger(__name__)
 
 class MongoHandler:

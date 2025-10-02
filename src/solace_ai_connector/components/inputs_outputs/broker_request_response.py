@@ -7,12 +7,10 @@ import json
 import queue
 from copy import deepcopy
 
-# from ...common.log import log
 from ...common.utils import set_data_value, get_data_value, remove_data_value
 from .broker_base import BrokerBase
 from ...common.message import Message
 from ...common.utils import ensure_slash_on_end, ensure_slash_on_start
-
 
 log = logging.getLogger(__name__)
 

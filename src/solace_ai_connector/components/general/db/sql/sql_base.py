@@ -1,6 +1,5 @@
 """Base component for SQL database operations."""
 import logging
-# from .....common.log import log
 from ....component_base import ComponentBase
 from .sql_handler import SQLHandler
 

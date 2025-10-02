@@ -3,7 +3,6 @@ import logging
 import psycopg2
 import psycopg2.extras
 from time import sleep
-# from solace_ai_connector.common.log import log
 
 log = logging.getLogger(__name__)
 

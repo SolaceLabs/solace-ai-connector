@@ -1,6 +1,5 @@
 """Assembly component for the Solace AI Event Connector"""
 import logging
-# from ...common.log import log
 from ..component_base import ComponentBase
 from ...common.message import Message
 
