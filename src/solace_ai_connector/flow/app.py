@@ -1,10 +1,12 @@
 """App class for the Solace AI Event Connector"""
 
+import logging
 from typing import List, Dict, Any, Optional
 from copy import deepcopy
 
-from ..common.log import log
 from .flow import Flow
+
+log = logging.getLogger(__name__)
 from ..common.utils import (
     deep_merge,
     resolve_config_values,

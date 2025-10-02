@@ -1,9 +1,11 @@
 """This component sends messages to a websocket connection."""
 
 import copy
+import logging
 import threading
-from ...common.log import log
 from ...common.utils import encode_payload
+
+log = logging.getLogger(__name__)
 from .websocket_base import WebsocketBase, base_info
 
 info = copy.deepcopy(base_info)

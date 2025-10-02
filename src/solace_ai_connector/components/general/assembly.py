@@ -1,9 +1,10 @@
 """Assembly component for the Solace AI Event Connector"""
-
-from ...common.log import log
+import logging
+# from ...common.log import log
 from ..component_base import ComponentBase
 from ...common.message import Message
 
+log = logging.getLogger(__name__)
 
 info = {
     "class_name": "Assembly",

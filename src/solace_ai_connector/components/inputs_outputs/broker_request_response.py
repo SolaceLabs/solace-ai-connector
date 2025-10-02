@@ -1,17 +1,20 @@
 """Request-Response broker component for the Solace AI Event Connector"""
 
+import logging
 import threading
 import uuid
 import json
 import queue
 from copy import deepcopy
 
-from ...common.log import log
+# from ...common.log import log
 from ...common.utils import set_data_value, get_data_value, remove_data_value
 from .broker_base import BrokerBase
 from ...common.message import Message
 from ...common.utils import ensure_slash_on_end, ensure_slash_on_start
 
+
+log = logging.getLogger(__name__)
 
 info = {
     "class_name": "BrokerRequestResponse",

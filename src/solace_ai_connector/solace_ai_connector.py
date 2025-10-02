@@ -1,15 +1,15 @@
 """Entry point for the Solace AI Event Connector"""
 
+import logging
 import threading
 import queue
-import traceback
 import os
 import time
 import random
 
 from datetime import datetime
 from typing import List, Dict, Any
-from .common.log import log, setup_log
+from .common.log import setup_log
 from .common.utils import resolve_config_values, import_module
 from .flow.flow import Flow
 from .flow.app import App
@@ -18,6 +18,7 @@ from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 from .common.monitoring import Monitoring
 
+log = logging.getLogger(__name__)
 
 class SolaceAiConnector:
     """Solace AI Connector"""

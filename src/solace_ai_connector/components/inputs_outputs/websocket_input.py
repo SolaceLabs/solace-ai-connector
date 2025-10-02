@@ -1,16 +1,17 @@
 """This component receives messages from a websocket connection and sends them to the next component in the flow."""
 
+import logging
 import json
 import os
 import copy
 
 from flask import request
-from ...common.log import log
 from ...common.message import Message
 from ...common.event import Event, EventType
 from ...common.utils import decode_payload
 from .websocket_base import WebsocketBase, base_info
 
+log = logging.getLogger(__name__)
 
 # Merge base_info into info
 info = copy.deepcopy(base_info)

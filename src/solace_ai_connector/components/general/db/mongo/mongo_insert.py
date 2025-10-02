@@ -1,9 +1,10 @@
 """MongoDB Agent Component for handling database insert."""
-
+import logging
 import datetime
 import dateutil.parser
 from .mongo_base import MongoDBBaseComponent, info as base_info
-from .....common.log import log
+# from .....common.log import log
+log = logging.getLogger(__name__)
 
 info = base_info.copy()
 info["class_name"] = "MongoDBInsertComponent"

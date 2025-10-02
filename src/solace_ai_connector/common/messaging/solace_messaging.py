@@ -34,9 +34,9 @@ from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientErro
 from solace import SOLACE_LOGGING_CONFIG
 
 from .messaging import Messaging
-from ..log import log
 from ...common import Message_NACK_Outcome
 
+log = logging.getLogger(__name__)
 
 class ConnectionStatus(Enum):
     RECONNECTING = 2

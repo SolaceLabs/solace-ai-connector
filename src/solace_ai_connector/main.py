@@ -1,12 +1,16 @@
 import os
 import sys
+import logging
+
+from .common import logging_config
+
 import re
 import yaml
 import signal
 import argparse
 from dotenv import load_dotenv
 
-from .solace_ai_connector import SolaceAiConnector
+log = logging.getLogger(__name__)
 
 
 def load_config(file):
@@ -81,7 +85,6 @@ def expandvars_with_defaults(text):
 
     return pattern.sub(replacer, text)
 
-
 def merge_config(dict1, dict2):
     """Merge a new configuration into an existing configuration."""
     if dict1 is None and dict2 is None:
@@ -137,6 +140,11 @@ def main():
                 file=sys.stderr,
             )
 
+    # Configure logging from LOGGING_CONFIG_PATH if set.
+    # LOGGING_CONFIG_PATH provided in .env file takes precedence over LOGGING_CONFIG_PATH set in the environment.
+    logging_config.configure_from_logging_ini()
+
+
     # Use the config files provided via arguments
     files = args.config_files
 
@@ -152,6 +160,7 @@ def main():
         full_config = merge_config(full_config, config)
 
     # Create the connector instance
+    from .solace_ai_connector import SolaceAiConnector
     sac = SolaceAiConnector(full_config, config_filenames=files)
 
     def shutdown():

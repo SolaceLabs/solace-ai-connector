@@ -1,10 +1,11 @@
 """Manage a PostgreSQL database connection."""
-
+import logging
 import psycopg2
 import psycopg2.extras
 from time import sleep
-from solace_ai_connector.common.log import log
+# from solace_ai_connector.common.log import log
 
+log = logging.getLogger(__name__)
 
 class PostgreSQLDatabase:
     def __init__(self, host: str, user: str, password: str, database: str, port: int = 5432):
