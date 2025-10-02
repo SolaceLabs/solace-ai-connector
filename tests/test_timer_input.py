@@ -1,5 +1,5 @@
 """Test the timer input component"""
-
+import logging
 import sys
 
 sys.path.append("src")
@@ -15,8 +15,8 @@ from solace_ai_connector.test_utils.utils_for_test_files import (
     get_message_from_flow,
 )
 from solace_ai_connector.common.message import Message
-from solace_ai_connector.common.log import log
 
+log = logging.getLogger(__name__)
 
 def test_basic_timer():
     """Test the timer input component without a catchup timer"""

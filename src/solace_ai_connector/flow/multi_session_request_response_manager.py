@@ -2,16 +2,17 @@
 Manages multiple independent request/response sessions for a component.
 """
 
+import logging
 import threading
 import weakref
 from typing import Dict, Any, List, Optional
 
-from ..common.log import log
 from ..common.exceptions import SessionLimitExceededError
 from ..common.session_config import SessionConfig
 from .session_registry import SessionRegistry
 from .request_response_session import RequestResponseSession
 
+log = logging.getLogger(__name__)
 
 class MultiSessionRequestResponseManager:
     """

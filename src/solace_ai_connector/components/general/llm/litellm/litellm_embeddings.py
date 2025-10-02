@@ -1,7 +1,10 @@
 """LiteLLM embedding component"""
 
+import logging
+
 from .litellm_base import LiteLLMBase, litellm_info_base
-from .....common.log import log
+
+log = logging.getLogger(__name__)
 
 info = litellm_info_base.copy()
 info.update(

@@ -21,9 +21,6 @@ from solace_ai_connector.solace_ai_connector import (  # pylint: disable=wrong-i
 from solace_ai_connector.common.message import Message
 import solace_ai_connector.components.general.pass_through
 
-# from solace_ai_connector.common.log import log
-
-
 def test_no_config_file():
     """Test that the program exits if no configuration file is provided"""
     try:

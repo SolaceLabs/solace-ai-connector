@@ -1,7 +1,10 @@
 """Scrape a website"""
 
+import logging
+
 from ...component_base import ComponentBase
-from ....common.log import log
+
+log = logging.getLogger(__name__)
 
 info = {
     "class_name": "WebScraper",

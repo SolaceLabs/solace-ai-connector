@@ -1,3 +1,4 @@
+import logging
 import os
 import queue
 import sys
@@ -6,12 +7,10 @@ import yaml
 sys.path.insert(0, os.path.abspath("src"))
 
 from solace_ai_connector.solace_ai_connector import SolaceAiConnector
-from solace_ai_connector.common.log import log
 from solace_ai_connector.common.event import Event, EventType
 from solace_ai_connector.common.message import Message
 
-# from solace_ai_connector.common.message import Message
-
+log = logging.getLogger(__name__)
 
 class TestOutputComponent:
     """A simple output component that receives the output from the previous component.

@@ -7,11 +7,12 @@ from abc import ABC, abstractmethod
 from flask import Flask, send_file, request
 from flask_socketio import SocketIO
 from gevent.pywsgi import WSGIServer
-from ...common.log import log
 from ..component_base import ComponentBase
+
 from flask.logging import default_handler
 
 trace_logger = logging.getLogger("sam_trace")
+log = logging.getLogger(__name__)
 
 base_info = {
     "config_parameters": [

@@ -4,7 +4,9 @@ as well, so the configuration for this component will also include the
 embedding model configuration
 """
 
-from .....common.log import log
+import logging
+log = logging.getLogger(__name__)
+
 from .langchain_vector_store_embedding_base import (
     LangChainVectorStoreEmbeddingsBase,
 )

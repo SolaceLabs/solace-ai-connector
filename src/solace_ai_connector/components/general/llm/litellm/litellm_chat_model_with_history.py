@@ -1,10 +1,12 @@
 """LiteLLM chat model component with conversation history"""
 
+import logging
 import time
 
 from .litellm_chat_model_base import LiteLLMChatModelBase, litellm_chat_info_base
 from ..common.chat_history_handler import ChatHistoryHandler
-from .....common.log import log
+
+log = logging.getLogger(__name__)
 
 info = litellm_chat_info_base.copy()
 info["class_name"] = "LiteLLMChatModelWithHistory"

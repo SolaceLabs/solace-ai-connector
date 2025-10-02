@@ -1,12 +1,13 @@
 """SQL Database Handler for SQL agent components."""
 
+import logging
 from typing import List, Dict, Any, Optional, Union
 import importlib
 
-from .....common.log import log
 from .mysql_database_handler import MySQLDatabase
 from .postgres_database_handler import PostgreSQLDatabase
 
+log = logging.getLogger(__name__)
 
 class DatabaseFactory:
     """Factory class to create database instances."""

@@ -1,6 +1,5 @@
 """A flow component that aggregates messages"""
 
-# from ...common.log import log
 from ..component_base import ComponentBase
 from ...common.message import Message
 

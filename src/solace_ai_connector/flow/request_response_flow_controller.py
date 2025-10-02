@@ -20,6 +20,7 @@ Each component can optionally create multiple of these using the configuration:
 
 """
 
+import logging
 import queue
 import time
 import threading
@@ -27,9 +28,9 @@ from typing import Dict, Any
 
 from ..common.message import Message
 from ..common.event import Event, EventType
-from ..common.log import log
 from ..common.exceptions import SessionClosedError
 
+log = logging.getLogger(__name__)
 
 # This is a very basic component which will be stitched onto the final component in the flow
 class RequestResponseControllerOuputComponent:

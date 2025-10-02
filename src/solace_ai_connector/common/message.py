@@ -1,15 +1,16 @@
 # Message class. This is the type of object that is passed between components in the flow.
+import logging
 import re
 import base64
 import json
 import yaml
 import pprint
 
-from .log import log
 from .trace_message import TraceMessage
 from .utils import set_data_value, get_data_value
 from ..common import Message_NACK_Outcome
 
+log = logging.getLogger(__name__)
 
 class Message:
 

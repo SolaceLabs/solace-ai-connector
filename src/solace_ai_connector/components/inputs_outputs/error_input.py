@@ -2,9 +2,10 @@
 Using this component allows the user to decide how to handle errors from other flows. 
 For example, the user could send the errors to a log or send them to a broker."""
 
+import logging
 import time
 
-from ...common.log import log
+log = logging.getLogger(__name__)
 from ..component_base import (
     ComponentBase,
 )

@@ -1,5 +1,6 @@
 """LiteLLM chat model component"""
 
+import logging
 import uuid
 import time
 from litellm import cost_per_token
@@ -7,8 +8,9 @@ from litellm import APIConnectionError
 from .litellm_base import LiteLLMBase
 from .litellm_base import litellm_info_base
 from .....common.message import Message
-from .....common.log import log
 from .....common.monitoring import Metrics
+
+log = logging.getLogger(__name__)
 
 litellm_chat_info_base = litellm_info_base.copy()
 litellm_chat_info_base.update(

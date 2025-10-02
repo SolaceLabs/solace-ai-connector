@@ -1,8 +1,10 @@
 """Generic chat history handler."""
 
+import logging
 import time
 from ....component_base import ComponentBase
-from .....common.log import log
+
+log = logging.getLogger(__name__)
 
 class ChatHistoryHandler(ComponentBase):
     def __init__(self, info, **kwargs):

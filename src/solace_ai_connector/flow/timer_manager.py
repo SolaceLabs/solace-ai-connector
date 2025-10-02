@@ -1,9 +1,10 @@
+import logging
 import threading
 import time
 import heapq
 from ..common.event import Event, EventType
-from ..common.log import log
 
+log = logging.getLogger(__name__)
 
 class Timer:
 

@@ -1,3 +1,4 @@
+import logging
 import sys
 import logging
 import logging.config
@@ -6,12 +7,7 @@ import json
 import os
 from datetime import datetime
 
-
-# Global flag to indicate if INI configuration was successfully applied
-_ini_config_applied = False
-log = logging.getLogger("solace_ai_connector")
-logging.captureWarnings(True)
-
+log = logging.getLogger(__name__)
 
 class JsonFormatter(logging.Formatter):
     """
@@ -21,6 +17,7 @@ class JsonFormatter(logging.Formatter):
     def format(self, record):
         log_record = {
             "time": self.formatTime(record, self.datefmt),
+            "logger": record.name,
             "level": record.levelname,
             "message": record.getMessage(),
         }
@@ -36,6 +33,7 @@ class JsonlFormatter(logging.Formatter):
         log_record = {
             "time": self.formatTime(record, self.datefmt),
             "level": record.levelname,
+            "logger": record.name,
             "message": record.getMessage(),
         }
         return json.dumps(log_record)
@@ -69,12 +67,6 @@ def _format_with_trace(message, trace):
         full_message = f"{message} | TRACE: {trace}"
     return full_message
 
-
-# These wrappers will be applied to the global 'log' instance at the end of the module.
-# Trace is conditionally enabled based on the enableTrace parameter.
-_MODULE_ORIGINAL_DEBUG = log.debug
-_MODULE_ORIGINAL_ERROR = log.error
-
 def _create_module_wrapper_with_trace(original_method):
     def wrapper(message, *args, trace=None, **kwargs):
         if args and isinstance(message, str):
@@ -92,10 +84,6 @@ def _create_module_wrapper_with_trace(original_method):
             original_method(full_message, stacklevel=2, **kwargs)
     return wrapper
 
-_module_debug_wrapper_with_trace = _create_module_wrapper_with_trace(_MODULE_ORIGINAL_DEBUG)
-_module_error_wrapper_with_trace = _create_module_wrapper_with_trace(_MODULE_ORIGINAL_ERROR)
-
-
 def setup_log(
     logFilePath,
     stdOutLogLevel,
@@ -104,36 +92,34 @@ def setup_log(
     logBack,
     enableTrace=False,
 ):
-    # If INI configuration was successfully applied, do not allow this programmatic setup
-    # to reconfigure the 'solace_ai_connector' logger (the global 'log' object).
-    if _ini_config_applied:
-        return
-
     """
-    Set up the configuration for the logger.
+    Set up the configuration for the root logger if logging was not yet configured.
 
     Parameters:
         logFilePath (str): Path to the log file.
-        stdOutLogLevel (int): Logging level for standard output.
-        fileLogLevel (int): Logging level for the log file.
+        stdOutLogLevel (str): Logging level for standard output.
+        fileLogLevel (str): Logging level for the log file.
         logFormat (str): Format of the log output ('jsonl' or 'pipe-delimited').
         logBack (dict): Rolling log file configuration.
     """
+    
+    # Get the root logger to configure it for the entire application
+    root_logger = logging.getLogger()
+    
+    # Check if logging is already configured by examining the root logger
+    if root_logger.handlers:
+        log.info(f"Logging configuration already applied, skipping setup_log(logFilePath={logFilePath}, stdOutLogLevel={stdOutLogLevel}, fileLogLevel={fileLogLevel})")
+        return
 
-    # Set the global logger level to the lowest of the two levels
-    log.setLevel(min(stdOutLogLevel, fileLogLevel))
+    # Set the root logger level to the lowest of the two levels
+    root_logger.setLevel(min(stdOutLogLevel, fileLogLevel))
 
-    if not _ini_config_applied:
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setLevel(stdOutLogLevel)
-        stream_formatter = logging.Formatter("%(message)s")
-        stream_handler.setFormatter(stream_formatter)
-        log.addHandler(stream_handler)
-
-    if logFormat == "jsonl":
-        file_formatter = JsonlFormatter()
-    else:
-        file_formatter = logging.Formatter("%(asctime)s |  %(levelname)s: %(message)s")
+    # Add stdout handler to root logger
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(stdOutLogLevel)
+    stream_formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    stream_handler.setFormatter(stream_formatter)
+    root_logger.addHandler(stream_handler)
 
     if logBack:
         rollingpolicy = logBack.get("rollingpolicy", {})
@@ -185,59 +171,13 @@ def setup_log(
     else:
         file_handler = logging.FileHandler(filename=logFilePath, mode="a")
 
+    if logFormat == "jsonl":
+        file_formatter = JsonlFormatter()
+    else:
+        file_formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(fileLogLevel)
 
-    log.addHandler(file_handler)
-
-def _configure_logging_from_env():
-    """Configure logging from LOGGING_CONFIG_PATH environment variable."""
-    global _ini_config_applied
-
-    ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
-
-    if ini_path_from_env:
-        if not os.path.exists(ini_path_from_env):
-            log.debug(
-                f"LOGGING_CONFIG_PATH is set to '{ini_path_from_env}', but the file was not found. "
-                "Proceeding with default programmatic logging."
-            )
-        else:
-            try:
-                # Setting disable_existing_loggers=True will disable any loggers that existed
-                # prior to this call if they are also defined in the INI file.
-                # This is crucial for ensuring that library loggers (like litellm)
-                # which might have default handlers, only use the handlers defined in the INI.
-                logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=True)
-                module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
-                module_init_logger.debug(
-                    f"Logging configured via INI file '{ini_path_from_env}' "
-                    "(specified by LOGGING_CONFIG_PATH) from solace_ai_connector.common.log module import."
-                )
-                _ini_config_applied = True # Set flag if INI load is successful
-                return True
-            except Exception as e:
-                log.debug(
-                    f"Error configuring logging from INI file '{ini_path_from_env}': {e}. "
-                    "Proceeding with default programmatic logging."
-                )
-    return False
-
-
-def reconfigure_logging():
-    """
-    Reconfigure logging from environment variables.
-    This can be called after environment variables have been loaded.
-    """
-    return _configure_logging_from_env()
-
-# Module-level logging configuration based on LOGGING_CONFIG_PATH
-# This code will run once when the module is first imported.
-# If LOGGING_CONFIG_PATH is set and points to a valid file, INI-based logging is used.
-# Otherwise, programmatic logging via setup_log() will be used.
-_configure_logging_from_env()
-
-# Apply the module-level trace-enabled wrappers to the global 'log' instance.
-# This ensures that log.debug and log.error always handle the 'trace' kwarg.
-log.debug = _module_debug_wrapper_with_trace
-log.error = _module_error_wrapper_with_trace
+    # Add file handler to root logger
+    root_logger.addHandler(file_handler)

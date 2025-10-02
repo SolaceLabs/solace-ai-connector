@@ -1,12 +1,12 @@
 """Unit tests for LiteLLMBase with AWS Bedrock configurations."""
 
+import logging
 import pytest
 from unittest.mock import patch, MagicMock
-import os
 
 from solace_ai_connector.components.general.llm.litellm.litellm_base import LiteLLMBase
-from solace_ai_connector.common.log import log  # Ensure log is imported for caplog
 
+log = logging.getLogger(__name__)
 
 class MockLiteLLMBase(LiteLLMBase):
     """Mock implementation of LiteLLMBase for testing."""
