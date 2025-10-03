@@ -48,42 +48,6 @@ def convert_to_bytes(size_str):
     return int(size_str)
 
 
-# Helper function to handle trace formatting
-def _format_with_trace(message, trace):
-    try:
-        import traceback
-
-        if isinstance(trace, Exception):
-            # If it's an Exception object
-            stack_trace = traceback.format_exception(
-                type(trace), trace, trace.__traceback__
-            )
-            full_message = f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
-        else:
-            # Regular trace info
-            full_message = f"{message} | TRACE: {trace}"
-    except Exception:
-        # Fallback if there's an issue with the trace handling
-        full_message = f"{message} | TRACE: {trace}"
-    return full_message
-
-def _create_module_wrapper_with_trace(original_method):
-    def wrapper(message, *args, trace=None, **kwargs):
-        if args and isinstance(message, str):
-            formatted_message = message % args if args else message
-            if trace:
-                full_message = _format_with_trace(formatted_message, trace)
-            else:
-                full_message = formatted_message
-            original_method(full_message, stacklevel=2, **kwargs)
-        else:
-            if trace:
-                full_message = _format_with_trace(message, trace)
-            else:
-                full_message = message
-            original_method(full_message, stacklevel=2, **kwargs)
-    return wrapper
-
 def setup_log(
     logFilePath,
     stdOutLogLevel,
