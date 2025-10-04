@@ -19,8 +19,7 @@ def configure_from_logging_ini():
         return False
 
     if not os.path.exists(config_path):
-        print(f"ERROR: LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.", file=sys.stderr)
-        raise FileNotFoundError(f"Logging configuration file not found: {config_path}")
+        raise FileNotFoundError(f"LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.")
 
     try:
         logging.config.fileConfig(config_path)
