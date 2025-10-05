@@ -6,6 +6,7 @@ import logging.handlers
 import json
 import os
 from datetime import datetime
+from ..common.exceptions import InitializationError
 
 log = logging.getLogger(__name__)
 
@@ -38,6 +39,11 @@ class JsonlFormatter(logging.Formatter):
         }
         return json.dumps(log_record)
 
+def validate_log_level(handler, level):
+    valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+    if level not in valid_levels:
+        raise InitializationError(f"Invalid log level '{level}' specified for '{handler}'")
+
 
 def convert_to_bytes(size_str):
     size_str = size_str.upper()
@@ -46,7 +52,6 @@ def convert_to_bytes(size_str):
         if size_str.endswith(unit):
             return int(size_str[: -len(unit)]) * size_units[unit]
     return int(size_str)
-
 
 def setup_log(
     logFilePath,
@@ -66,6 +71,8 @@ def setup_log(
         logFormat (str): Format of the log output ('jsonl' or 'pipe-delimited').
         logBack (dict): Rolling log file configuration.
     """
+    validate_log_level("stdout_log_level", stdOutLogLevel)
+    validate_log_level("log_file_level", fileLogLevel)
     
     # Get the root logger to configure it for the entire application
     root_logger = logging.getLogger()
@@ -76,7 +83,7 @@ def setup_log(
         return
 
     # Set the root logger level to the lowest of the two levels
-    root_logger.setLevel(min(stdOutLogLevel, fileLogLevel))
+    root_logger.setLevel(min(logging.getLevelName(stdOutLogLevel), logging.getLevelName(fileLogLevel)))
 
     # Add stdout handler to root logger
     stream_handler = logging.StreamHandler(sys.stdout)

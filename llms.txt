@@ -528,10 +528,12 @@ The primary goal is to facilitate the integration of AI capabilities into event-
 **Step 1: Define the Custom Component (`src/custom_echo.py`)**
 ```python
 # src/custom_echo.py
+import logging
 from solace_ai_connector.components.component_base import ComponentBase
 from solace_ai_connector.common.message import Message
-from solace_ai_connector.common.log import log
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # Define component information
 info = {
@@ -612,10 +614,12 @@ The connector will prompt for input, process it using `CustomEchoComponent`, and
 **Step 1: Define the Custom Component (`src/custom_suffix.py`)**
 ```python
 # src/custom_suffix.py
+import logging
 from solace_ai_connector.components.component_base import ComponentBase
 from solace_ai_connector.common.message import Message
-from solace_ai_connector.common.log import log
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # Define component information
 info = {

@@ -1,5 +1,3 @@
-"""Tests for logging_config module"""
-
 import logging
 import sys
 
@@ -11,20 +9,7 @@ from solace_ai_connector.common.logging_config import configure_from_logging_ini
 
 
 def test_configure_from_logging_ini_success_path(tmp_path, monkeypatch):
-    """
-    Test the success path of configure_from_logging_ini.
-    
-    This test:
-    1. Creates a temporary logging configuration file that logs to a file
-    2. Sets the LOGGING_CONFIG_PATH environment variable
-    3. Calls configure_from_logging_ini and verifies it returns True
-    4. Creates a logger and logs a statement
-    5. Confirms that the log occurred by reading the log file
-    """
-    # Create a log file path in tmp_path
     log_file = tmp_path / "test.log"
-    
-    # Create a temporary logging configuration file that logs to a file
     config_content = f"""[loggers]
 keys=root
 

@@ -1,6 +1,7 @@
 """This is a simple broker for testing purposes. It allows sending and receiving
 messages to/from queues. It supports subscriptions based on topics."""
 
+import logging
 from typing import Dict, List, Any
 import queue
 import re
@@ -9,8 +10,8 @@ from enum import Enum
 
 from .messaging import Messaging
 from ...common import Message_NACK_Outcome
-from ..log import log
 
+log = logging.getLogger(__name__)
 
 class DevConnectionStatus(Enum):
     CONNECTED = "CONNECTED"
