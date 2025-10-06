@@ -352,7 +352,7 @@ class SolaceAiConnector:
         log_file_level = log_config.get("log_file_level", "INFO")
         log_file = log_config.get("log_file", "solace_ai_connector.log")
         log_format = log_config.get("log_format", "pipe-delimited")
-        enable_trace = log_config.get("enable_trace", True)
+        enable_trace = log_config.get("enable_trace", False)
 
         # Get logback values
         logback = log_config.get("logback", {})

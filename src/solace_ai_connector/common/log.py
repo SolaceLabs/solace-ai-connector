@@ -10,21 +10,6 @@ from ..common.exceptions import InitializationError
 
 log = logging.getLogger(__name__)
 
-class JsonFormatter(logging.Formatter):
-    """
-    Custom formatter to output logs in JSON format.
-    """
-
-    def format(self, record):
-        log_record = {
-            "time": self.formatTime(record, self.datefmt),
-            "logger": record.name,
-            "level": record.levelname,
-            "message": record.getMessage(),
-        }
-        return json.dumps(log_record)
-
-
 class JsonlFormatter(logging.Formatter):
     """
     Custom formatter to output logs in JSON Lines (JSONL) format.
@@ -152,3 +137,12 @@ def setup_log(
 
     # Add file handler to root logger
     root_logger.addHandler(file_handler)
+
+    # "sam_trace" logger is a special logger used for verbose logs
+    sam_trace_logger = logging.getLogger('sam_trace')
+    sam_trace_logger.propagate = False
+    sam_trace_logger.addHandler(file_handler) # Only log to file
+    if enableTrace:
+        sam_trace_logger.setLevel(logging.DEBUG)
+    else:
+        sam_trace_logger.setLevel(logging.WARNING)

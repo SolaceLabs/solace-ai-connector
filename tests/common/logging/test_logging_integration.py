@@ -28,12 +28,25 @@ def apps_config():
         }
     ]
 
-def remove_root_logger_handlers():
+def reset_logging_configuration():
     """Reset logging configuration """
     # This can't be a fixture since pytest re-adds the handlers before we get to the actual test
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
+    
+    # Also clear sam_trace logger in case it was created
+    sam_trace_logger = logging.getLogger('sam_trace')
+    for handler in sam_trace_logger.handlers[:]:
+        sam_trace_logger.removeHandler(handler)
+    sam_trace_logger.setLevel(logging.NOTSET)
+
+def assert_sam_trace_logger_default_configuration():
+    sam_trace_logger = logging.getLogger('sam_trace')
+
+    assert len(sam_trace_logger.handlers) == 1
+    assert isinstance(sam_trace_logger.handlers[0], logging.FileHandler)
+    assert sam_trace_logger.level == logging.WARNING # Effectively disabled trace
 
 def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
@@ -47,7 +60,7 @@ def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
             "log_format": "pipe-delimited"
         }, "apps": apps_config}
 
-    remove_root_logger_handlers()
+    reset_logging_configuration()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -68,6 +81,8 @@ def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
     assert log_file.exists(), "Log file should have been created"
     log_content = log_file.read_text()
     assert f"| WARNING | common.logging.test_logging_integration | {log_message}" in log_content
+
+    assert_sam_trace_logger_default_configuration()
 
 def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
@@ -91,7 +106,7 @@ def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
         "apps": apps_config
     }
 
-    remove_root_logger_handlers()
+    reset_logging_configuration()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -112,6 +127,8 @@ def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
 
     assert found_rotating_handler is True
 
+    assert_sam_trace_logger_default_configuration()
+
 
 def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_config):
     """Test that connector uses default logging config when log section is missing"""
@@ -122,7 +139,7 @@ def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_c
         "apps": apps_config
     }
 
-    remove_root_logger_handlers()
+    reset_logging_configuration()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -136,7 +153,9 @@ def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_c
         else:
             assert h.level == logging.INFO
 
-def test_setup_logging_with_json_formatting(tmp_path, monkeypatch, apps_config):
+    assert_sam_trace_logger_default_configuration()
+
+def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config):
     """Test that connector sets up JSON logging format correctly"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "json_format_test.log"
@@ -151,7 +170,7 @@ def test_setup_logging_with_json_formatting(tmp_path, monkeypatch, apps_config):
         "apps": apps_config
     }
 
-    remove_root_logger_handlers()
+    reset_logging_configuration()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -169,6 +188,8 @@ def test_setup_logging_with_json_formatting(tmp_path, monkeypatch, apps_config):
                 json.loads(line)
             except json.JSONDecodeError:
                 assert False, f"Line is not valid JSON: {line}"
+
+    assert_sam_trace_logger_default_configuration()
 
 @pytest.mark.parametrize(
     "invalid_key, valid_key",
@@ -191,8 +212,37 @@ def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config
         "apps": apps_config
     }
 
-    remove_root_logger_handlers()
+    reset_logging_configuration()
     with pytest.raises(InitializationError) as exc_info:
         SolaceAiConnector(config)
 
     assert f"Invalid log level 'INVALID_LEVEL' specified for '{invalid_key}'" in str(exc_info.value)
+
+def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps_config):
+    """Test that sam_trace logger is properly configured when enableTrace is True"""
+    monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
+    
+    log_file = tmp_path / "trace_enabled_test.log"
+
+    config = {
+        "log": {
+            "stdout_log_level": "ERROR",
+            "log_file_level": "DEBUG",
+            "log_file": log_file,
+            "log_format": "jsonl",
+            "enable_trace": True
+        },
+        "apps": apps_config
+    }
+
+    reset_logging_configuration()
+    SolaceAiConnector(config)
+
+    sam_trace_logger = logging.getLogger('sam_trace')
+    assert sam_trace_logger.level == logging.DEBUG
+    assert sam_trace_logger.propagate is False
+    assert len(sam_trace_logger.handlers) == 1
+
+    file_handler = sam_trace_logger.handlers[0]
+    assert isinstance(file_handler, logging.FileHandler)
+    assert file_handler.baseFilename == str(log_file)
