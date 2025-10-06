@@ -7,6 +7,7 @@ sys.path.append("src")
 
 from solace_ai_connector.solace_ai_connector import SolaceAiConnector
 from solace_ai_connector.common.exceptions import InitializationError
+from solace_ai_connector.common.log import validate_log_level
 from logging.handlers import RotatingFileHandler
 
 @pytest.fixture
@@ -246,3 +247,104 @@ def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps
     file_handler = sam_trace_logger.handlers[0]
     assert isinstance(file_handler, logging.FileHandler)
     assert file_handler.baseFilename == str(log_file)
+
+class TestValidateLogLevel:
+
+    @pytest.mark.parametrize(
+        "level_str, expected_numeric",
+        [
+            ("DEBUG", 10),
+            ("INFO", 20),
+            ("WARNING", 30),
+            ("ERROR", 40),
+            ("CRITICAL", 50),
+            ("debug", 10),  # Test case insensitivity
+            ("info", 20),
+            ("warning", 30),
+            ("error", 40),
+            ("critical", 50),
+        ]
+    )
+    def test_validate_log_level_string_input(self, level_str, expected_numeric):
+        """Test that string log levels are correctly converted to numeric values"""
+        result = validate_log_level("test_handler", level_str)
+        assert result == expected_numeric
+        assert isinstance(result, int)
+
+    @pytest.mark.parametrize(
+        "level_int",
+        [10, 20, 30, 40, 50]
+    )
+    def test_validate_log_level_integer_input(self, level_int):
+        """Test that valid integer log levels are returned as-is"""
+        result = validate_log_level("test_handler", level_int)
+        assert result == level_int
+        assert isinstance(result, int)
+
+    @pytest.mark.parametrize(
+        "invalid_string",
+        ["INVALID", "TRACE", "VERBOSE", "", "123", "info_level"]
+    )
+    def test_validate_log_level_invalid_string(self, invalid_string):
+        """Test that invalid string log levels raise InitializationError"""
+        with pytest.raises(InitializationError) as exc_info:
+            validate_log_level("test_handler", invalid_string)
+        
+        assert f"Invalid log level '{invalid_string}' specified for 'test_handler'" in str(exc_info.value)
+        assert "Valid levels are:" in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        "invalid_int",
+        [0, 5, 15, 25, 35, 45, 55, 100, -10]
+    )
+    def test_validate_log_level_invalid_integer(self, invalid_int):
+        """Test that invalid integer log levels raise InitializationError"""
+        with pytest.raises(InitializationError) as exc_info:
+            validate_log_level("test_handler", invalid_int)
+        
+        assert f"Invalid numeric log level '{invalid_int}' specified for 'test_handler'" in str(exc_info.value)
+        assert "Valid levels are: 10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL)" in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        "invalid_type",
+        [None, [], {}, 10.5, True, False]
+    )
+    def test_validate_log_level_invalid_type(self, invalid_type):
+        """Test that non-string/non-int types raise InitializationError"""
+        with pytest.raises(InitializationError) as exc_info:
+            validate_log_level("test_handler", invalid_type)
+        
+        expected_type_name = type(invalid_type).__name__
+        assert f"Invalid log level type '{expected_type_name}' for 'test_handler'" in str(exc_info.value)
+        assert "Must be int or str" in str(exc_info.value)
+
+def test_setup_logging_with_numeric_log_levels(tmp_path, monkeypatch, apps_config):
+    """Test that setup_log works correctly with numeric log levels"""
+    monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
+    log_file = tmp_path / "numeric_levels_test.log"
+
+    config = {
+        "log": {
+            "stdout_log_level": 40,  # ERROR
+            "log_file_level": 10,    # DEBUG
+            "log_file": str(log_file),
+            "log_format": "pipe-delimited"
+        }, 
+        "apps": apps_config
+    }
+
+    reset_logging_configuration()
+    SolaceAiConnector(config)
+
+    root_logger = logging.getLogger()
+    assert root_logger.level == logging.DEBUG  # min(40, 10) = 10
+    assert len(root_logger.handlers) == 2
+
+    for h in root_logger.handlers:
+        if isinstance(h, logging.FileHandler):
+            assert h.level == 10  # DEBUG
+            assert h.baseFilename.endswith(log_file.name)
+        else:
+            assert h.level == 40  # ERROR
+
+    assert_sam_trace_logger_default_configuration()

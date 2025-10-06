@@ -25,9 +25,42 @@ class JsonlFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 def validate_log_level(handler, level):
-    valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-    if level not in valid_levels:
-        raise InitializationError(f"Invalid log level '{level}' specified for '{handler}'")
+    """
+    Validate and convert log level to numerical value.
+    
+    Args:
+        handler (str): Name of the handler (for error messages)
+        level (int or str): Log level as string (e.g., "INFO") or int (e.g., 20)
+    
+    Returns:
+        int: Numerical log level value
+        
+    Raises:
+        InitializationError: If level is invalid
+    """
+    # Check for boolean first (since isinstance(True, int) returns True in Python)
+    if isinstance(level, bool):
+        raise InitializationError(f"Invalid log level type '{type(level).__name__}' for '{handler}'. Must be int or str")
+    
+    # If it's already an integer, validate it's a standard logging level
+    if isinstance(level, int):
+        valid_numeric_levels = {10, 20, 30, 40, 50}  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+        if level in valid_numeric_levels:
+            return level
+        else:
+            raise InitializationError(f"Invalid numeric log level '{level}' specified for '{handler}'. Valid levels are: 10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL)")
+    
+    # If it's a string, validate and convert to numeric
+    if isinstance(level, str):
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        level_upper = level.upper()
+        if level_upper not in valid_levels:
+            raise InitializationError(f"Invalid log level '{level}' specified for '{handler}'. Valid levels are: {', '.join(sorted(valid_levels))}")
+        
+        return logging.getLevelName(level_upper) #If a string representation of the level is passed in, the corresponding numeric value is returned.
+
+    # If it's neither int nor str
+    raise InitializationError(f"Invalid log level type '{type(level).__name__}' for '{handler}'. Must be int or str")
 
 
 def convert_to_bytes(size_str):
@@ -51,13 +84,14 @@ def setup_log(
 
     Parameters:
         logFilePath (str): Path to the log file.
-        stdOutLogLevel (str): Logging level for standard output.
-        fileLogLevel (str): Logging level for the log file.
+        stdOutLogLevel (str or int): Logging level for standard output (e.g., "INFO" or 20).
+        fileLogLevel (str or int): Logging level for the log file (e.g., "DEBUG" or 10).
         logFormat (str): Format of the log output ('jsonl' or 'pipe-delimited').
         logBack (dict): Rolling log file configuration.
     """
-    validate_log_level("stdout_log_level", stdOutLogLevel)
-    validate_log_level("log_file_level", fileLogLevel)
+    # Validate and get numerical log levels
+    stdout_numeric_level = validate_log_level("stdout_log_level", stdOutLogLevel)
+    file_numeric_level = validate_log_level("log_file_level", fileLogLevel)
     
     # Get the root logger to configure it for the entire application
     root_logger = logging.getLogger()
@@ -68,7 +102,7 @@ def setup_log(
         return
 
     # Set the root logger level to the lowest of the two levels
-    root_logger.setLevel(min(logging.getLevelName(stdOutLogLevel), logging.getLevelName(fileLogLevel)))
+    root_logger.setLevel(min(stdout_numeric_level, file_numeric_level))
 
     # Add stdout handler to root logger
     stream_handler = logging.StreamHandler(sys.stdout)
