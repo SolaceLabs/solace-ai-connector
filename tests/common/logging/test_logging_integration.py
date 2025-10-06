@@ -29,9 +29,9 @@ def apps_config():
         }
     ]
 
-def reset_logging_configuration():
-    """Reset logging configuration """
-    # This can't be a fixture since pytest re-adds the handlers before we get to the actual test
+def remove_root_logger_handlers():
+    # This is needed on top of the fixture since pytest re-adds the caplog handlers before we get to the actual test
+    # For setup_log() to work correctly, the root logger must not have any handlers configured
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
@@ -49,7 +49,7 @@ def assert_sam_trace_logger_default_configuration():
     assert isinstance(sam_trace_logger.handlers[0], logging.FileHandler)
     assert sam_trace_logger.level == logging.WARNING # Effectively disabled trace
 
-def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
+def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config, isolated_logging):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "test_connector.log"
 
@@ -61,7 +61,7 @@ def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
             "log_format": "pipe-delimited"
         }, "apps": apps_config}
 
-    reset_logging_configuration()
+    remove_root_logger_handlers()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -85,7 +85,7 @@ def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
 
     assert_sam_trace_logger_default_configuration()
 
-def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
+def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config, isolated_logging):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "rolling_test.log"
 
@@ -107,7 +107,7 @@ def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
         "apps": apps_config
     }
 
-    reset_logging_configuration()
+    remove_root_logger_handlers()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -131,7 +131,7 @@ def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
     assert_sam_trace_logger_default_configuration()
 
 
-def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_config):
+def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_config, isolated_logging):
     """Test that connector uses default logging config when log section is missing"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
 
@@ -140,7 +140,7 @@ def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_c
         "apps": apps_config
     }
 
-    reset_logging_configuration()
+    remove_root_logger_handlers()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -156,7 +156,7 @@ def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_c
 
     assert_sam_trace_logger_default_configuration()
 
-def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config):
+def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config, isolated_logging):
     """Test that connector sets up JSON logging format correctly"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "json_format_test.log"
@@ -171,7 +171,7 @@ def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config)
         "apps": apps_config
     }
 
-    reset_logging_configuration()
+    remove_root_logger_handlers()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()
@@ -199,7 +199,7 @@ def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config)
         ("log_file_level", "stdout_log_level"),
     ]
 )
-def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config, invalid_key, valid_key):
+def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config, invalid_key, valid_key, isolated_logging):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "invalid_level_test.log"
 
@@ -213,13 +213,12 @@ def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config
         "apps": apps_config
     }
 
-    reset_logging_configuration()
     with pytest.raises(InitializationError) as exc_info:
         SolaceAiConnector(config)
 
     assert f"Invalid log level 'INVALID_LEVEL' specified for '{invalid_key}'" in str(exc_info.value)
 
-def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps_config):
+def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps_config, isolated_logging):
     """Test that sam_trace logger is properly configured when enableTrace is True"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     
@@ -236,7 +235,7 @@ def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps
         "apps": apps_config
     }
 
-    reset_logging_configuration()
+    remove_root_logger_handlers()
     SolaceAiConnector(config)
 
     sam_trace_logger = logging.getLogger('sam_trace')
@@ -318,7 +317,7 @@ class TestValidateLogLevel:
         assert f"Invalid log level type '{expected_type_name}' for 'test_handler'" in str(exc_info.value)
         assert "Must be int or str" in str(exc_info.value)
 
-def test_setup_logging_with_numeric_log_levels(tmp_path, monkeypatch, apps_config):
+def test_setup_logging_with_numeric_log_levels(tmp_path, monkeypatch, apps_config, isolated_logging):
     """Test that setup_log works correctly with numeric log levels"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "numeric_levels_test.log"
@@ -333,7 +332,7 @@ def test_setup_logging_with_numeric_log_levels(tmp_path, monkeypatch, apps_confi
         "apps": apps_config
     }
 
-    reset_logging_configuration()
+    remove_root_logger_handlers()
     SolaceAiConnector(config)
 
     root_logger = logging.getLogger()

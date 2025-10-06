@@ -7,8 +7,7 @@ sys.path.append("src")
 
 from solace_ai_connector.common.logging_config import configure_from_logging_ini
 
-
-def test_configure_from_logging_ini_success_path(tmp_path, monkeypatch):
+def test_configure_from_logging_ini_success_path(tmp_path, monkeypatch, isolated_logging):
     log_file = tmp_path / "test.log"
     config_content = f"""[loggers]
 keys=root
@@ -80,7 +79,7 @@ def test_configure_from_logging_ini_file_not_found(tmp_path, monkeypatch):
     assert str(non_existent_file) in str(exc_info.value)
 
 
-def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch):
+def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch, isolated_logging):
     """
     Test configure_from_logging_ini with an invalid configuration file.
     
