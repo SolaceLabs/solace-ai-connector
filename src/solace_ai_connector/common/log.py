@@ -98,7 +98,7 @@ def setup_log(
     
     # Check if logging is already configured by examining the root logger
     if root_logger.handlers:
-        log.info(f"Logging configuration already applied, skipping setup_log(logFilePath={logFilePath}, stdOutLogLevel={stdOutLogLevel}, fileLogLevel={fileLogLevel})")
+        log.debug(f"Logging configuration already applied, skipping setup_log(logFilePath={logFilePath}, stdOutLogLevel={stdOutLogLevel}, fileLogLevel={fileLogLevel})")
         return
 
     # Set the root logger level to the lowest of the two levels

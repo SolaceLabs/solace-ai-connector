@@ -218,6 +218,34 @@ def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config
 
     assert f"Invalid log level 'INVALID_LEVEL' specified for '{invalid_key}'" in str(exc_info.value)
 
+@pytest.mark.parametrize(
+    "invalid_key, valid_key",
+    [
+        ("stdout_log_level", "log_file_level"),
+        ("log_file_level", "stdout_log_level"),
+    ]
+)
+def test_setup_logging_with_boolean_true_log_levels(tmp_path, monkeypatch, apps_config, invalid_key, valid_key, isolated_logging):
+    """Test that boolean TRUE values for log levels raise InitializationError"""
+    monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
+    log_file = tmp_path / "boolean_level_test.log"
+
+    config = {
+        "log": {
+            invalid_key: True,
+            valid_key: "DEBUG",
+            "log_file": log_file,
+            "log_format": "pipe-delimited"
+        },
+        "apps": apps_config
+    }
+
+    with pytest.raises(InitializationError) as exc_info:
+        SolaceAiConnector(config)
+
+    assert f"Invalid log level type 'bool' for '{invalid_key}'" in str(exc_info.value)
+    assert "Must be int or str" in str(exc_info.value)
+
 def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps_config, isolated_logging):
     """Test that sam_trace logger is properly configured when enableTrace is True"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
