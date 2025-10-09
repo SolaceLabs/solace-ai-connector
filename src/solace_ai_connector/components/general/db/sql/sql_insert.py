@@ -1,11 +1,12 @@
 """Component for inserting data into a SQL database."""
 
+import logging
 from typing import List, Dict, Any, Union, Optional
 import copy
 
 from .sql_base import SQLBaseComponent, info as base_info
-from .....common.log import log
 
+log = logging.getLogger(__name__)
 
 # Component-specific information
 info = copy.deepcopy(base_info)

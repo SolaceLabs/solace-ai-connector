@@ -1,12 +1,8 @@
 import time
 from copy import deepcopy
 
-
 from ..component_base import ComponentBase
 from ...common.message import Message
-
-# from ...common.log import log
-
 
 info = {
     "class_name": "TimerInput",

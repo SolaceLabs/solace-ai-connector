@@ -1,3 +1,4 @@
+import logging
 import threading
 import queue
 import traceback
@@ -6,7 +7,6 @@ import asyncio
 from abc import abstractmethod
 from typing import Any, Optional, Dict, List
 
-from ..common.log import log
 from ..common.utils import resolve_config_values
 from ..common.utils import get_source_expression
 from ..transforms.transforms import Transforms
@@ -24,9 +24,10 @@ from ..common.monitoring import Metrics
 from ..common import Message_NACK_Outcome
 from ..common.config_validation import validate_config_block
 
+log = logging.getLogger(__name__)
+
 DEFAULT_QUEUE_TIMEOUT_MS = 1000
 DEFAULT_QUEUE_MAX_DEPTH = 5
-
 
 class ComponentBase:
 

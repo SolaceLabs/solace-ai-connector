@@ -1,12 +1,13 @@
 """Base class for OpenAI chat models"""
 
+import logging
 import uuid
-import time
 
 from openai import OpenAI
 from ....component_base import ComponentBase
 from .....common.message import Message
-from .....common.log import log
+
+log = logging.getLogger(__name__)
 
 openai_info_base = {
     "class_name": "OpenAIChatModelBase",

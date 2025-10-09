@@ -1,6 +1,8 @@
 # This component splits a long text into smaller parts using the LangChain text splitter module
 
-from .....common.log import log
+import logging
+
+log = logging.getLogger(__name__)
 
 from .langchain_base import (
     LangChainBase,

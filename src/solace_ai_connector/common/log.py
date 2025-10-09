@@ -1,3 +1,4 @@
+import logging
 import sys
 import logging
 import logging.config
@@ -5,27 +6,9 @@ import logging.handlers
 import json
 import os
 from datetime import datetime
+from ..common.exceptions import InitializationError
 
-
-# Global flag to indicate if INI configuration was successfully applied
-_ini_config_applied = False
-log = logging.getLogger("solace_ai_connector")
-logging.captureWarnings(True)
-
-
-class JsonFormatter(logging.Formatter):
-    """
-    Custom formatter to output logs in JSON format.
-    """
-
-    def format(self, record):
-        log_record = {
-            "time": self.formatTime(record, self.datefmt),
-            "level": record.levelname,
-            "message": record.getMessage(),
-        }
-        return json.dumps(log_record)
-
+log = logging.getLogger(__name__)
 
 class JsonlFormatter(logging.Formatter):
     """
@@ -36,9 +19,48 @@ class JsonlFormatter(logging.Formatter):
         log_record = {
             "time": self.formatTime(record, self.datefmt),
             "level": record.levelname,
+            "logger": record.name,
             "message": record.getMessage(),
         }
         return json.dumps(log_record)
+
+def validate_log_level(handler, level):
+    """
+    Validate and convert log level to numerical value.
+    
+    Args:
+        handler (str): Name of the handler (for error messages)
+        level (int or str): Log level as string (e.g., "INFO") or int (e.g., 20)
+    
+    Returns:
+        int: Numerical log level value
+        
+    Raises:
+        InitializationError: If level is invalid
+    """
+    # Check for boolean first (since isinstance(True, int) returns True in Python)
+    if isinstance(level, bool):
+        raise InitializationError(f"Invalid log level type '{type(level).__name__}' for '{handler}'. Must be int or str")
+    
+    # If it's already an integer, validate it's a standard logging level
+    if isinstance(level, int):
+        valid_numeric_levels = {10, 20, 30, 40, 50}  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+        if level in valid_numeric_levels:
+            return level
+        else:
+            raise InitializationError(f"Invalid numeric log level '{level}' specified for '{handler}'. Valid levels are: 10 (DEBUG), 20 (INFO), 30 (WARNING), 40 (ERROR), 50 (CRITICAL)")
+    
+    # If it's a string, validate and convert to numeric
+    if isinstance(level, str):
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        level_upper = level.upper()
+        if level_upper not in valid_levels:
+            raise InitializationError(f"Invalid log level '{level}' specified for '{handler}'. Valid levels are: {', '.join(sorted(valid_levels))}")
+        
+        return logging.getLevelName(level_upper) #If a string representation of the level is passed in, the corresponding numeric value is returned.
+
+    # If it's neither int nor str
+    raise InitializationError(f"Invalid log level type '{type(level).__name__}' for '{handler}'. Must be int or str")
 
 
 def convert_to_bytes(size_str):
@@ -49,53 +71,6 @@ def convert_to_bytes(size_str):
             return int(size_str[: -len(unit)]) * size_units[unit]
     return int(size_str)
 
-
-# Helper function to handle trace formatting
-def _format_with_trace(message, trace):
-    try:
-        import traceback
-
-        if isinstance(trace, Exception):
-            # If it's an Exception object
-            stack_trace = traceback.format_exception(
-                type(trace), trace, trace.__traceback__
-            )
-            full_message = f"{message} | TRACE: {trace}\n{''.join(stack_trace)}"
-        else:
-            # Regular trace info
-            full_message = f"{message} | TRACE: {trace}"
-    except Exception:
-        # Fallback if there's an issue with the trace handling
-        full_message = f"{message} | TRACE: {trace}"
-    return full_message
-
-
-# These wrappers will be applied to the global 'log' instance at the end of the module.
-# Trace is conditionally enabled based on the enableTrace parameter.
-_MODULE_ORIGINAL_DEBUG = log.debug
-_MODULE_ORIGINAL_ERROR = log.error
-
-def _create_module_wrapper_with_trace(original_method):
-    def wrapper(message, *args, trace=None, **kwargs):
-        if args and isinstance(message, str):
-            formatted_message = message % args if args else message
-            if trace:
-                full_message = _format_with_trace(formatted_message, trace)
-            else:
-                full_message = formatted_message
-            original_method(full_message, stacklevel=2, **kwargs)
-        else:
-            if trace:
-                full_message = _format_with_trace(message, trace)
-            else:
-                full_message = message
-            original_method(full_message, stacklevel=2, **kwargs)
-    return wrapper
-
-_module_debug_wrapper_with_trace = _create_module_wrapper_with_trace(_MODULE_ORIGINAL_DEBUG)
-_module_error_wrapper_with_trace = _create_module_wrapper_with_trace(_MODULE_ORIGINAL_ERROR)
-
-
 def setup_log(
     logFilePath,
     stdOutLogLevel,
@@ -104,36 +79,37 @@ def setup_log(
     logBack,
     enableTrace=False,
 ):
-    # If INI configuration was successfully applied, do not allow this programmatic setup
-    # to reconfigure the 'solace_ai_connector' logger (the global 'log' object).
-    if _ini_config_applied:
-        return
-
     """
-    Set up the configuration for the logger.
+    Set up the configuration for the root logger if logging was not yet configured.
 
     Parameters:
         logFilePath (str): Path to the log file.
-        stdOutLogLevel (int): Logging level for standard output.
-        fileLogLevel (int): Logging level for the log file.
+        stdOutLogLevel (str or int): Logging level for standard output (e.g., "INFO" or 20).
+        fileLogLevel (str or int): Logging level for the log file (e.g., "DEBUG" or 10).
         logFormat (str): Format of the log output ('jsonl' or 'pipe-delimited').
         logBack (dict): Rolling log file configuration.
     """
+    # Validate and get numerical log levels
+    stdout_numeric_level = validate_log_level("stdout_log_level", stdOutLogLevel)
+    file_numeric_level = validate_log_level("log_file_level", fileLogLevel)
+    
+    # Get the root logger to configure it for the entire application
+    root_logger = logging.getLogger()
+    
+    # Check if logging is already configured by examining the root logger
+    if root_logger.handlers:
+        log.debug(f"Logging configuration already applied, skipping setup_log(logFilePath={logFilePath}, stdOutLogLevel={stdOutLogLevel}, fileLogLevel={fileLogLevel})")
+        return
 
-    # Set the global logger level to the lowest of the two levels
-    log.setLevel(min(stdOutLogLevel, fileLogLevel))
+    # Set the root logger level to the lowest of the two levels
+    root_logger.setLevel(min(stdout_numeric_level, file_numeric_level))
 
-    if not _ini_config_applied:
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setLevel(stdOutLogLevel)
-        stream_formatter = logging.Formatter("%(message)s")
-        stream_handler.setFormatter(stream_formatter)
-        log.addHandler(stream_handler)
-
-    if logFormat == "jsonl":
-        file_formatter = JsonlFormatter()
-    else:
-        file_formatter = logging.Formatter("%(asctime)s |  %(levelname)s: %(message)s")
+    # Add stdout handler to root logger
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(stdOutLogLevel)
+    stream_formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    stream_handler.setFormatter(stream_formatter)
+    root_logger.addHandler(stream_handler)
 
     if logBack:
         rollingpolicy = logBack.get("rollingpolicy", {})
@@ -185,59 +161,22 @@ def setup_log(
     else:
         file_handler = logging.FileHandler(filename=logFilePath, mode="a")
 
+    if logFormat == "jsonl":
+        file_formatter = JsonlFormatter()
+    else:
+        file_formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(fileLogLevel)
 
-    log.addHandler(file_handler)
+    # Add file handler to root logger
+    root_logger.addHandler(file_handler)
 
-def _configure_logging_from_env():
-    """Configure logging from LOGGING_CONFIG_PATH environment variable."""
-    global _ini_config_applied
-
-    ini_path_from_env = os.getenv("LOGGING_CONFIG_PATH")
-
-    if ini_path_from_env:
-        if not os.path.exists(ini_path_from_env):
-            log.debug(
-                f"LOGGING_CONFIG_PATH is set to '{ini_path_from_env}', but the file was not found. "
-                "Proceeding with default programmatic logging."
-            )
-        else:
-            try:
-                # Setting disable_existing_loggers=True will disable any loggers that existed
-                # prior to this call if they are also defined in the INI file.
-                # This is crucial for ensuring that library loggers (like litellm)
-                # which might have default handlers, only use the handlers defined in the INI.
-                logging.config.fileConfig(ini_path_from_env, disable_existing_loggers=True)
-                module_init_logger = logging.getLogger("solace_ai_connector.common.log_init")
-                module_init_logger.debug(
-                    f"Logging configured via INI file '{ini_path_from_env}' "
-                    "(specified by LOGGING_CONFIG_PATH) from solace_ai_connector.common.log module import."
-                )
-                _ini_config_applied = True # Set flag if INI load is successful
-                return True
-            except Exception as e:
-                log.debug(
-                    f"Error configuring logging from INI file '{ini_path_from_env}': {e}. "
-                    "Proceeding with default programmatic logging."
-                )
-    return False
-
-
-def reconfigure_logging():
-    """
-    Reconfigure logging from environment variables.
-    This can be called after environment variables have been loaded.
-    """
-    return _configure_logging_from_env()
-
-# Module-level logging configuration based on LOGGING_CONFIG_PATH
-# This code will run once when the module is first imported.
-# If LOGGING_CONFIG_PATH is set and points to a valid file, INI-based logging is used.
-# Otherwise, programmatic logging via setup_log() will be used.
-_configure_logging_from_env()
-
-# Apply the module-level trace-enabled wrappers to the global 'log' instance.
-# This ensures that log.debug and log.error always handle the 'trace' kwarg.
-log.debug = _module_debug_wrapper_with_trace
-log.error = _module_error_wrapper_with_trace
+    # "sam_trace" logger is a special logger used for verbose logs
+    sam_trace_logger = logging.getLogger('sam_trace')
+    sam_trace_logger.propagate = False
+    sam_trace_logger.addHandler(file_handler) # Only log to file
+    if enableTrace:
+        sam_trace_logger.setLevel(logging.DEBUG)
+    else:
+        sam_trace_logger.setLevel(logging.WARNING)

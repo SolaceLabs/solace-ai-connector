@@ -16,9 +16,6 @@ from solace_ai_connector.test_utils.utils_for_test_files import (
 )
 from solace_ai_connector.common.message import Message
 
-# from solace_ai_connector.common.log import log
-
-
 def test_small_list():
     """Test the iterate component with a small list"""
     config_yaml = """

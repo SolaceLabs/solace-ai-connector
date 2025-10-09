@@ -14,27 +14,6 @@ from solace_ai_connector.components.general.llm.litellm.litellm_base import (
     litellm_info_base as litellm_base_module_info_dict,
 )
 from solace_ai_connector.common.monitoring import Metrics
-from solace_ai_connector.common.log import setup_log, log
-
-
-@pytest.fixture(autouse=True)
-def setup_litellm_logging():
-    """Set up logging with trace enabled for LiteLLM tests."""
-    # Reset any handlers that might be attached to the logger
-    for handler in log.handlers[:]:
-        log.removeHandler(handler)
-    
-    # Set up logging with trace enabled
-    setup_log(
-        logFilePath="litellm_test_logs.log",
-        stdOutLogLevel="INFO",
-        fileLogLevel="DEBUG",
-        logFormat="pipe-delimited",
-        logBack={},
-        enableTrace=True
-    )
-    
-    yield
 
 
 @pytest.fixture

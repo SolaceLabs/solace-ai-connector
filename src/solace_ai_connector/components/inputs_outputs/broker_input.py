@@ -6,11 +6,11 @@ from solace.messaging.utils.manageable import ApiMetrics, Metric as SolaceMetric
 from .broker_base import BrokerBase
 from .broker_base import base_info
 from ...common.utils import deep_merge
-from ...common.log import log
 from ...common.message import Message
 from ...common.monitoring import Metrics
 from ...common import Message_NACK_Outcome
 
+log = logging.getLogger(__name__)
 trace_logger = logging.getLogger("sam_trace")
 
 info = deep_merge(

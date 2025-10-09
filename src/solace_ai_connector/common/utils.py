@@ -1,5 +1,6 @@
 """Random utility functions"""
 
+import logging
 import importlib.util
 import os
 import sys
@@ -15,8 +16,7 @@ import unicodedata
 from copy import deepcopy
 from collections.abc import Mapping
 
-from .log import log
-
+log = logging.getLogger(__name__)
 
 def import_from_directories(module_name, base_path=None):
     dirs = sys.path

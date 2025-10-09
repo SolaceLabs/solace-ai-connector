@@ -2,10 +2,10 @@
 import logging
 from .broker_base import BrokerBase
 from .broker_base import base_info
-from ...common.log import log
 from ...common.utils import deep_merge
 from ...common.message import Message
 
+log = logging.getLogger(__name__)
 trace_logger = logging.getLogger("sam_trace")
 
 info = deep_merge(

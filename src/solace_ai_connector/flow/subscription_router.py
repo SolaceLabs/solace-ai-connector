@@ -8,11 +8,11 @@ import re
 from typing import List, Tuple, Pattern, Any
 
 from ..components.component_base import ComponentBase
-from ..common.log import log
 from ..common.message import Message
 from ..common.event import Event, EventType
 from ..common import Message_NACK_Outcome  # Import the missing name
 
+log = logging.getLogger(__name__)
 trace_logger = logging.getLogger("sam_trace")
 
 # Define the component information

@@ -1,11 +1,13 @@
 """Main class for the flow"""
 
+import logging
 import threading
 from typing import List
 
 from ..components.component_base import ComponentBase
-from ..common.log import log
 from ..common.utils import import_module
+
+log = logging.getLogger(__name__)
 
 
 class FlowLockManager:

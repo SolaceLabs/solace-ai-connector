@@ -16,8 +16,6 @@ from solace_ai_connector.test_utils.utils_for_test_files import (
 )
 from solace_ai_connector.common.message import Message
 
-# from solace_ai_connector.common.log import log
-
 
 def test_simple_filter():
     """Test the filter component with a simple expression"""

@@ -1,8 +1,9 @@
 """Base component for SQL database operations."""
-
-from .....common.log import log
+import logging
 from ....component_base import ComponentBase
 from .sql_handler import SQLHandler
+
+log = logging.getLogger(__name__)
 
 # Base information for SQL components
 # Derived components will copy and update this.

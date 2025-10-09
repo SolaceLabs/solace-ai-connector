@@ -1,3 +1,4 @@
+import logging
 import time
 import pickle
 import threading
@@ -7,7 +8,8 @@ from threading import Lock
 from sqlalchemy import create_engine, Column, String, Float, LargeBinary
 from sqlalchemy.orm import declarative_base, sessionmaker
 from ..common.event import Event, EventType
-from ..common.log import log
+
+log = logging.getLogger(__name__)
 
 
 class CacheStorageBackend(ABC):

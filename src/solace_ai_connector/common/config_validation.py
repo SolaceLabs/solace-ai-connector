@@ -1,8 +1,9 @@
 """Utility function for validating configuration dictionaries against a schema."""
 
+import logging
 from typing import Dict, List, Any
-from .log import log
 
+log = logging.getLogger(__name__)
 
 def validate_config_block(
     config_dict: Dict[str, Any], schema_params: List[Dict[str, Any]], log_identifier: str

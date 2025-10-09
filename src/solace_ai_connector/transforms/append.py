@@ -1,7 +1,10 @@
 """Append Transform - add a value to a list"""
 
-from ..common.log import log
+import logging
+
 from .transform_base import TransformBase
+
+log = logging.getLogger(__name__)
 
 info = {
     "class_name": "AppendTransform",

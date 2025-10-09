@@ -24,10 +24,12 @@ Here's a basic template for a custom component:
 
 ```python
 # my_custom_component.py
+import logging
 from solace_ai_connector.components.component_base import ComponentBase
 from solace_ai_connector.common.message import Message
-from solace_ai_connector.common.log import log
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 # Define component information
 info = {
@@ -124,7 +126,7 @@ Custom components can take advantage of advanced features provided by the Solace
 - **Cache Service:** Use `self.cache_service` (`add_data`, `get_data`, `remove_data`) for temporary data storage with optional expiry.
 - **Timer Management:** Use `self.add_timer()` and `self.cancel_timer()` to schedule actions, handled in `handle_timer_event()`.
 - **App-Level Configuration:** Access shared configuration defined in the parent app's `app_config:` block using `self.get_config()`.
-- **Logging:** Use the standard Python `logging` module via `from solace_ai_connector.common.log import log`. Use `self.log_identifier` for context.
+- **Logging:** Use `self.log_identifier` for context.
 
 For more information on these advanced features and how to use them in your custom components, please refer to the [Advanced Component Features](advanced_component_features.md) documentation.
 
