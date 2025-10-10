@@ -1,4 +1,4 @@
-# Solace AI Event Connector
+# Solace AI Connector
 
 ## Overview
 
@@ -30,3 +30,4 @@ Contributions are encouraged! Please read [CONTRIBUTING](CONTRIBUTING.md) for de
 ## License
 
 See the [LICENSE](LICENSE) file for details.
+
