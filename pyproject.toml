@@ -86,7 +86,7 @@ webscraping = [
 
 # RAG (Retrieval Augmented Generation)
 splitter = [
-    "langchain-text-splitters==0.3.7",
+    "langchain-text-splitters==0.3.9",
 ]
 
 # Mongo database
@@ -237,7 +237,7 @@ splitter_ext_release = [
     "jsonpatch==1.33",
     "jsonpointer==3.0.0",
     "langchain-core==0.3.72",
-    "langchain-text-splitters==0.3.7",
+    "langchain-text-splitters==0.3.9",
     "langsmith==0.3.45",
     "orjson==3.10.16",
     "packaging==24.2",
@@ -306,7 +306,7 @@ all = [
     "python-dotenv==1.1.1",
     
     # From splitter
-    "langchain-text-splitters==0.3.7",
+    "langchain-text-splitters==0.3.9",
     
     # From mongodb
     "pymongo==4.10.1",
