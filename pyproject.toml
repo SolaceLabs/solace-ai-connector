@@ -30,6 +30,7 @@ dependencies = [
     'pywin32==306; sys_platform == "win32"',
     "gevent==25.8.2",
     "gevent-websocket==0.10.1",
+    "python-json-logger==4.0.0",
 ]
 
 [project.optional-dependencies]
