@@ -208,3 +208,131 @@ format=%(asctime)s %(levelname)s %(name)s %(message)s
     assert error_logs[0]["levelname"] == "ERROR"
     assert error_logs[0]["error_code"] == 500, "error_code field should be included"
     assert error_logs[0]["user_id"] == 12345, "user_id field should be included"
+
+
+def test_configure_from_logging_ini_env_var_substitution(tmp_path, monkeypatch, isolated_logging):
+    """Test that environment variables are substituted into INI values using ${NAME,default} syntax."""
+    log_file = tmp_path / "env_var_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=${LOG_LEVEL,INFO}
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=${LOG_LEVEL,INFO}
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH,test.log}',)
+
+[formatter_simpleFormatter]
+format=${LOG_FORMAT,%(name)s: %(message)s}
+"""
+    config_file = tmp_path / "env_var_logging.ini"
+    config_file.write_text(config_content)
+    
+    # Set environment variables for substitution
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FORMAT", "%(levelname)s|%(message)s")
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")  # Set debug level explicitly
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    test_logger = logging.getLogger("sub_test_logger")
+    test_message = "This is a test message"
+    test_logger.debug(test_message)  # Use debug level since we set LOG_LEVEL=DEBUG
+
+    assert log_file.exists(), "Log file should have been created"
+    
+    log_content = log_file.read_text()
+    assert "DEBUG|This is a test message" in log_content, "Log file should contain the formatted log message"
+
+
+def test_configure_from_logging_ini_empty_env_var(tmp_path, monkeypatch, isolated_logging):
+    """Test that empty environment variables are treated as set (not falling back to default)."""
+    log_file = tmp_path / "empty_env_var_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=INFO
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH, test.log}',)
+
+[formatter_simpleFormatter]
+format=${LOG_FORMAT, %(name)s}
+"""
+    config_file = tmp_path / "empty_env_var_logging.ini"
+    config_file.write_text(config_content)
+    
+    # Set LOG_FORMAT to empty string (should not fall back to default)
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FORMAT", "")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    test_logger = logging.getLogger("sub_empty_test_logger")
+    test_message = "This is a test message"
+
+    test_logger.info(test_message)
+
+    assert log_file.exists(), "Log file should have been created"
+
+    log_content = log_file.read_text()
+    assert test_message in log_content, "Log file should contain the log message without formatting"
+
+
+def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
+    """Test that missing env var without default raises ValueError."""
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=INFO
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=simpleFormatter
+args=('tests.log',)
+
+[formatter_simpleFormatter]
+format=${MISSING_ENV_VAR}
+"""
+    config_file = tmp_path / "missing_env_var_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.delenv("MISSING_ENV_VAR", raising=False)  # Ensure it's not set
+    
+    with pytest.raises(ValueError) as exc_info:
+        configure_from_logging_ini()
+    
+    assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
