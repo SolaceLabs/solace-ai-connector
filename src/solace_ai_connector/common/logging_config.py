@@ -22,19 +22,19 @@ def configure_from_logging_ini():
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.")
-
-    # Pattern matches ${ENV_VAR_NAME, default} or ${ENV_VAR_NAME}
-    pattern = re.compile(r"\$\{([^,}]+)(?:,([^}]*))?\}")
+    
+    pattern = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?:\s*,\s*([^}]+))?\}")
 
     def _replace(match: re.Match) -> str:
-        name = match.group(1).strip()
+        name = match.group(1)
         default = match.group(2)
-        # Prefer environment variable if set (even if empty string); fall back to default
+        
         val = os.getenv(name)
         if val is None:
             if default is None:
                 raise ValueError(f"Environment variable '{name}' is not set and no default value provided in logging config.")
-            val = default
+            return default.strip()
+            
         return val
 
     try:
