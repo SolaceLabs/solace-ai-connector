@@ -89,8 +89,9 @@ format=%(asctime)s | %(levelname)-5s | %(name)s | %(message)s
      - `%(message)s`: The log message
 
 6. **Sam_Trace**:
-    - sam_trace is a special logger than enables verbose logs
-    - When enabled, sections of code that call the special trace function will output detailed structures allowing for easier debugging
+    - Sam_trace is a special logger than enables verbose logs
+    - It can be enabled by setting the `[logger_sam_trace]` logger to the DEBUG level
+    - Enabling this logger allows for logging of large data structures that would typically clutter log files. It should be used as a tool for developers to get very detailed troubleshooting data.
 
 ### Priority
 
