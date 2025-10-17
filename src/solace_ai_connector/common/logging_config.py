@@ -22,8 +22,8 @@ def configure_from_logging_ini():
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.")
-    
-    pattern = re.compile(r"\$\{([A-Z][A-Z0-9_]*)(?:\s*,\s*([^}]+))?\}")
+
+    pattern = re.compile(r"\$\{([A-Za-z_](?>[A-Za-z0-9_]{0,63}))(?:\s{0,4},\s{0,4}([a-zA-Z0-9\s](?>[a-zA-Z0-9\s]{0,1023})))?\}")
 
     def _replace(match: re.Match) -> str:
         name = match.group(1)
