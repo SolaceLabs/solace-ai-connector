@@ -88,6 +88,11 @@ The configuration file is a YAML file with these top-level keys:
 
 ### Log Configuration
 
+>**Note:**
+>This section details the now deprecated YAML based logging. It is recommended to instead use Python logging detailed [here](./logging.md).
+>YAML based logging has a lower precedence than the mentioned Python logging and will only function if Python logging is disabled.
+>YAML should be treated as a fallback and not as the intended way to configure logging.
+
 The `log` configuration section is used to configure the logging for the connector. It configures the logging behavior for stdout and file logs. It has the following keys:
 
 - `stdout_log_level`: <DEBUG|INFO|WARNING|ERROR|CRITICAL> - The log level for the stdout log
