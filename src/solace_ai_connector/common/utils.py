@@ -73,7 +73,6 @@ def get_subdirectories(path=None):
 
 def resolve_config_values(config, allow_source_expression=False):
     """Resolve any config module values in the config by processing 'invoke' entries"""
-    # log.debug("Resolving config values in %s", config)
     if not isinstance(config, (dict, list)):
         return config
     if isinstance(config, list):

@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 from .common.log import setup_log
 from .common.utils import resolve_config_values, import_module
+from .common.exceptions import InitializationError
 from .flow.flow import Flow
 from .flow.app import App
 from .flow.timer_manager import TimerManager
@@ -61,12 +62,10 @@ class SolaceAiConnector:
 
             log.info("Solace AI Event Connector started successfully")
         except KeyboardInterrupt:
-            log.info("Received keyboard interrupt - stopping")
-
-            raise KeyboardInterrupt from None
+            log.info("Received keyboard interrupt - stopping from NONE")
+            raise KeyboardInterrupt
         except Exception:
-            log.exception("Error during Solace AI Event Connector startup")
-            raise ValueError("An error occurred during startup") from None
+            raise InitializationError("An error occurred during startup")
 
     def create_apps(self):
         """Create apps from the configuration"""
@@ -89,8 +88,7 @@ class SolaceAiConnector:
             log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt from None
         except Exception:
-            log.exception("Error creating apps")
-            raise ValueError("An error occurred during app creation") from None
+            raise InitializationError("An error occurred during app creation")
             
     def _create_default_app(self):
         """Create a default app from top-level flows configuration"""

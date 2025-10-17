@@ -300,7 +300,7 @@ class SolaceMessaging(Messaging):
                         else:
                             temp_retry_count -= 1
 
-                    log.info(f"{self.error_prefix} Connecting to broker...")
+                    log.info(f"{self.error_prefix} Connecting to broker at {self.broker_properties.get('host')} ...")
                     self.stop_signal.wait(timeout=retry_interval / 1000)
 
             log_thread = threading.Thread(target=log_connecting, daemon=True)
@@ -367,7 +367,7 @@ class SolaceMessaging(Messaging):
         except KeyboardInterrupt:  # pylint: disable=broad-except
             raise KeyboardInterrupt from None
         except Exception as e:
-            raise ValueError("Error in broker connection") from None
+            raise ValueError("Error in broker connection") from e
 
     def bind_to_queue(
         self,
@@ -437,7 +437,7 @@ class SolaceMessaging(Messaging):
                 f"{self.error_prefix} Error creating persistent receiver for queue [%s]",
                 queue_name,
             )
-            raise exception
+            raise
 
         # Add to list of receivers
         self.persistent_receivers.append(self.persistent_receiver)
