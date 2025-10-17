@@ -211,7 +211,7 @@ format=%(asctime)s %(levelname)s %(name)s %(message)s
 
 
 def test_configure_from_logging_ini_env_var_substitution(tmp_path, monkeypatch, isolated_logging):
-    """Test that environment variables are substituted into INI values using ${NAME,default} syntax."""
+    """Test that environment variables are substituted into INI values using ${NAME,default} syntax and other variations"""
     log_file = tmp_path / "env_var_test.log"
     config_content = """[loggers]
 keys=root
@@ -238,7 +238,6 @@ format=${LOG_FORMAT ,%(levelname)s|%(message)s}
     config_file = tmp_path / "env_var_logging.ini"
     config_file.write_text(config_content)
     
-    # Set environment variables for substitution
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("LOG_LEVEL2", "DEBUG")
@@ -248,7 +247,7 @@ format=${LOG_FORMAT ,%(levelname)s|%(message)s}
 
     test_logger = logging.getLogger("sub_test_logger")
     test_message = "This is a test message"
-    test_logger.debug(test_message)  # Use debug level since we set LOG_LEVEL=DEBUG
+    test_logger.debug(test_message)
 
     assert log_file.exists(), "Log file should have been created"
     
@@ -304,53 +303,7 @@ format=${LOG_FORMAT, %(name)s}
 
 def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
     """Test that missing env var without default raises ValueError."""
-    config_content = """[loggers]
-keys=root
-
-[handlers]
-keys=fileHandler
-
-[formatters]
-keys=simpleFormatter
-
-[logger_root]
-level=INFO
-handlers=fileHandler
-
-[handler_fileHandler]
-class=FileHandler
-level=INFO
-formatter=simpleFormatter
-args=('${LOG_FILE_PATH, test.log}',)
-
-[formatter_simpleFormatter]
-format=${LOG_FORMAT, %(name)s}
-"""
-    config_file = tmp_path / "empty_env_var_logging.ini"
-    config_file.write_text(config_content)
-    
-    # Set LOG_FORMAT to empty string (should not fall back to default)
-    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
-    monkeypatch.setenv("LOG_FORMAT", "")
-    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
-    
-    assert configure_from_logging_ini() is True
-
-    test_logger = logging.getLogger("empty_logger")
-
-    test_message = "This is a test message"
-
-    test_logger.info(test_message)
-
-    assert log_file.exists(), "Log file should have been created"
-
-    log_content = log_file.read_text()
-    assert test_message in log_content, "Log file should contain the log message without formatting"
-
-
-def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
-    """Test that missing env var without default raises ValueError."""
-    log_file = tmp_path / "empty_env_var_test.log"
+    log_file = tmp_path / "missing_env_var_test.log"
     config_content = """[loggers]
 keys=root
 
