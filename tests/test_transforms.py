@@ -2,6 +2,8 @@
 
 import sys
 
+from solace_ai_connector.common.exceptions import InitializationError
+
 sys.path.append("src")
 
 from solace_ai_connector.test_utils.utils_for_test_files import (  # pylint: disable=wrong-import-position
@@ -292,7 +294,7 @@ flows:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
-    except ValueError as e:
+    except InitializationError as e:
         assert str(e) == "An error occurred during startup"
 
 
@@ -313,7 +315,7 @@ flows:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
-    except ValueError as e:
+    except InitializationError as e:
         assert str(e) == "An error occurred during startup"
 
 
@@ -334,7 +336,7 @@ flows:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
-    except ValueError as e:
+    except InitializationError as e:
         assert str(e).endswith("An error occurred during startup")
 
 
@@ -355,7 +357,7 @@ flows:
           source_expression: user_data.temp
 """
         create_connector(config_yaml)
-    except ValueError as e:
+    except InitializationError as e:
         assert str(e).endswith("An error occurred during startup")
 
 

@@ -167,7 +167,7 @@ class ComponentBase:
             except Exception as e:
                 self.current_message = None
                 self.handle_negative_acknowledgements(message, e)
-                raise ValueError("Error in processing message") from None
+                raise ValueError("Error in processing message") from e
             finally:
                 self.current_message = None
 
@@ -295,7 +295,7 @@ class ComponentBase:
                     "that contains a 'evaluate_expression()' in a context that does not "
                     "have a message available. This is likely a bug in the "
                     "component's configuration."
-                ) from None
+                )
             val = val(self.current_message)
         return val
 
@@ -355,7 +355,7 @@ class ComponentBase:
             if not broker_config:
                 raise ValueError(
                     f"Component-level broker_request_response config missing 'broker_config' for component {self.name}"
-                ) from None
+                )
 
             # Construct config for the controller, extracting relevant keys
             rrc_config = {
@@ -846,7 +846,7 @@ class ComponentBase:
                     # Wait 1 second for the next interval
                     self.stop_signal.wait(timeout=1)
         except KeyboardInterrupt:
-            log.info("[%s] Monitoring connection status stopped.", self.name)
+            log.error("[%s] Monitoring connection status stopped.", self.name)
 
     def run_micro_monitoring(self) -> None:
         """
@@ -865,7 +865,7 @@ class ComponentBase:
                     self.flush_metrics()
                     log.debug("[%s] Automatically flushed metrics.", self.name)
         except KeyboardInterrupt:
-            log.info("[%s] Monitoring stopped.", self.name)
+            log.error("[%s] Monitoring stopped.", self.name)
 
     def get_app(self):
         """Get the app that this component belongs to"""

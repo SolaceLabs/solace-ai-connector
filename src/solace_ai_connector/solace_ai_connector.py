@@ -62,7 +62,7 @@ class SolaceAiConnector:
 
             log.info("Solace AI Event Connector started successfully")
         except KeyboardInterrupt:
-            log.info("Received keyboard interrupt - stopping from NONE")
+            log.error("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt
         except Exception:
             raise InitializationError("An error occurred during startup")
@@ -85,8 +85,8 @@ class SolaceAiConnector:
                 app_obj.run()
 
         except KeyboardInterrupt:
-            log.info("Received keyboard interrupt - stopping")
-            raise KeyboardInterrupt from None
+            log.error("Received keyboard interrupt - stopping")
+            raise
         except Exception:
             raise InitializationError("An error occurred during app creation")
             
@@ -181,13 +181,13 @@ class SolaceAiConnector:
                 if found_class:
                     raise ValueError(
                         f"App module '{app_module}' contains multiple App subclasses. Specify class_name in info."
-                    ) from None
+                    )
                 found_class = obj
                 
         if not found_class:
             raise ValueError(
                 f"App module '{app_module}' does not contain an App subclass or define class_name in info."
-            ) from None
+            )
             
         log.debug(
             "Using App subclass %s found in module %s",
@@ -255,7 +255,7 @@ class SolaceAiConnector:
         # This should not be called directly anymore
         raise NotImplementedError(
             "create_flow is deprecated, use create_apps instead"
-        ) from None
+        )
 
     def send_message_to_flow(self, flow_name, message):
         """Send a message to a flow"""
@@ -304,8 +304,8 @@ class SolaceAiConnector:
                 if not any(thread.is_alive() for thread in all_threads):
                     break
             except KeyboardInterrupt:
-                log.info("Received keyboard interrupt - stopping")
-                raise KeyboardInterrupt from None
+                log.error("Received keyboard interrupt - stopping")
+                raise
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
@@ -409,11 +409,11 @@ class SolaceAiConnector:
     def validate_config(self):
         """Validate the configuration structure."""
         if not self.config:
-            raise ValueError("No config provided") from None
+            raise ValueError("No config provided")
 
         # Check if either apps or flows are defined at the top level
         if not self.config.get("apps") and not self.config.get("flows"):
-            raise ValueError("No apps or flows defined in configuration file") from None
+            raise ValueError("No apps or flows defined in configuration file")
 
         if not self.config.get("log"):
             log.warning("No log config provided - using defaults")
@@ -421,18 +421,18 @@ class SolaceAiConnector:
         # Validate apps if defined
         if self.config.get("apps"):
             if not isinstance(self.config.get("apps"), list):
-                raise ValueError("'apps' must be a list") from None
+                raise ValueError("'apps' must be a list")
 
             for index, app in enumerate(self.config.get("apps", [])):
                 if not isinstance(app, dict):
                     raise ValueError(
                         f"App definition at index {index} must be a dictionary"
-                    ) from None
+                    )
 
                 if not app.get("name"):
                     raise ValueError(
                         f"App name not provided in app definition at index {index}"
-                    ) from None
+                    )
                 app_name = app.get("name")
 
                 # --- Modified Validation Logic ---
@@ -453,7 +453,7 @@ class SolaceAiConnector:
                     if not has_flows and not (has_broker and has_components):
                         raise ValueError(
                             f"App '{app_name}' must define either 'flows' or both 'broker' and 'components'"
-                        ) from None
+                        )
                     if has_flows and (has_broker or has_components):
                         log.warning(
                             "App '%s' defines both 'flows' and 'broker'/'components'. "
@@ -471,7 +471,7 @@ class SolaceAiConnector:
                         if not isinstance(broker_config, dict):
                             raise ValueError(
                                 f"App '{app_name}' has invalid 'broker' section (must be a dictionary)"
-                            ) from None
+                            )
                         required_broker_keys = [
                             "broker_url",
                             "broker_username",
@@ -482,41 +482,41 @@ class SolaceAiConnector:
                             if not broker_config.get(key):
                                 raise ValueError(
                                     f"App '{app_name}' broker config missing required key: '{key}'"
-                                ) from None
+                                )
                         if broker_config.get("input_enabled") and not broker_config.get(
                             "queue_name"
                         ):
                             raise ValueError(
                                 f"App '{app_name}' broker config missing 'queue_name' when 'input_enabled' is true"
-                            ) from None
+                            )
 
                         # Validate components is a list
                         if not isinstance(components_config, list):
                             raise ValueError(
                                 f"App '{app_name}' has invalid 'components' section (must be a list)"
-                            ) from None
+                            )
                         if not components_config:
                             raise ValueError(
                                 f"App '{app_name}' must have at least one component defined in 'components'"
-                            ) from None
+                            )
 
                         # Validate each component entry
                         for comp_index, component in enumerate(components_config):
                             if not isinstance(component, dict):
                                 raise ValueError(
                                     f"App '{app_name}' component definition at index {comp_index} must be a dictionary"
-                                ) from None
+                                )
                             if not component.get("name"):
                                 raise ValueError(
                                     f"App '{app_name}' component at index {comp_index} missing 'name'"
-                                ) from None
+                                )
                             comp_name = component.get("name")
                             if not component.get(
                                 "component_module"
                             ) and not component.get("component_class"):
                                 raise ValueError(
                                     f"App '{app_name}' component '{comp_name}' missing 'component_module' or 'component_class'"
-                                ) from None
+                                )
 
                             # Validate subscriptions if input is enabled
                             if broker_config.get("input_enabled"):
@@ -530,17 +530,17 @@ class SolaceAiConnector:
                                 elif not isinstance(subscriptions, list):
                                     raise ValueError(
                                         f"App '{app_name}' component '{comp_name}' has invalid 'subscriptions' (must be a list)"
-                                    ) from None
+                                    )
                                 else:
                                     for sub_index, sub in enumerate(subscriptions):
                                         if not isinstance(sub, dict):
                                             raise ValueError(
                                                 f"App '{app_name}' component '{comp_name}' subscription at index {sub_index} must be a dictionary"
-                                            ) from None
+                                            )
                                         if not sub.get("topic"):
                                             raise ValueError(
                                                 f"App '{app_name}' component '{comp_name}' subscription at index {sub_index} missing 'topic'"
-                                            ) from None
+                                            )
 
                     # Standard Mode Validation (only if structure implies standard)
                     elif has_flows:
@@ -551,7 +551,7 @@ class SolaceAiConnector:
         # Validate top-level flows (for backward compatibility)
         if self.config.get("flows"):
             if not isinstance(self.config.get("flows"), list):
-                raise ValueError("'flows' at the top level must be a list") from None
+                raise ValueError("'flows' at the top level must be a list")
             if not self.config.get(
                 "apps"
             ):  # Only validate top-level if no apps are defined
@@ -567,44 +567,44 @@ class SolaceAiConnector:
     def _validate_flows(self, flows, context):
         """Validate flows configuration (helper method)."""
         if not isinstance(flows, list):
-            raise ValueError(f"Flows definition in {context} must be a list") from None
+            raise ValueError(f"Flows definition in {context} must be a list")
 
         for index, flow in enumerate(flows):
             if not isinstance(flow, dict):
                 raise ValueError(
                     f"Flow definition at index {index} in {context} must be a dictionary"
-                ) from None
+                )
             if not flow.get("name"):
                 raise ValueError(
                     f"Flow name not provided in flow {index} of {context}"
-                ) from None
+                )
             flow_name = flow.get("name")
 
             if "components" not in flow:  # Check presence of the key
                 raise ValueError(
                     f"Flow components list not provided in flow '{flow_name}' of {context}"
-                ) from None
+                )
 
             # Verify that the components list is a list
             if not isinstance(flow.get("components"), list):
                 raise ValueError(
                     f"Flow components is not a list in flow '{flow_name}' of {context}"
-                ) from None
+                )
             if not flow.get("components"):  # Check if list is empty
                 raise ValueError(
                     f"Flow '{flow_name}' in {context} must have at least one component"
-                ) from None
+                )
 
             # Loop through the components and validate them
             for component_index, component in enumerate(flow.get("components", [])):
                 if not isinstance(component, dict):
                     raise ValueError(
                         f"Component definition at index {component_index} in flow '{flow_name}' of {context} must be a dictionary"
-                    ) from None
+                    )
                 if not component.get("component_name"):
                     raise ValueError(
                         f"component_name not provided in flow '{flow_name}', component {component_index} of {context}"
-                    ) from None
+                    )
                 comp_name = component.get("component_name")
 
                 # In standard flows, component_module or component_class is required
@@ -613,7 +613,7 @@ class SolaceAiConnector:
                 ):
                     raise ValueError(
                         f"Either 'component_module' or 'component_class' must be provided for component '{comp_name}' in flow '{flow_name}' of {context}"
-                    ) from None
+                    ) 
 
     def get_flows(self):
         """Return the flows"""

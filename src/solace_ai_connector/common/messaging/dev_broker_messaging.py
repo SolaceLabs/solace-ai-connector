@@ -74,7 +74,7 @@ class DevBroker(Messaging):
 
     def receive_message(self, timeout_ms, queue_name: str):
         if not self.connected:
-            raise RuntimeError("DevBroker is not connected") from None
+            raise RuntimeError("DevBroker is not connected")
 
         try:
             return self.queues[queue_name].get(timeout=timeout_ms / 1000)
@@ -89,7 +89,7 @@ class DevBroker(Messaging):
         user_context: Dict = None,
     ):
         if not self.connected:
-            raise RuntimeError("DevBroker is not connected") from None
+            raise RuntimeError("DevBroker is not connected")
 
         message = {
             "payload": payload,
@@ -108,7 +108,7 @@ class DevBroker(Messaging):
 
     def subscribe(self, subscription: str, queue_name: str):
         if not self.connected:
-            raise RuntimeError("DevBroker is not connected") from None
+            raise RuntimeError("DevBroker is not connected")
 
         subscription = self._subscription_to_regex(subscription)
 

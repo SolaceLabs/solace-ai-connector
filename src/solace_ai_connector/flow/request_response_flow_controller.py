@@ -68,7 +68,7 @@ class RequestResponseFlowController:
         if not app.flows:
             raise ValueError(
                 "Failed to create internal broker request-response flow"
-            ) from None
+            )
 
         self.flow = app.flows[0]
         self.setup_queues(self.flow)
@@ -145,13 +145,13 @@ class RequestResponseFlowController:
                             return
                 except queue.Empty:
                     if (time.time() - self.enqueue_time) > self.request_expiry_s:
-                        raise TimeoutError(  # pylint: disable=raise-missing-from
-                            "Timeout waiting for response"
+                        raise TimeoutError(
+                            f"Response not received within the timeout period of {self.request_expiry_ms} ms"
                         ) from None
-                except Exception:
+                except Exception as e:
                     raise ValueError(
                         "Error while waiting for response from broker request-response flow"
-                    ) from None
+                    ) from e
 
         # If we are not in streaming mode, we will return a single message
         # and then stop the iterator
@@ -167,13 +167,13 @@ class RequestResponseFlowController:
                 return
         except queue.Empty:
             if (time.time() - self.enqueue_time) > self.request_expiry_s:
-                raise TimeoutError(  # pylint: disable=raise-missing-from
-                    "Timeout waiting for response"
+                raise TimeoutError(
+                    f"Response not received within the timeout period of {self.request_expiry_ms} ms"
                 ) from None
-        except Exception:
+        except Exception as e:
             raise ValueError(
                 "Error while waiting for response from broker request-response flow"
-            ) from None
+            ) from e
 
     def send_message(
         self, message: Message, stream=False, streaming_complete_expression=None
@@ -182,7 +182,7 @@ class RequestResponseFlowController:
         if not self.input_queue:
             raise ValueError(
                 f"Input queue for flow {self.flow.name} not found"
-            ) from None
+            )
 
         # Need to set the previous object to the required input for the
         # broker_request_response component

@@ -4,6 +4,8 @@ import sys
 import pytest
 import yaml
 
+from solace_ai_connector.common.exceptions import InitializationError
+
 sys.path.append("src")
 
 from solace_ai_connector.test_utils.utils_for_test_files import (  # pylint: disable=wrong-import-position
@@ -236,7 +238,7 @@ apps:
           - component_name: delay1
             component_module: utils
 """
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(InitializationError) as e:
         create_connector(
             config_yaml,
         )

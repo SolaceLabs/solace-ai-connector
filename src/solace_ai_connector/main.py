@@ -173,9 +173,9 @@ def main():
 
     def signal_handler(signum, frame):
         if signum == signal.SIGINT:
-            raise KeyboardInterrupt("CTRL+C pressed") from None
+            raise KeyboardInterrupt("CTRL+C pressed")
         elif signum == signal.SIGTERM:
-            raise SystemExit("SIGTERM received") from None
+            raise SystemExit("SIGTERM received")
 
     if sys.platform == "win32":
         import win32api
