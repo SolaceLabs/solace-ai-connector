@@ -196,7 +196,7 @@ class App:
                 log.debug("Initializing simplified flow for app %s", self.name)
                 # Validate presence of broker and components if not a custom App subclass
                 # (Custom subclasses might define flows differently)
-                if type(self) == App:  # Only validate for the base App class
+                if isinstance(self, App):  # Only validate for the base App class
                     if (
                         "broker" not in self.app_info
                         or "components" not in self.app_info
@@ -204,7 +204,7 @@ class App:
                         raise ValueError(
                             f"Simplified app '{self.name}' must define 'broker' and 'components' keys "
                             "(or be a standard app with a 'flows' key)."
-                        ) from None
+                        )
                 # Call helper to generate implicit flow config
                 flow_config = self._create_simplified_flow_config()
                 # Create the single implicit flow

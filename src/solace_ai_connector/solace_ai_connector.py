@@ -613,7 +613,7 @@ class SolaceAiConnector:
                 ):
                     raise ValueError(
                         f"Either 'component_module' or 'component_class' must be provided for component '{comp_name}' in flow '{flow_name}' of {context}"
-                    ) 
+                    )
 
     def get_flows(self):
         """Return the flows"""

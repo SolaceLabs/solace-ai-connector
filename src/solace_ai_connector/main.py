@@ -58,7 +58,7 @@ def process_includes(file_path, base_dir):
         include_path = match.group(2).strip("'\"")
         full_path = os.path.join(base_dir, include_path)
         if not os.path.exists(full_path):
-            raise FileNotFoundError(f"Included file not found: {full_path}") from None
+            raise FileNotFoundError(f"Included file not found: {full_path}")
         included_content = process_includes(full_path, os.path.dirname(full_path))
         # Indent each line of the included content
         indented_content = "\n".join(

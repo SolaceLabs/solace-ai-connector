@@ -116,17 +116,17 @@ class LangChainVectorStoreDelete(LangChainVectorStoreEmbeddingsBase):
             if expr is None:
                 raise ValueError(
                     "In LangChainVectorStoreDelete, expr not provided in delete_kwargs"
-                ) from None
+                )
             try:
                 delete_ids = self.vector_store.get_pks(expr)
-            except Exception:  # pylint: disable=broad-except
-                log.warning("%sFailed to get pks from Milvus.", self.log_identifier)
+            except Exception as e:  # pylint: disable=broad-except
+                log.warning(f"{self.log_identifier} Failed to get pks from Milvus: {e}")
                 delete_ids = []
             del delete_kwargs["expr"]
 
         try:
             result = self.vector_store.delete(delete_ids, **delete_kwargs)
-        except Exception:  # pylint: disable=broad-except
-            log.warning("%sFailed to delete from vector store.", self.log_identifier)
+        except Exception as e:  # pylint: disable=broad-except
+            log.warning(f"{self.log_identifier} Failed to delete from vector store: {e}")
             result = False
         return {"result": result}

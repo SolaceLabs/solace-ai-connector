@@ -51,7 +51,7 @@ class NeedNackInput(ComponentBase):
         # Raise an exception so the test can verify that the nack was called
         raise Exception(  # pylint: disable=broad-exception-raised
             f"{self.get_config('nack_message')} with outcome {nack}"
-        ) from None
+        )
 
     def nack_reaction_to_exception(self, exception_type):
         """Determine NACK reaction based on the exception type."""

@@ -512,7 +512,7 @@ class BrokerRequestResponse(BrokerBase):
                 if not isinstance(data["payload"], list):
                     raise ValueError(
                         "Payload must be a list for test_streaming broker"
-                    ) from None
+                    )
                 for item in data["payload"]:
                     encoded_payload = self.encode_payload(item)
                     self.pass_through_queue.put(

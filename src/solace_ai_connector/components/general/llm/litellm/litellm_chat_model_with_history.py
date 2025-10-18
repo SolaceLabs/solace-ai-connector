@@ -49,7 +49,7 @@ class LiteLLMChatModelWithHistory(LiteLLMChatModelBase, ChatHistoryHandler):
     def invoke(self, message, data):
         session_id = data.get("session_id")
         if not session_id:
-            raise ValueError("session_id is not provided") from None
+            raise ValueError("session_id is not provided")
 
         clear_history_but_keep_depth = data.get("clear_history_but_keep_depth")
         try:

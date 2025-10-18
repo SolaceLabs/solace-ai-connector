@@ -62,8 +62,8 @@ class WebSearchGoogle(WebSearchBase):
         self.url = "https://www.googleapis.com/customsearch/v1"
 
     def invoke(self, message, data):
-        if type(data) != str or not data:
-            raise ValueError("Invalid search query") from None
+        if not isinstance(data, str) or not data:
+            raise ValueError("Invalid search query. Search query must be a non-empty string")
         params = {
             "q": data,  # User query
             "key": self.api_key,  # Google API Key
@@ -76,8 +76,7 @@ class WebSearchGoogle(WebSearchBase):
             response = self.parse(response)
             return response
         else:
-            error = response.json().get("error", {}).get("message", "Unknown error")
-            raise ValueError(f"Error: {response.status_code}") from None
+            raise ValueError(f"Error: {response.status_code}")
 
     # Extract required data from a message
     def parse(self, message):

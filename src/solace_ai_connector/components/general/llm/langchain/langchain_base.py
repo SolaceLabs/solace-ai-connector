@@ -28,26 +28,24 @@ class LangChainBase(ComponentBase):
         self.component = self.create_component(self.lc_config, self.component_class)
 
     def load_component(self, path, name):
-        component_class = None
         try:
             module = importlib.import_module(path)
             component_class = getattr(module, name)
-        except Exception:
-            raise ImportError("Unable to load component") from None
+        except Exception as e:
+            raise ImportError(f"Unable to load component {self.name}") from e
         return component_class
 
     def create_component(self, config, cls):
-        component = None
         if not config:
             config = {}
         try:
             component = cls(**config)
-        except Exception:
-            raise ImportError("Unable to create component") from None
+        except Exception as e:
+            raise ImportError("Unable to create component") from e
         return component
 
     def invoke(self, message, data):
-        raise NotImplementedError("invoke() not implemented") from None
+        raise NotImplementedError("invoke() not implemented")
 
     def __str__(self):
         return self.__class__.__name__ + " " + str(self.config)

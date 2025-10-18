@@ -115,16 +115,16 @@ class FilterTransform(TransformBase):
         dest_expression = self.get_config(message, "dest_expression", None)
         if not dest_list_expression:
             raise ValueError(
-                f"{self.log_identifier}: Filter transform does not have a dest list expression"
-            ) from None
+                f"{self.log_identifier}: Filter transform requires a non-empty 'dest_list_expression' parameter"
+            )
 
         # Get the filter function - pass None as the message so we get the function back
         filter_function = self.get_config(None, "filter_function")
 
         if filter_function and not callable(filter_function):
             raise ValueError(
-                f"{self.log_identifier}: Filter transform has a non-callable processing function"
-            ) from None
+                f"{self.log_identifier}: Filter transform 'filter_function' parameter must be callable, got {type(filter_function).__name__}"
+            )
 
         keyword_args = {
             "index": 0,
@@ -151,10 +151,10 @@ class FilterTransform(TransformBase):
             if filter_function:
                 try:
                     keep = filter_function(message)
-                except Exception:
+                except Exception as e:
                     raise ValueError(
                         f"{self.log_identifier}: Error calling processing function"
-                    ) from None
+                    ) from e
 
             if keep:
                 # Now put the data into the destination list

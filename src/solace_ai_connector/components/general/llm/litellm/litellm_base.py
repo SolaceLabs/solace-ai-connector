@@ -218,8 +218,8 @@ class LiteLLMBase(ComponentBase):
                 timeout=self.timeout,
             )
             log.debug("Litellm Load balancer was initialized")
-        except Exception:
-            raise ValueError("Error initializing load balancer") from None
+        except Exception as e:
+            raise ValueError("Error initializing load balancer") from e
 
     def load_balance(self, messages, stream):
         """load balance the messages"""
@@ -232,16 +232,15 @@ class LiteLLMBase(ComponentBase):
                 stream=stream,
                 **({"stream_options": {"include_usage": True}} if stream else {}),
             )
-        except litellm.BadRequestError as e:
-            # Handle context window exceeded error
-            if "ContextWindowExceededError" in str(e):
-                log.exception("Context window exceeded error")
-                return self.context_exceeded_response(model)
-            log.exception("Bad request error.")
-            raise ValueError("Error LiteLLM bad request") from None
+        except litellm.ContextWindowExceededError:
+            log.exception("Context window exceeded error")
+            return self.context_exceeded_response(model)
+        except litellm.BadRequestError:
+            log.exception("Error LiteLLM bad request")
+            raise
         except Exception:
             log.exception("LiteLLM API connection error.")
-            raise ValueError("Error LiteLLM API connection") from None
+            raise
 
         log.debug("Load balancer responded")
         return response

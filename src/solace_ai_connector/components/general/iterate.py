@@ -44,7 +44,7 @@ class Iterate(ComponentBase):
         if not isinstance(data, list):
             raise ValueError(
                 "The iterate component requires the input to be a list"
-            ) from None
+            )
 
         for item in data:
             # Create a new message for each item unless it is the last item

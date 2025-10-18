@@ -54,8 +54,8 @@ class CopyListItemTransform(TransformBase):
         self.source_property = transform_config.get("source_property", None)
         if self.source_property is None:
             raise ValueError(
-                "In CopyListItemTransform, source property not provided in transform configuration"
-            ) from None
+                f"In CopyListItemTransform: 'source_property' is required but not found in transform configuration at index {index}"
+            )
         self.dest_property = transform_config.get("dest_property", None)
 
     def invoke(self, message, calling_object=None):
@@ -70,8 +70,8 @@ class CopyListItemTransform(TransformBase):
             if allow_missing_source:
                 return message
             raise ValueError(
-                "In CopyListItemTransform, source expression does not resolve to a list"
-            ) from None
+                "In CopyListItemTransform, source_expression does not resolve to a list"
+            )
 
         # Get the destination list
         dest_list = message.get_data(
@@ -85,15 +85,15 @@ class CopyListItemTransform(TransformBase):
 
         if not isinstance(dest_list, list):
             raise ValueError(
-                "In CopyListItemTransform, destination expression does not resolve to a list"
-            ) from None
+                "In CopyListItemTransform, dest_expression does not resolve to a list"
+            )
 
         # Copy the item from the source list to the destination list
         for index, item in enumerate(source_list):
             if not isinstance(item, dict):
                 raise ValueError(
                     "In CopyListItemTransform, source list item is not a dictionary"
-                ) from None
+                )
             self.extend_list_if_needed(dest_list, index)
             if self.dest_property is not None:
                 if dest_list[index] is None:
@@ -101,7 +101,7 @@ class CopyListItemTransform(TransformBase):
                 if not isinstance(dest_list[index], dict):
                     raise ValueError(
                         "In CopyListItemTransform, dest list item is not a dictionary"
-                    ) from None
+                    )
                 dest_list[index][self.dest_property] = item[self.source_property]
             else:
                 dest_list[index] = item[self.source_property]
