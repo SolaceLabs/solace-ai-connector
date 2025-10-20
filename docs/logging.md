@@ -38,7 +38,7 @@ For additional logging configuration options and information on creating handler
 
 ### Priority
 
-When configuring levels for different sections, the logger will prioritize the most specifc level. For example if you set the root logger to DEBUG but create a custom logger that points to `solace_agent_mesh` at the INFO level, logs from `solace_agent_mesh` at the DEBUG level will not be handled.
+When configuring levels for different sections, the logger will prioritize the most specifc level. For example if you set the root logger to DEBUG but create a custom logger that points to `solace_ai_connector` at the INFO level, logs from `solace_ai_connector` at the DEBUG level will not be handled.
 
 ### Structured Logging
 
