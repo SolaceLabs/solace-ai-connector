@@ -1,9 +1,6 @@
-# Configuring logging for the AI Event Connector
+# Logging
 
 The AI Event Connector leverages Python's built-in logging module to provide flexible and standardized logging  
-
-To enable it, create a .ini file and add the following environment variable pointing to it:
-`LOGGING_CONFIG_PATH=./Path/to/file.ini`
 
 ## Configuring Logging
 
@@ -24,7 +21,7 @@ handlers=
 qualname=solace_ai_connector
 
 [logger_sam_trace]
-level=INFO
+level=${SAM_TRACE_LEVEL, INFO}
 handlers=
 qualname=sam_trace
 
@@ -33,6 +30,10 @@ keys=streamHandler,rotatingFileHandler
 ```
 
 This configuration sets up three loggers: a root logger that handles WARN and above messages, writing them to both console and a rotating file; a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the (`solace_ai_connector`) module; and a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations.
+
+The SAM trace logger has it's value point to an environment variable which is accessed on startup. A fallback is also included in case the variable is missing.
+
+To enable this configuration, the following environment variable pointing to the .ini file must be added: `LOGGING_CONFIG_PATH=./Path/to/file.ini`
 
 For additional logging configuration options and information on creating handlers, refer to the [Python logging documentation](https://docs.python.org/3/library/logging.config.html#configuration-file-format).
 
