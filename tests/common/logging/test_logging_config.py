@@ -240,19 +240,20 @@ format=${LOG_FORMAT ,%(levelname)s|%(message)s}
     
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-    monkeypatch.setenv("LOG_LEVEL2", "DEBUG")
+    monkeypatch.setenv("LOG_LEVEL2", "ERROR")
     monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
     
     assert configure_from_logging_ini() is True
 
-    test_logger = logging.getLogger("sub_test_logger")
-    test_message = "This is a test message"
-    test_logger.debug(test_message)
+    root_logger = logging.getLogger()
 
-    assert log_file.exists(), "Log file should have been created"
+    assert root_logger.level == logging.DEBUG, "Root logger should be at DEBUG level"
+    assert len(root_logger.handlers) == 1, "Root logger should have one handler"
     
-    log_content = log_file.read_text()
-    assert "DEBUG|This is a test message" in log_content, "Log file should contain the formatted log message"
+    handler = root_logger.handlers[0]
+    assert handler.level == logging.ERROR, "Handler should be at ERROR level"
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(levelname)s|%(message)s", "Handler should have correct format"
 
 
 def test_configure_from_logging_ini_empty_env_var(tmp_path, monkeypatch):
@@ -290,15 +291,11 @@ format=${LOG_FORMAT, %(name)s}
     
     assert configure_from_logging_ini() is True
 
-    test_logger = logging.getLogger("sub_empty_test_logger")
-    test_message = "This is a test message"
+    root_logger = logging.getLogger()
 
-    test_logger.info(test_message)
-
-    assert log_file.exists(), "Log file should have been created"
-
-    log_content = log_file.read_text()
-    assert test_message in log_content, "Log file should contain the log message without formatting"
+    handler = root_logger.handlers[0]
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
 
 
 def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
@@ -337,3 +334,85 @@ format=%(name)s: %(message)s
         configure_from_logging_ini()
     
     assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
+
+def test_configure_from_logging_ini_default_section(tmp_path, monkeypatch, isolated_logging):
+    """Test that environment variables in the DEFAULT section are substituted and those values can be used by other sections."""
+    log_file = tmp_path / "default_section_test.log"
+    config_content = """[DEFAULT]
+log_level=${LOG_LEVEL, INFO}
+log_file_path=${LOG_FILE_PATH, default.log}
+
+[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=%(log_level)s
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=%(log_level)s
+formatter=simpleFormatter
+args=('%(log_file_path)s',)
+
+[formatter_simpleFormatter]
+format=%(levelname)s|%(message)s
+"""
+    config_file = tmp_path / "default_section_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    assert root_logger.level == logging.DEBUG, "Root logger should be at DEBUG level"
+
+
+def test_configure_from_logging_ini_empty_value(tmp_path, monkeypatch, isolated_logging):
+    """Test that empty values in the INI file are handled correctly."""
+    log_file = tmp_path / "empty_value_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=DEBUG
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH, test.log}',)
+
+[formatter_simpleFormatter]
+format=
+"""
+    config_file = tmp_path / "empty_value_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    handler = root_logger.handlers[0]
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
