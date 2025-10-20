@@ -434,8 +434,7 @@ class SolaceMessaging(Messaging):
         # Handle API exception
         except PubSubPlusClientError:
             log.warning(
-                f"{self.error_prefix} Error creating persistent receiver for queue [%s]",
-                queue_name,
+                f"{self.error_prefix} Error creating persistent receiver for queue [{queue_name}]"
             )
             raise
 
