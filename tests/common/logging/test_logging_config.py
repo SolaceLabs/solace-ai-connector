@@ -80,7 +80,7 @@ def test_configure_from_logging_ini_file_not_found(tmp_path, monkeypatch):
     assert str(non_existent_file) in str(exc_info.value)
 
 
-def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch, isolated_logging):
+def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch):
     """
     Test configure_from_logging_ini with an invalid configuration file.
     
@@ -208,3 +208,211 @@ format=%(asctime)s %(levelname)s %(name)s %(message)s
     assert error_logs[0]["levelname"] == "ERROR"
     assert error_logs[0]["error_code"] == 500, "error_code field should be included"
     assert error_logs[0]["user_id"] == 12345, "user_id field should be included"
+
+
+def test_configure_from_logging_ini_env_var_substitution(tmp_path, monkeypatch, isolated_logging):
+    """Test that environment variables are substituted into INI values using ${NAME,default} syntax and other variations"""
+    log_file = tmp_path / "env_var_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=${LOG_LEVEL , INFO}
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=${LOG_LEVEL2,INFO}
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH, test.log}',)
+
+[formatter_simpleFormatter]
+format=${LOG_FORMAT ,%(levelname)s|%(message)s}
+"""
+    config_file = tmp_path / "env_var_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("LOG_LEVEL2", "ERROR")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    assert root_logger.level == logging.DEBUG, "Root logger should be at DEBUG level"
+    assert len(root_logger.handlers) == 1, "Root logger should have one handler"
+    
+    handler = root_logger.handlers[0]
+    assert handler.level == logging.ERROR, "Handler should be at ERROR level"
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(levelname)s|%(message)s", "Handler should have correct format"
+
+
+def test_configure_from_logging_ini_empty_env_var(tmp_path, monkeypatch):
+    """Test that empty environment variables are treated as set (not falling back to default)."""
+    log_file = tmp_path / "empty_env_var_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=INFO
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH, test.log}',)
+
+[formatter_simpleFormatter]
+format=${LOG_FORMAT, %(name)s}
+"""
+    config_file = tmp_path / "empty_env_var_logging.ini"
+    config_file.write_text(config_content)
+    
+    # Set LOG_FORMAT to empty string (should not fall back to default)
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FORMAT", "")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    handler = root_logger.handlers[0]
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
+
+
+def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
+    """Test that missing env var without default raises ValueError."""
+    log_file = tmp_path / "missing_env_var_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=INFO
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=${MISSING_ENV_VAR}
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH,test.log}',)
+
+[formatter_simpleFormatter]
+format=%(name)s: %(message)s
+"""
+    config_file = tmp_path / "missing_env_var_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    monkeypatch.delenv("MISSING_ENV_VAR", raising=False)  # Ensure it's not set
+    
+    with pytest.raises(ValueError) as exc_info:
+        configure_from_logging_ini()
+    
+    assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
+
+def test_configure_from_logging_ini_default_section(tmp_path, monkeypatch, isolated_logging):
+    """Test that environment variables in the DEFAULT section are substituted and those values can be used by other sections."""
+    log_file = tmp_path / "default_section_test.log"
+    config_content = """[DEFAULT]
+log_level=${LOG_LEVEL, INFO}
+log_file_path=${LOG_FILE_PATH, default.log}
+
+[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=%(log_level)s
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=%(log_level)s
+formatter=simpleFormatter
+args=('%(log_file_path)s',)
+
+[formatter_simpleFormatter]
+format=%(levelname)s|%(message)s
+"""
+    config_file = tmp_path / "default_section_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    assert root_logger.level == logging.DEBUG, "Root logger should be at DEBUG level"
+
+
+def test_configure_from_logging_ini_empty_value(tmp_path, monkeypatch, isolated_logging):
+    """Test that empty values in the INI file are handled correctly."""
+    log_file = tmp_path / "empty_value_test.log"
+    config_content = """[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=simpleFormatter
+
+[logger_root]
+level=DEBUG
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH, test.log}',)
+
+[formatter_simpleFormatter]
+format=
+"""
+    config_file = tmp_path / "empty_value_logging.ini"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    handler = root_logger.handlers[0]
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"

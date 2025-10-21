@@ -1,7 +1,44 @@
+import configparser
 import logging
 import logging.config
 import os
 import sys
+import re
+
+pattern = re.compile(r"\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:,\s*([^}]+?)\s*)?\}")
+
+def _replace(match: re.Match) -> str:
+    name = match.group(1)
+    default = match.group(2)
+    
+    val = os.getenv(name)
+    if val is None:
+        if default is None:
+            raise ValueError(f"Environment variable '{name}' is not set and no default value provided in logging config.")
+        return default
+        
+    return val
+
+def _parse_file(config_path: str) -> configparser.ConfigParser:
+    cp = configparser.ConfigParser(interpolation=configparser.BasicInterpolation())
+    cp.read(config_path)
+
+    if cp.defaults():
+        for opt, raw_val in list(cp.defaults().items()):
+            if raw_val is None:
+                continue
+            new_val = pattern.sub(_replace, raw_val)
+            cp["DEFAULT"][opt] = new_val
+
+    for section in cp.sections():
+        for opt in cp.options(section):
+            raw_val = cp.get(section, opt, raw=True)
+            if raw_val is None:
+                continue
+            new_val = pattern.sub(_replace, raw_val)
+            cp.set(section, opt, new_val)
+
+    return cp
 
 
 def configure_from_logging_ini():
@@ -19,12 +56,15 @@ def configure_from_logging_ini():
         return False
 
     if not os.path.exists(config_path):
-        raise FileNotFoundError(f"LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.")
+        raise FileNotFoundError(f"LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.")    
 
     try:
-        logging.config.fileConfig(config_path)
+        config = _parse_file(config_path)
+
+        logging.config.fileConfig(config)
+
         logger = logging.getLogger(__name__)
-        logger.info(f"Root logger successfully configured based on LOGGING_CONFIG_PATH={config_path}")
+        logger.info("Root logger successfully configured based on LOGGING_CONFIG_PATH=%s", config_path)
         return True
 
     except Exception as e:
