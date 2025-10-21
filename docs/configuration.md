@@ -88,6 +88,9 @@ The configuration file is a YAML file with these top-level keys:
 
 ### Log Configuration
 
+>It is recommended to use the INI-based logging configuration detailed [here](./logging.md) instead.
+>Note that YAML-based logging has lower precedence than INI-based logging and will only be active when INI-based logging is disabled.
+
 The `log` configuration section is used to configure the logging for the connector. It configures the logging behavior for stdout and file logs. It has the following keys:
 
 - `stdout_log_level`: <DEBUG|INFO|WARNING|ERROR|CRITICAL> - The log level for the stdout log
