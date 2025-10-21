@@ -62,7 +62,7 @@ class SolaceAiConnector:
 
             log.info("Solace AI Event Connector started successfully")
         except KeyboardInterrupt:
-            log.error("Received keyboard interrupt - stopping")
+            log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt
         except Exception:
             raise InitializationError("An error occurred during startup")
@@ -85,7 +85,7 @@ class SolaceAiConnector:
                 app_obj.run()
 
         except KeyboardInterrupt:
-            log.error("Received keyboard interrupt - stopping")
+            log.info("Received keyboard interrupt - stopping")
             raise
         except Exception:
             raise InitializationError("An error occurred during app creation")
@@ -304,7 +304,7 @@ class SolaceAiConnector:
                 if not any(thread.is_alive() for thread in all_threads):
                     break
             except KeyboardInterrupt:
-                log.error("Received keyboard interrupt - stopping")
+                log.info("Received keyboard interrupt - stopping")
                 raise
 
     def cleanup(self):

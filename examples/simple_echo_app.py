@@ -247,7 +247,7 @@ if __name__ == "__main__":
         )
         print(e)
     except KeyboardInterrupt:
-        log.error("Ctrl+C received. Stopping the connector.")
+        log.info("Ctrl+C received. Stopping the connector.")
         if "connector" in locals():
             connector.stop()
     except Exception as e:
