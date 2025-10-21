@@ -4,7 +4,9 @@ The AI Event Connector leverages Python's built-in logging module to provide fle
 
 ## Configuring Logging
 
-The AI Event Connector uses Python's [fileConfig format](https://docs.python.org/3/library/logging.config.html#configuration-file-format) for logging configuration. Here's an example configuration that demonstrates the most common setup:
+The AI Event Connector uses Python's [fileConfig format](https://docs.python.org/3/library/logging.config.html#configuration-file-format) for logging configuration. To configure logging, create a logging configuration .ini file and set the following environment variable: `LOGGING_CONFIG_PATH=./path/to/logging_config.ini`
+
+Here's an example configuration that demonstrates a common setup:
 
 ```ini
 [loggers]
@@ -16,12 +18,12 @@ handlers=streamHandler,rotatingFileHandler
 qualname=root
 
 [logger_solace_ai_connector]
-level=INFO
+level=${LOGGING_SOLACE_AI_CONNECTOR_LEVEL, INFO}
 handlers=
 qualname=solace_ai_connector
 
 [logger_sam_trace]
-level=${SAM_TRACE_LEVEL, INFO}
+level=${LOGGING_SAM_TRACE_LEVEL, INFO}
 handlers=
 qualname=sam_trace
 
@@ -31,9 +33,7 @@ keys=streamHandler,rotatingFileHandler
 
 This configuration sets up three loggers: a root logger that handles WARN and above messages, writing them to both console and a rotating file; a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the (`solace_ai_connector`) module; and a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations.
 
-The SAM trace logger has it's value point to an environment variable which is accessed on startup. A fallback is also included in case the variable is missing.
-
-To enable this configuration, the following environment variable pointing to the .ini file must be added: `LOGGING_CONFIG_PATH=./Path/to/file.ini`
+Note that environment variable substitution is supported with the syntax `${VAR_NAME, default_value}`.
 
 For additional logging configuration options and information on creating handlers, refer to the [Python logging documentation](https://docs.python.org/3/library/logging.config.html#configuration-file-format).
 
