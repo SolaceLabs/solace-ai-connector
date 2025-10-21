@@ -39,14 +39,14 @@ class Transforms:
         if not transform_type:
             raise ValueError(
                 f"Transform at index {index} does not have a type"
-            ) from None
+            )
 
         transform_class = name_to_class.get(transform_type, None)
 
         if not transform_class:
             raise ValueError(
                 f"Transform at index {index} has an unknown type: {transform_type}"
-            ) from None
+            )
 
         # Create the transform
         transform_instance = transform_class(

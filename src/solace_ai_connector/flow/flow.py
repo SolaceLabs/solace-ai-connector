@@ -97,8 +97,7 @@ class Flow:
         ):
             self.flow_input_queue = self.component_groups[0][0].get_input_queue()
         else:
-            log.error(f"No components created for flow {self.name}")
-            raise ValueError(f"No components created for flow {self.name}") from None
+            raise ValueError(f"No components created for flow {self.name}")
 
     def run(self):
         # Now one more time to create threads and run them
@@ -108,8 +107,6 @@ class Flow:
                 self.threads.append(thread)
 
     def create_component_group(self, component, index):
-        component_class = None
-        imported_module = None
 
         # Check for component_class
         if "component_class" in component:
@@ -146,7 +143,7 @@ class Flow:
 
             except (AttributeError, ValueError) as e:
                 raise ValueError(
-                    f"Error retrieving 'info' for component_class {component_class.__name__}: {e}"
+                    f"Error retrieving 'info' for component_class {component_class.__name__}"
                 ) from e
 
         # Use component_module if component_class is not present
@@ -172,10 +169,10 @@ class Flow:
 
             try:
                 self.module_info = getattr(imported_module, "info")
-            except AttributeError:
+            except AttributeError as e:
                 raise ValueError(
                     f"Component module '{component_module}' does not have an 'info' attribute. It probably isn't a valid component."
-                ) from None
+                ) from e
 
             component_class = getattr(imported_module, self.module_info["class_name"])
 

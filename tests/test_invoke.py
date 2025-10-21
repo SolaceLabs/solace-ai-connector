@@ -419,7 +419,7 @@ def test_resolve_config_values_missing_attribute():
 
 # Test the resolve_config_values function with both module and object
 def test_resolve_config_values_missing_object():
-    with pytest.raises(ValueError, match="Cannot have both module and object"):
+    with pytest.raises(ValueError, match="Invalid 'invoke' config: both 'module' and 'object' keys are present. Only one should be specified. Current values: module=invoke_functions, object=add"):
         resolve_config_values(
             {
                 "a": {

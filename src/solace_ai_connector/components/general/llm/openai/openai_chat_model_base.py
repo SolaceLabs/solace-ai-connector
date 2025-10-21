@@ -158,7 +158,7 @@ class OpenAIChatModelBase(ComponentBase):
         if self.stream_to_flow and self.stream_to_next_component:
             raise ValueError(
                 "stream_to_flow and stream_to_next_component are mutually exclusive"
-            ) from None
+            )
 
     def invoke(self, message, data):
         messages = data.get("messages", [])
@@ -181,10 +181,10 @@ class OpenAIChatModelBase(ComponentBase):
                     )
                     return {"content": response.choices[0].message.content}
                 except Exception:
-                    log.exception("Error invoking OpenAI")
                     max_retries -= 1
+                    log.exception(f"Error invoking OpenAI. Will retry {max_retries} more times.")
                     if max_retries <= 0:
-                        raise ValueError("Max retries exceeded") from None
+                        raise
                     else:
                         self.stop_signal.wait(timeout=1)
 
@@ -234,10 +234,10 @@ class OpenAIChatModelBase(ComponentBase):
                             current_batch = ""
                             first_chunk = False
             except Exception:
-                log.exception("Error invoking OpenAI")
                 max_retries -= 1
+                log.exception(f"Error invoking OpenAI. Will retry {max_retries - 1} more times.")
                 if max_retries <= 0:
-                    raise ValueError("Max retries exceeded") from None
+                    raise
                 else:
                     # Small delay before retrying
                     self.stop_signal.wait(timeout=1)

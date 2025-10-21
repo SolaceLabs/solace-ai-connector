@@ -46,4 +46,4 @@ class NeedAckInput(ComponentBase):
         # Raise an exception so the test can verify that the ack was called
         raise Exception(  # pylint: disable=broad-exception-raised
             self.get_config("ack_message")
-        ) from None
+        )

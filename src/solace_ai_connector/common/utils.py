@@ -55,13 +55,13 @@ def import_from_directories(module_name, base_path=None):
                     if path not in sys.path:
                         sys.path.insert(0, path)
                     spec.loader.exec_module(module)
-                except Exception:
+                except Exception as e:
                     log.exception("Exception importing %s", module_path)
                     raise ValueError(
                         f"Error importing module {module_path} - {module_name}"
-                    ) from None
+                    ) from e
                 return module
-    raise ImportError(f"Could not import module '{module_name}'") from None
+    raise ImportError(f"Could not import module '{module_name}'")
 
 
 def get_subdirectories(path=None):
@@ -73,7 +73,6 @@ def get_subdirectories(path=None):
 
 def resolve_config_values(config, allow_source_expression=False):
     """Resolve any config module values in the config by processing 'invoke' entries"""
-    # log.debug("Resolving config values in %s", config)
     if not isinstance(config, (dict, list)):
         return config
     if isinstance(config, list):
@@ -185,13 +184,13 @@ def _try_import_from_known_prefixes(module_name, original_error):
                 if (name != "solace_ai_connector" and
                     name.split(".")[-1] != full_name.split(".")[-1]):
                     continue
-            except Exception:
+            except Exception as e:
                 # For other exceptions, provide a helpful error message
                 raise ImportError(
                     f"Module load error for {full_name}. Please ensure that all required "
                     f"dependencies are installed and parameters are correct. "
                     f"Error: {str(original_error)}"
-                ) from None
+                ) from e
     
     # If we get here, the module wasn't found in any of the known prefixes
     return None
@@ -219,8 +218,8 @@ def invoke_config(config, allow_source_expression=False):
 
     if module and obj:
         raise ValueError(
-            "Cannot have both module and object in an 'invoke' config"
-        ) from None
+            f"Invalid 'invoke' config: both 'module' and 'object' keys are present. Only one should be specified. Current values: module={module}, object={obj}"
+        )
 
     if module:
         obj = import_module(module, base_path=path)
@@ -239,7 +238,7 @@ def invoke_config(config, allow_source_expression=False):
             if func is None:
                 raise ValueError(
                     f"Function '{function}' not a known python function"
-                ) from None
+                )
         return call_function(func, params, allow_source_expression)
 
 
@@ -253,9 +252,9 @@ def call_function(function, params, allow_source_expression):
     positional = params.get("positional")
     keyword = params.get("keyword")
     if positional is not None and not isinstance(positional, list):
-        raise ValueError("positional must be a list") from None
+        raise ValueError(f"params.positional must be a list. Currently is {type(positional).__name__}")
     if keyword is not None and not isinstance(keyword, dict):
-        raise ValueError("keyword must be a dict") from None
+        raise ValueError(f"params.keyword must be a dict. Currently is {type(keyword).__name__}")
 
     # Loop through the parameters looking for source expressions and lambda functions
     have_lambda = False
@@ -283,7 +282,7 @@ def call_function(function, params, allow_source_expression):
                 if not allow_source_expression:
                     raise ValueError(
                         "evaluate_expression() is not allowed in this context"
-                    ) from None
+                    )
                 (expression, data_type) = extract_evaluate_expression(value)
                 keyword[key] = create_lambda_function_for_source_expression(
                     expression, data_type=data_type
@@ -326,7 +325,7 @@ def extract_evaluate_expression(se_call):
         (expression, data_type) = re.split(r"\s*,\s*", expression)
 
     if not expression:
-        raise ValueError("evaluate_expression() must contain an expression") from None
+        raise ValueError("evaluate_expression() must contain an expression")
     return (expression, data_type)
 
 
@@ -491,18 +490,16 @@ def decode_payload(payload, encoding, payload_format):
             if isinstance(payload, str):
                 payload = payload.encode("ascii")  # Base64 is ASCII
             decoded_payload = base64.b64decode(payload)
-        except Exception:
-            log.exception("Error decoding base64 payload")
-            raise ValueError("Error decoding base64 payload") from None
+        except Exception as e:
+            raise ValueError("Error decoding base64 payload") from e
     elif encoding == "gzip":
         try:
             # Ensure payload is bytes before decompressing
             if not isinstance(payload, (bytes, bytearray)):
-                raise TypeError("Gzip payload must be bytes or bytearray")
+                raise TypeError(f"Gzip payload must be bytes or bytearray. Payload type is '{type(payload).__name__}'")
             decoded_payload = gzip.decompress(payload)
-        except Exception:
-            log.exception("Error decompressing gzip payload")
-            raise ValueError("Error decompressing gzip payload") from None
+        except Exception as e:
+            raise ValueError("Error decompressing gzip payload") from e
     # If encoding is utf-8, unicode_escape, or potentially others,
     # the result should be a string for further format parsing (JSON/YAML).
     # If the payload is already bytes/bytearray, decode it.
@@ -535,14 +532,8 @@ def decode_payload(payload, encoding, payload_format):
             # Decide how to handle - raise error or return raw bytes?
             # Returning raw bytes might be safer if subsequent steps can handle it.
             # For now, let's keep decoded_payload as the original bytes.
-        except Exception:
-            log.exception(
-                "Unexpected error during payload decoding with encoding '%s'.",
-                encoding,
-            )
-            raise ValueError(
-                f"Unexpected error during payload decoding with encoding '{encoding}'"
-            ) from None
+        except Exception as e:
+            raise ValueError(f"Unexpected error during payload decoding with encoding '{encoding}'") from e
 
     # --- Parsing based on 'payload_format' ---
     # This step expects decoded_payload to be a string for JSON/YAML
@@ -551,27 +542,23 @@ def decode_payload(payload, encoding, payload_format):
             # Attempt to decode as utf-8 if it's still bytes
             try:
                 decoded_payload = decoded_payload.decode("utf-8")
-            except UnicodeDecodeError:
-                log.exception(
-                    "Cannot parse JSON, payload is bytes and not valid utf-8."
-                )
+            except UnicodeDecodeError as e:
                 raise ValueError(
-                    "Invalid payload for JSON format: not valid utf-8 bytes"
-                ) from None
+                    "Could not decode a JSON payload from bytes using UTF-8"
+                ) from e
 
         if isinstance(decoded_payload, str):
             try:
                 return json.loads(decoded_payload)
-            except Exception as e:
+            except Exception:
                 try:
                     log.warning(
-                        "Error decoding JSON payload string, trying to clean it up"
+                        "Error decoding JSON payload string. Will try to clean it up...",
+                        exc_info=True
                     )
                     cleaned_payload = clean_json_string(decoded_payload)
                     return json.loads(cleaned_payload)
                 except Exception as e:
-                    log.exception(f"Unexpected error decoding JSON payload: {e}")
-                    log.info("Payload content: %s", payload)
                     raise ValueError("Invalid JSON payload") from e
         else:
             # If it wasn't bytes or string, it might already be parsed (e.g., from dev broker)
@@ -582,20 +569,16 @@ def decode_payload(payload, encoding, payload_format):
             # Attempt to decode as utf-8 if it's still bytes
             try:
                 decoded_payload = decoded_payload.decode("utf-8")
-            except UnicodeDecodeError:
-                log.exception(
-                    "Cannot parse YAML, payload is bytes and not valid utf-8."
-                )
+            except UnicodeDecodeError as e:
                 raise ValueError(
-                    "Invalid payload for YAML format: not valid utf-8 bytes"
-                ) from None
+                    "Could not decode a YAML payload from bytes using UTF-8"
+                ) from e
 
         if isinstance(decoded_payload, str):
             try:
                 return yaml.safe_load(decoded_payload)
-            except Exception:  # Catches YAML parsing errors
-                log.exception("Error decoding YAML payload string")
-                raise ValueError("Invalid YAML payload") from None
+            except Exception as e:
+                raise ValueError("Invalid YAML payload") from e
         else:
             # If it wasn't bytes or string, it might already be parsed
             return decoded_payload
@@ -649,14 +632,10 @@ def get_data_value(data_object, expression, resolve_none_colon=False):
             current_data = getattr(current_data, part, None)
         else:
             # This case means current_data is a scalar (str, int, etc.) but path continues
-            log.error(
-                f"Cannot access part '{part}' of a non-collection type "
-                f"({type(current_data)}) in expression '{expression}'"
-            )
             raise ValueError(
                 f"Cannot access part '{part}' of a non-collection type "
                 f"({type(current_data)}) in expression '{expression}'"
-            ) from None
+            )
 
         # If at any point we get None, stop and return None
         if current_data is None:
@@ -686,19 +665,19 @@ def set_data_value(data_object, expression, value):
     if data_object is None:
         raise ValueError(
             f"Could not set data value for expression '{expression}' - data_object is None"
-        ) from None
+        )
     # Allow setting on non-dict/list if path is empty? No, require container.
     if not isinstance(data_object, (dict, list)):
         raise ValueError(
             f"Could not set data value for expression '{expression}' - data_object "
-            f"is not a dictionary or list, but a {type(data_object)}"
-        ) from None
+            f"is not a dictionary or list, but a {type(data_object).__name__}"
+        )
 
     # It is an error if the data_name is empty
     if data_name == "":
         raise ValueError(
             f"Could not set data value for expression '{expression}' - data_name is empty"
-        ) from None
+        )
 
     # Split the data_name by dots to get the path
     path_parts = data_name.split(".")
@@ -780,18 +759,18 @@ def remove_data_value(data_object, expression):
     if data_object is None:
         raise ValueError(
             f"Could not remove data value for expression '{expression}' - data_object is None"
-        ) from None
+        )
     if not isinstance(data_object, dict) and not isinstance(data_object, list):
         raise ValueError(
             f"Could not remove data value for expression '{expression}' - data_object "
             "is not a dictionary or list"
-        ) from None
+        )
 
     # It is an error if the data_name is empty
     if data_name == "":
         raise ValueError(
             f"Could not remove data value for expression '{expression}' - data_name is empty"
-        ) from None
+        )
 
     path_parts = data_name.split(".")
     current_data = data_object

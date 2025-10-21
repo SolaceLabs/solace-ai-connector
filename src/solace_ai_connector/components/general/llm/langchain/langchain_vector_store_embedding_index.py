@@ -148,7 +148,7 @@ class LangChainVectorStoreEmbeddingsIndex(LangChainVectorStoreEmbeddingsBase):
             case "delete":
                 return self.delete_data(ids)
             case _:
-                raise ValueError("Invalid action: {}".format(action)) from None
+                raise ValueError("Invalid action: {}".format(action))
 
     def add_data(self, texts, metadatas=None, ids=None):
         # Add the texts to the vector store
@@ -161,6 +161,6 @@ class LangChainVectorStoreEmbeddingsIndex(LangChainVectorStoreEmbeddingsBase):
 
     def delete_data(self, ids):
         if not ids:
-            raise ValueError("No IDs provided to delete") from None
+            raise ValueError("No IDs provided to delete")
         self.vector_store.delete(ids)
         return {"result": "OK"}

@@ -324,8 +324,8 @@ def create_storage_backend(backend_type: str = None, **kwargs) -> CacheStorageBa
         if not connection_string:
             raise ValueError(
                 "SQLAlchemy backend requires a connection_string"
-            ) from None
+            )
         return SQLAlchemyStorage(connection_string)
     # Add more backend types here as needed
-    raise ValueError(f"Unsupported storage backend: {backend_type}") from None
+    raise ValueError(f"Unsupported storage backend: {backend_type}")
 

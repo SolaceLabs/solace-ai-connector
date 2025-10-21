@@ -61,14 +61,14 @@ class MongoHandler:
             log.error("Documents must be a dictionary or list of dictionaries")
             raise ValueError(
                 "Documents must be a dictionary or list of dictionaries"
-            ) from None
+            )
         if isinstance(documents, dict):
             documents = [documents]
         if not documents or not isinstance(documents[0], dict):
             log.error("Documents must be a dictionary or list of dictionaries")
             raise ValueError(
                 "Documents must be a dictionary or list of dictionaries"
-            ) from None
+            )
         db = self.get_connection()
         result = db[collection].insert_many(documents)
         log.debug(
@@ -95,7 +95,7 @@ class MongoHandler:
             ValueError: If pipeline is not a valid aggregation pipeline.
         """
         if not isinstance(pipeline, list):
-            raise ValueError("Pipeline must be a list of aggregation stages") from None
+            raise ValueError("Pipeline must be a list of aggregation stages")
 
         # Validate each pipeline stage
         for stage in pipeline:
@@ -103,14 +103,14 @@ class MongoHandler:
                 log.error("Each pipeline stage must be a non-empty dictionary")
                 raise ValueError(
                     "Each pipeline stage must be a non-empty dictionary"
-                ) from None
+                )
             if not any(key.startswith("$") for key in stage.keys()):
                 log.error(
                     "Invalid pipeline stage: %s. Each stage must start with '$'", stage
                 )
                 raise ValueError(
                     f"Invalid pipeline stage: {stage}. Each stage must start with '$'"
-                ) from None
+                )
 
         try:
             db = self.get_connection()

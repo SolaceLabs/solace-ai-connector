@@ -147,7 +147,7 @@ class BrokerInput(BrokerBase):
 
             payload = self.decode_payload(payload)
 
-            if (trace_logger.isEnabledFor(logging.DEBUG)):
+            if trace_logger.isEnabledFor(logging.DEBUG):
                 # This is a heavy log
                 trace_logger.debug(f"[{__name__}] Received message from broker: {payload}")
             else:
@@ -160,7 +160,7 @@ class BrokerInput(BrokerBase):
         except Exception as e:
             log.exception("Error receiving message from broker")
             self.handle_negative_acknowledgements(msg, e)
-            raise ValueError("Error receiving message from broker") from None
+            raise ValueError("Error receiving message from broker")
 
     def acknowledge_message(self, broker_message):
         self.messaging_service.ack_message(broker_message)

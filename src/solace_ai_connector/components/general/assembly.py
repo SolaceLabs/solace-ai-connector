@@ -73,7 +73,7 @@ class Assembly(ComponentBase):
             log.error("Message does not have the assemble key or it is not a string")
             raise ValueError(
                 f"Message does not have the key {self.assemble_key} or it is not a string"
-            ) from None
+            )
 
         event_key = data[self.assemble_key]
         # Fetch the current assembly from cache

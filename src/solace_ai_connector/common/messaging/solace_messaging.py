@@ -300,7 +300,7 @@ class SolaceMessaging(Messaging):
                         else:
                             temp_retry_count -= 1
 
-                    log.info(f"{self.error_prefix} Connecting to broker...")
+                    log.info(f"{self.error_prefix} Connecting to broker at {self.broker_properties.get('host')} ...")
                     self.stop_signal.wait(timeout=retry_interval / 1000)
 
             log_thread = threading.Thread(target=log_connecting, daemon=True)
@@ -316,7 +316,7 @@ class SolaceMessaging(Messaging):
             if self.stop_signal.is_set():
                 log.error(f"{self.error_prefix} Stopping connection attempt")
                 self.disconnect()
-                raise KeyboardInterrupt("Stopping connection attempt") from None
+                raise KeyboardInterrupt("Stopping connection attempt")
 
             self.stop_connection_log.set()
             log.info(f"{self.error_prefix} Successfully connected to broker.")
@@ -364,10 +364,10 @@ class SolaceMessaging(Messaging):
                     self.broker_properties.get("max_redelivery_count"),
                     self.broker_properties.get("create_queue_on_start"),
                 )
-        except KeyboardInterrupt:  # pylint: disable=broad-except
-            raise KeyboardInterrupt from None
+        except KeyboardInterrupt:
+            raise
         except Exception as e:
-            raise ValueError("Error in broker connection") from None
+            raise ValueError("Error in broker connection") from e
 
     def bind_to_queue(
         self,
@@ -434,10 +434,9 @@ class SolaceMessaging(Messaging):
         # Handle API exception
         except PubSubPlusClientError:
             log.warning(
-                f"{self.error_prefix} Error creating persistent receiver for queue [%s]",
-                queue_name,
+                f"{self.error_prefix} Error creating persistent receiver for queue [{queue_name}]"
             )
-            raise exception
+            raise
 
         # Add to list of receivers
         self.persistent_receivers.append(self.persistent_receiver)

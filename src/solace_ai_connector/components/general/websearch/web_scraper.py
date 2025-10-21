@@ -44,8 +44,8 @@ class WebScraper(ComponentBase):
 
     def invoke(self, message, data):
         url = data["url"]
-        if type(url) != str or not url:
-            raise ValueError("No URL provided") from None
+        if not isinstance(url, str) or not url:
+            raise ValueError("No URL provided")
         content = self.scrape(url)
         return content
 

@@ -124,8 +124,8 @@ class LiteLLMChatModelBase(LiteLLMBase):
 
         if self.stream_to_flow and self.stream_to_next_component:
             raise ValueError(
-                "stream_to_flow and stream_to_next_component are mutually exclusive"
-            ) from None
+                "stream_to_flow and stream_to_next_component are mutually exclusive. Please set only one of these options"
+            )
 
     def invoke(self, message, data):
         """invoke the model"""
@@ -162,9 +162,9 @@ class LiteLLMChatModelBase(LiteLLMBase):
             error_str = str(e)
             log.exception("Error invoking LiteLLM")
             return {"content": error_str, "handle_error": True}
-        except Exception as e:
+        except Exception:
             log.exception("Error invoking LiteLLM")
-            raise ValueError("Error invoking LiteLLM") from None
+            raise
 
     def invoke_stream(self, message, messages):
         """invoke the model with streaming"""
@@ -232,7 +232,7 @@ class LiteLLMChatModelBase(LiteLLMBase):
             }
         except Exception:
             log.exception("Error invoking LiteLLM")
-            raise ValueError("Error invoking LiteLLM") from None
+            raise
 
         if self.stream_to_next_component:
             # Just return the last chunk

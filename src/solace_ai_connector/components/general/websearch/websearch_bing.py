@@ -58,8 +58,8 @@ class WebSearchBing(WebSearchBase):
         self.url = "https://api.bing.microsoft.com/v7.0/search"
 
     def invoke(self, message, data):
-        if type(data) != str or not data:
-            raise ValueError("Invalid search query") from None
+        if not isinstance(data, str) or not data:
+            raise ValueError("Invalid search query. Search query must be a non-empty string")
         params = {
             "q": data,  # User query
             "count": self.count,  # Number of results to return
@@ -73,7 +73,7 @@ class WebSearchBing(WebSearchBase):
             response = self.parse(response)
             return response
         else:
-            raise ValueError(f"Error: {response.status_code}") from None
+            raise ValueError(f"Error: {response.status_code}")
 
     # Extract required data from a message
     def parse(self, message):

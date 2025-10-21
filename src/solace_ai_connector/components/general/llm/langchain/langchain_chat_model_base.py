@@ -130,7 +130,7 @@ class LangChainChatModelBase(LangChainBase):
             else:
                 raise ValueError(
                     f"Invalid message role for Chat Model invocation: {item['role']}"
-                ) from None
+                )
 
         session_id = data.get("session_id", None)
         clear_history = data.get("clear_history", False)
@@ -150,15 +150,15 @@ class LangChainChatModelBase(LangChainBase):
                 parser = JsonOutputParser()
                 json_res = parser.invoke(llm_res.content)
                 return json_res
-            except Exception:
-                raise ValueError("Error parsing LLM JSON response") from None
+            except Exception as e:
+                raise ValueError("Error parsing LLM JSON response") from e
         elif res_format == "yaml":
             obj_text = get_obj_text("yaml", llm_res.content)
             try:
                 yaml_res = yaml.safe_load(obj_text)
                 return yaml_res
-            except Exception:
-                raise ValueError("Error parsing LLM YAML response") from None
+            except Exception as e:
+                raise ValueError("Error parsing LLM YAML response") from e
         else:
             return llm_res.content
 
