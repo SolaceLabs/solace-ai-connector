@@ -20,15 +20,8 @@ def _replace(match: re.Match) -> str:
     return val
 
 def _parse_file(config_path: str) -> configparser.ConfigParser:
-    cp = configparser.ConfigParser(interpolation=configparser.BasicInterpolation())
+    cp = configparser.ConfigParser(interpolation=None)
     cp.read(config_path)
-
-    if cp.defaults():
-        for opt, raw_val in list(cp.defaults().items()):
-            if raw_val is None:
-                continue
-            new_val = pattern.sub(_replace, raw_val)
-            cp["DEFAULT"][opt] = new_val
 
     for section in cp.sections():
         for opt in cp.options(section):

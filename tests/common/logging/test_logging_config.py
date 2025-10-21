@@ -335,48 +335,6 @@ format=%(name)s: %(message)s
     
     assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
 
-def test_configure_from_logging_ini_default_section(tmp_path, monkeypatch, isolated_logging):
-    """Test that environment variables in the DEFAULT section are substituted and those values can be used by other sections."""
-    log_file = tmp_path / "default_section_test.log"
-    config_content = """[DEFAULT]
-log_level=${LOG_LEVEL, INFO}
-log_file_path=${LOG_FILE_PATH, default.log}
-
-[loggers]
-keys=root
-
-[handlers]
-keys=fileHandler
-
-[formatters]
-keys=simpleFormatter
-
-[logger_root]
-level=%(log_level)s
-handlers=fileHandler
-
-[handler_fileHandler]
-class=FileHandler
-level=%(log_level)s
-formatter=simpleFormatter
-args=('%(log_file_path)s',)
-
-[formatter_simpleFormatter]
-format=%(levelname)s|%(message)s
-"""
-    config_file = tmp_path / "default_section_logging.ini"
-    config_file.write_text(config_content)
-    
-    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
-    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
-    
-    assert configure_from_logging_ini() is True
-
-    root_logger = logging.getLogger()
-
-    assert root_logger.level == logging.DEBUG, "Root logger should be at DEBUG level"
-
 
 def test_configure_from_logging_ini_empty_value(tmp_path, monkeypatch, isolated_logging):
     """Test that empty values in the INI file are handled correctly."""
@@ -416,3 +374,48 @@ format=
     handler = root_logger.handlers[0]
     assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
     assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
+
+def test_configure_from_logging_ini_no_interpolation(tmp_path, monkeypatch, isolated_logging):
+    """Test that logging configuration works when interpolation is disabled with a format string containing %()s patterns."""
+    log_file = tmp_path / "no_interpolation_test.log"
+    config_content = """[loggers]
+keys=root,sam_trace
+
+[logger_root]
+level=INFO
+handlers=fileHandler
+qualname=root
+
+[logger_sam_trace]
+level=INFO
+handlers=
+qualname=sam_trace
+
+[handlers]
+keys=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=simpleFormatter
+args=('${LOG_FILE_PATH, test.log}',)
+
+[formatters]
+keys=simpleFormatter
+
+[formatter_simpleFormatter]
+format=%(asctime)s | %(levelname)-5s | %(name)s | %(message)s
+"""
+    config_file = tmp_path / "no_interpolation_logging.ini"
+    config_file.write_text(config_content)
+
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+
+    assert configure_from_logging_ini() is True
+
+    root_logger = logging.getLogger()
+
+    handler = root_logger.handlers[0]
+    assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
+    assert handler.formatter._fmt == "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s", "Handler should have correct format"
