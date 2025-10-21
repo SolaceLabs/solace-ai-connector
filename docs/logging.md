@@ -31,7 +31,11 @@ qualname=sam_trace
 keys=streamHandler,rotatingFileHandler
 ```
 
-This configuration sets up three loggers: a root logger that handles WARN and above messages, writing them to both console and a rotating file; a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the (`solace_ai_connector`) module; and a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations.
+This configuration:
+- creates a root logger that catches all unhandled log messages from any module at WARN or higher.
+- routes all qualifying log messages to both console and a rotating log file
+- a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the (`solace_ai_connector`) module 
+- a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations.
 
 Note that environment variable substitution is supported with the syntax `${VAR_NAME, default_value}`.
 
