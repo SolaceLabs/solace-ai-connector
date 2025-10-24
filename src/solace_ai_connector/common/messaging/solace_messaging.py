@@ -216,15 +216,21 @@ class SolaceMessaging(Messaging):
             }
 
             try:
-                if self.broker_properties["reconnection_strategy"] is None:
+                if "reconnection_strategy" in self.broker_properties:
+                    if self.broker_properties["reconnection_strategy"] is None:
+                        log.info(
+                            f"{self.error_prefix} reconnection_strategy not provided, using default value of {ConnectionStrategy.FOREVER_RETRY.value}"
+                        )
+                        strategy = ConnectionStrategy.FOREVER_RETRY
+                    else:
+                        strategy = ConnectionStrategy(
+                            self.broker_properties.get("reconnection_strategy")
+                        )
+                else:
                     log.info(
-                        f"{self.error_prefix} reconnection_strategy not provided, using default value of {ConnectionStrategy.FOREVER_RETRY.value}"
+                        f"{self.error_prefix} reconnection_strategy not provided, using default value of forever_retry"
                     )
                     strategy = ConnectionStrategy.FOREVER_RETRY
-                elif "reconnection_strategy" in self.broker_properties:
-                    strategy = ConnectionStrategy(
-                        self.broker_properties.get("reconnection_strategy")
-                    )
             except ValueError:
                 log.warning(
                     f"{self.error_prefix} Invalid reconnection strategy: {self.broker_properties.get('reconnection_strategy')}. Using default Forever Retry strategy."
