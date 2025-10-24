@@ -172,7 +172,7 @@ class App:
                 log.debug("Initializing standard flows for app %s", self.name)
                 # Process flows even if the list is empty (valid standard app structure)
                 for index, flow_config in enumerate(self.app_info.get("flows", [])):
-                    log.info(
+                    log.debug(
                         "Creating flow %s in app %s", flow_config.get("name"), self.name
                     )
                     num_instances = flow_config.get("num_instances", 1)

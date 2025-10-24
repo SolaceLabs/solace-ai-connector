@@ -108,8 +108,8 @@ class ServiceEventHandler(
         try:
             self.strategy = ConnectionStrategy(strategy)
         except ValueError:
-            log.exception(
-                f"{self.error_prefix} Invalid reconnection strategy: {strategy}. Using default strategy.",
+            log.warning(
+                f"{self.error_prefix} Invalid reconnection strategy: {strategy}. Using default strategy: ({ConnectionStrategy.FOREVER_RETRY.value}).",
             )
             self.strategy = ConnectionStrategy.FOREVER_RETRY
 
@@ -217,9 +217,15 @@ class SolaceMessaging(Messaging):
 
             try:
                 if "reconnection_strategy" in self.broker_properties:
-                    strategy = ConnectionStrategy(
-                        self.broker_properties.get("reconnection_strategy")
-                    )
+                    if self.broker_properties["reconnection_strategy"] is None:
+                        log.info(
+                            f"{self.error_prefix} reconnection_strategy not provided, using default value of {ConnectionStrategy.FOREVER_RETRY.value}"
+                        )
+                        strategy = ConnectionStrategy.FOREVER_RETRY
+                    else:
+                        strategy = ConnectionStrategy(
+                            self.broker_properties.get("reconnection_strategy")
+                        )
                 else:
                     log.info(
                         f"{self.error_prefix} reconnection_strategy not provided, using default value of forever_retry"
@@ -236,7 +242,7 @@ class SolaceMessaging(Messaging):
             if strategy == ConnectionStrategy.FOREVER_RETRY:
                 retry_interval = self.broker_properties.get("retry_interval")
                 if not retry_interval:
-                    log.warning(
+                    log.info(
                         f"{self.error_prefix} retry_interval not provided, using default value of 3000 milliseconds"
                     )
                     retry_interval = 3000
@@ -255,12 +261,12 @@ class SolaceMessaging(Messaging):
                 retry_count = self.broker_properties.get("retry_count")
                 retry_interval = self.broker_properties.get("retry_interval")
                 if not retry_count:
-                    log.warning(
+                    log.info(
                         f"{self.error_prefix} retry_count not provided, using default value of 20"
                     )
                     retry_count = 20
                 if not retry_interval:
-                    log.warning(
+                    log.info(
                         f"{self.error_prefix} retry_interval not provided, using default value of 3000"
                     )
                     retry_interval = 3000
@@ -300,7 +306,6 @@ class SolaceMessaging(Messaging):
                         else:
                             temp_retry_count -= 1
 
-                    log.info(f"{self.error_prefix} Connecting to broker at {self.broker_properties.get('host')} ...")
                     self.stop_signal.wait(timeout=retry_interval / 1000)
 
             log_thread = threading.Thread(target=log_connecting, daemon=True)
@@ -319,7 +324,7 @@ class SolaceMessaging(Messaging):
                 raise KeyboardInterrupt("Stopping connection attempt")
 
             self.stop_connection_log.set()
-            log.info(f"{self.error_prefix} Successfully connected to broker.")
+            log.info(f"{self.error_prefix} Successfully connected to broker at {self.broker_properties.get('host')}.")
 
             # change connection status to connected
             change_connection_status(
