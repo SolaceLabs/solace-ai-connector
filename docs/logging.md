@@ -1,12 +1,12 @@
 # Logging
 
-The AI Event Connector leverages Python's built-in logging module to provide flexible and standardized logging  
+The Solace AI Connector leverages Python's built-in logging module to provide flexible and standardized logging capabilities.
 
 ## Configuring Logging
 
-The AI Event Connector uses Python's [fileConfig format](https://docs.python.org/3/library/logging.config.html#configuration-file-format) for logging configuration. To configure logging, create a logging configuration .ini file and set the following environment variable: `LOGGING_CONFIG_PATH=./path/to/logging_config.ini`
+The Solace AI Connector uses Python's [fileConfig format](https://docs.python.org/3/library/logging.config.html#configuration-file-format) for logging configuration. To configure logging, create a logging configuration .ini file and point to the file with the environment variable: `LOGGING_CONFIG_PATH=./path/to/logging_config.ini`
 
-Here's an example configuration that demonstrates a common setup:
+Here's an example .ini configuration that demonstrates a common setup:
 
 ```ini
 [loggers]
@@ -32,24 +32,27 @@ keys=streamHandler,rotatingFileHandler
 ```
 
 This configuration:
-- creates a root logger that catches all unhandled log messages from any module at WARN or higher.
-- routes all qualifying log messages to both console and a rotating log file
-- a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the (`solace_ai_connector`) module 
-- a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations.
+- Creates a root logger that catches all unhandled log messages from any module at WARN or higher
 
-Note that, as demonstrated in the above example, environment variable substitution is supported with the syntax `${VAR_NAME, default_value}`.
+- Routes all qualifying log messages to both console and a rotating log file
 
-For additional logging configuration options and information on creating handlers, refer to the [Python logging documentation](https://docs.python.org/3/library/logging.config.html#configuration-file-format).
+- Defines a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the `solace_ai_connector` module
 
-### Priority
+- Includes a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations. To enable this logger, set its level to DEBUG.
 
-When configuring levels for different sections, the logger will prioritize the most specifc level. For example if you set the root logger to DEBUG but create a custom logger that points to `solace_ai_connector` at the INFO level, logs from `solace_ai_connector` at the DEBUG level will not be handled.
+Note that, as demonstrated in the above example, environment variable substitution is supported with the syntax `${VAR_NAME, default_value}`. Users can use variable names of their choice; the application will look for these environment variables at runtime and substitute their values accordingly. If the environment variable is not set, the provided default value will be used.
+
+For additional standard logging configuration options and information on creating handlers, refer to the [Python logging documentation](https://docs.python.org/3/library/logging.config.html#configuration-file-format).
+
+### Effective Log Level
+
+When configuring levels for different loggers, the effective log level is determined by the most specific logger configuration in the hierarchy. For example, if you set the root logger to DEBUG but create a custom logger for `solace_ai_connector` at the INFO level, the effective log level for the `solace_ai_connector` module will be INFO. This means DEBUG level logs from `solace_ai_connector` will not be handled, as they fall below the effective log level.
 
 ### Structured Logging
 
-Structured logging outputs log messages in JSON format. This project supports structured logging via the [python-json-logger](https://github.com/nhairs/python-json-logger) library.
+Structured logging outputs log messages in JSON format, making them easier to parse, search, and analyze in log aggregation systems. This project supports structured logging via the [python-json-logger](https://github.com/nhairs/python-json-logger) library.
 
-To enable JSON logging, define a formatter as in this example and apply it to your chosen handlers:
+To enable JSON logging, define a formatter which uses `class=pythonjsonlogger.jsonlogger.JsonFormatter` and apply it to your chosen handlers:
 
 ```ini
 [formatters]
