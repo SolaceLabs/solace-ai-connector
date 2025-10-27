@@ -6,6 +6,7 @@ We'd love for you to contribute and welcome your help. Here are some guidelines 
 - [Submitting a fix](#submitting)
 - [Feature Requests](#features)
 - [Questions](#questions)
+- [Developer Certificate of Origin (DCO)](#dco)
 
 ## <a name="issue"></a> Did you find a issue?
 
@@ -101,7 +102,8 @@ That's it! Thank you for your contribution!
 
 * Ask any question about the code or how to use Solace messaging in the [Solace community](http://dev.solace.com/community/).
 
-## Developer Certificate of Origin
+## <a name="dco"></a> Developer Certificate of Origin
+
 Any contributions must only contain code that can legally be contributed to Solace AI Connector, and which the Solace AI Connector project can distribute under its license.
 
 Prior to contributing:
