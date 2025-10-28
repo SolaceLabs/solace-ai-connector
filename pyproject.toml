@@ -10,6 +10,7 @@ dynamic = ["version"] # Commented out for workaround
 authors = [
   { name="Edward Funnekotter", email="edward.funnekotter@solace.com" },
 ]
+
 description = "Solace AI Connector - make it easy to connect Solace PubSub+ Event Brokers to AI/ML frameworks"
 readme = "README.md"
 requires-python = ">=3.10.16"
