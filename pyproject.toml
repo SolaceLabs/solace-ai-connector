@@ -343,6 +343,7 @@ dependencies = [
   "pytest-xdist>=3.5.0",
   "pytest-asyncio>=1.2.0"
 ]
+
 extra-dependencies = [
    "solace_ai_connector[all]"
 ]
