@@ -3,6 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 
+
 [project]
 name = "solace_ai_connector"
 #version = "0.0.1" # Commented out for workaround
