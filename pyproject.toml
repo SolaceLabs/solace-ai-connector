@@ -335,7 +335,7 @@ solace-ai-connector = "solace_ai_connector.main:main"
 solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:main"
 
 [tool.hatch.envs.hatch-test]
-installer = "pip"
+installer = "uv"
 dependencies = [
   "pytest>=8.0.0",
   "pytest-mock>=3.0.0",
