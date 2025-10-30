@@ -50,23 +50,84 @@ When configuring levels for different loggers, the effective log level is determ
 
 ### Structured Logging
 
-Structured logging outputs log messages in JSON format, making them easier to parse, search, and analyze in log aggregation systems. This project supports structured logging via the [python-json-logger](https://github.com/nhairs/python-json-logger) library.
+Structured logging outputs log messages in JSON format, making them easier to parse, search, and analyze in log aggregation systems like Datadog, Splunk, or Elasticsearch.
 
-To enable JSON logging, define a formatter which uses `class=pythonjsonlogger.jsonlogger.JsonFormatter` and apply it to your chosen handlers:
+#### Configuration
+
+Enabling structured logging includes two steps:
+
+**Step 1: Configure the JSON Formatter**
+
+Define a formatter that uses `class=solace_ai_connector.logging.TaggedJsonFormatter` and apply it to your chosen handlers:
 
 ```ini
 [formatters]
 keys=simpleFormatter,jsonFormatter
 
 [formatter_simpleFormatter]
-format=%(asctime)s | %(levelname)-5s | %(name)s | %(message)s
+format=%(asctime)s | %(levelname)-5s | %(threadName)s | %(name)s | %(message)s
 
 [formatter_jsonFormatter]
-class=pythonjsonlogger.jsonlogger.JsonFormatter
-format=%(asctime)s %(levelname)s %(name)s %(message)s
+class=solace_ai_connector.logging.TaggedJsonFormatter
+format=%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s
 
 [handler_rotatingFileHandler]
 class=logging.handlers.RotatingFileHandler
 formatter=jsonFormatter
 args=('sam.log', 'a', 52428800, 10)
+```
+
+**Step 2: Configure Tags via Environment Variables**
+
+Log aggregation systems expect tags to be included in log records for better filtering, grouping, and analysis.
+
+To configure which tags should be added to log records, use the `LOGGING_JSON_TAGS` environment variable:
+
+```bash
+# Specify which environment variables to inject as tags
+export LOGGING_JSON_TAGS=SERVICE_NAME,ENVIRONMENT,VERSION,REGION
+
+# Set the actual values for these environment variables
+export SERVICE_NAME=payment-service
+export ENVIRONMENT=production
+export VERSION=2.1.0
+export REGION=us-east-1
+```
+
+With this configuration, all JSON log records will automatically include these tags:
+
+```json
+{
+  "asctime": "2024-01-15 10:30:45,123",
+  "levelname": "INFO",
+  "name": "solace_ai_connector.flow",
+  "message": "Processing message"
+  "SERVICE_NAME": "payment-service",
+  "ENVIRONMENT": "production",
+  "VERSION": "2.1.0",
+  "REGION": "us-east-1",
+}
+```
+
+This is a flexible way to add contextual information to your logs without modifying the application code.
+
+> **Note:** If `LOGGING_JSON_TAGS` is not provided, the `service` tag defaults to `"solace_agent_mesh"`. This is done for backward compatibility.
+
+#### Common Use Cases
+
+**Datadog Integration:**
+```bash
+export LOGGING_JSON_TAGS=service,env,version
+export service=payment-service
+export env=production
+export version=2.1.0
+```
+
+**Splunk Or Elasticsearch Integration:**
+
+Unlike Datadog, Splunk and Elasticsearch do not have reserved tag names. You can define any tag that suits your organizational needs:
+```bash
+export LOGGING_JSON_TAGS=APP,REGION
+export APP=payment-service
+export REGION=us-east-1
 ```

@@ -419,3 +419,97 @@ format=%(asctime)s | %(levelname)-5s | %(name)s | %(message)s
     handler = root_logger.handlers[0]
     assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
     assert handler.formatter._fmt == "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s", "Handler should have correct format"
+
+
+def test_configure_from_logging_ini_with_tagged_json_formatter(tmp_path, monkeypatch, isolated_logging):
+    """
+    Test configure_from_logging_ini with TaggedJsonFormatter.
+
+    This test verifies that:
+    1. TaggedJsonFormatter can be configured via logging.ini using class=solace_ai_connector.logging.TaggedJsonFormatter
+    2. Log messages are output as valid JSON
+    3. All configured fields (asctime, levelname, name, message) are present in the JSON
+    4. Environment variable tags specified in LOGGING_JSON_TAGS are injected into the JSON output
+    5. The formatter integrates properly with the logging configuration system
+    """
+    log_file = tmp_path / "tagged_json_test.log"
+    config_content = f"""[loggers]
+keys=root
+
+[handlers]
+keys=fileHandler
+
+[formatters]
+keys=taggedJsonFormatter
+
+[logger_root]
+level=INFO
+handlers=fileHandler
+
+[handler_fileHandler]
+class=FileHandler
+level=INFO
+formatter=taggedJsonFormatter
+args=('{log_file}',)
+
+[formatter_taggedJsonFormatter]
+class=solace_ai_connector.logging.TaggedJsonFormatter
+format=%(asctime)s %(levelname)s %(name)s %(message)s
+"""
+
+    config_file = tmp_path / "logging_tagged_json.ini"
+    config_file.write_text(config_content)
+
+    # Set up environment variables for tags
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOGGING_JSON_TAGS", "SERVICE_NAME,ENVIRONMENT,VERSION")
+    monkeypatch.setenv("SERVICE_NAME", "test-service")
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    monkeypatch.setenv("VERSION", "1.0.0")
+
+    assert configure_from_logging_ini() is True
+
+    test_logger = logging.getLogger("test_tagged_json_logger")
+
+    # Log test messages with various log levels
+    test_logger.info("Test info message")
+    test_logger.warning("Test warning message")
+    test_logger.error("Test error message", extra={"error_code": 500})
+
+    assert log_file.exists(), "Log file should have been created"
+    with open(log_file, "r") as f:
+        lines = f.readlines()
+
+    # Should have at least 3 lines (3 test messages)
+    assert len(lines) >= 3, f"Expected at least 3 log lines, got {len(lines)}"
+
+    # Parse each line and verify it's valid JSON
+    for i, line in enumerate(lines):
+        try:
+            log_entry = json.loads(line)
+        except json.JSONDecodeError as e:
+            pytest.fail(f"Line {i+1} is not valid JSON: {line}\nError: {e}")
+
+        # Verify common JSON log fields are present
+        assert "message" in log_entry, f"Log entry {i+1} missing 'message' field"
+        assert "levelname" in log_entry, f"Log entry {i+1} missing 'levelname' field"
+        assert "name" in log_entry, f"Log entry {i+1} missing 'name' field"
+        assert "asctime" in log_entry, f"Log entry {i+1} missing 'asctime' field"
+
+        # Verify that environment variable tags are injected
+        assert "SERVICE_NAME" in log_entry, f"Log entry {i+1} missing 'SERVICE_NAME' tag"
+        assert log_entry["SERVICE_NAME"] == "test-service", f"Log entry {i+1} has incorrect SERVICE_NAME value"
+        assert "ENVIRONMENT" in log_entry, f"Log entry {i+1} missing 'ENVIRONMENT' tag"
+        assert log_entry["ENVIRONMENT"] == "test", f"Log entry {i+1} has incorrect ENVIRONMENT value"
+        assert "VERSION" in log_entry, f"Log entry {i+1} missing 'VERSION' tag"
+        assert log_entry["VERSION"] == "1.0.0", f"Log entry {i+1} has incorrect VERSION value"
+
+    # Verify specific log messages and their content
+    log_contents = [json.loads(line) for line in lines]
+
+    # Find the error message with extra field
+    error_logs = [log for log in log_contents if "Test error message" in log.get("message", "")]
+    assert len(error_logs) == 1, "Should find exactly one error message"
+    assert error_logs[0]["levelname"] == "ERROR"
+    assert error_logs[0]["error_code"] == 500, "error_code field should be included"
+

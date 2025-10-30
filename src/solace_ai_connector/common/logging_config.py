@@ -1,3 +1,10 @@
+"""
+Internal logging configuration utilities for the Solace AI Connector.
+
+This module contains internal utilities for configuring logging from .ini files.
+For user-facing logging components, see solace_ai_connector.logging module.
+"""
+
 import configparser
 import logging
 import logging.config
