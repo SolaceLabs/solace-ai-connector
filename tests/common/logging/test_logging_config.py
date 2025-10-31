@@ -80,7 +80,7 @@ def test_configure_from_logging_ini_file_not_found(tmp_path, monkeypatch):
     assert str(non_existent_file) in str(exc_info.value)
 
 
-def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch):
+def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch, isolated_logging):
     """
     Test configure_from_logging_ini with an invalid configuration file.
     
@@ -256,7 +256,7 @@ format=${LOG_FORMAT ,%(levelname)s|%(message)s}
     assert handler.formatter._fmt == "%(levelname)s|%(message)s", "Handler should have correct format"
 
 
-def test_configure_from_logging_ini_empty_env_var(tmp_path, monkeypatch):
+def test_configure_from_logging_ini_empty_env_var(tmp_path, monkeypatch, isolated_logging):
     """Test that empty environment variables are treated as set (not falling back to default)."""
     log_file = tmp_path / "empty_env_var_test.log"
     config_content = """[loggers]
@@ -298,7 +298,7 @@ format=${LOG_FORMAT, %(name)s}
     assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
 
 
-def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
+def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch, isolated_logging):
     """Test that missing env var without default raises ValueError."""
     log_file = tmp_path / "missing_env_var_test.log"
     config_content = """[loggers]

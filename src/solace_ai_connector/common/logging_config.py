@@ -61,7 +61,7 @@ def configure_from_logging_ini():
     try:
         config = _parse_file(config_path)
 
-        logging.config.fileConfig(config)
+        logging.config.fileConfig(config, disable_existing_loggers=True)
 
         logger = logging.getLogger(__name__)
         logger.info("Root logger successfully configured based on LOGGING_CONFIG_PATH=%s", config_path)
