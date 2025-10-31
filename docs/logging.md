@@ -77,17 +77,17 @@ formatter=jsonFormatter
 args=('sam.log', 'a', 52428800, 10)
 ```
 
-**Step 2: Configure Tags via Environment Variables**
+**Step 2: Configure Tags via Environment Variables (Optional)**
 
 Log aggregation systems expect tags to be included in log records for better filtering, grouping, and analysis.
 
 To configure which tags should be added to log records, use the `LOGGING_JSON_TAGS` environment variable:
 
 ```bash
-# Specify which environment variables to inject as tags
+# Specify which environment variables to inject as tags as a comma-separated list
 export LOGGING_JSON_TAGS=SERVICE_NAME,ENVIRONMENT,VERSION,REGION
 
-# Set the actual values for these environment variables
+# Set the actual values for the tags
 export SERVICE_NAME=payment-service
 export ENVIRONMENT=production
 export VERSION=2.1.0
@@ -98,14 +98,15 @@ With this configuration, all JSON log records will automatically include these t
 
 ```json
 {
-  "asctime": "2024-01-15 10:30:45,123",
-  "levelname": "INFO",
-  "name": "solace_ai_connector.flow",
-  "message": "Processing message"
-  "SERVICE_NAME": "payment-service",
-  "ENVIRONMENT": "production",
-  "VERSION": "2.1.0",
-  "REGION": "us-east-1",
+   "asctime":"2025-10-30 22:25:56,960",
+   "levelname":"INFO",
+   "threadName":"MainThread",
+   "name":"solace_ai_connector.flow",
+   "message":"Processing message",
+   "SERVICE_NAME": "payment-service",
+   "ENVIRONMENT": "production",
+   "VERSION": "2.1.0",
+   "REGION": "us-east-1"
 }
 ```
 
