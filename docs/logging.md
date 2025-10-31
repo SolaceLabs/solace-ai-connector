@@ -117,6 +117,10 @@ This is a flexible way to add contextual information to your logs without modify
 #### Common Use Cases
 
 **Datadog Integration:**
+
+[Datadog uses specific tag names](https://docs.datadoghq.com/getting_started/tagging/), the most common being `service`, `env`, and `version`. 
+To align with Datadog's conventions, configure the tags as follows:
+
 ```bash
 export LOGGING_JSON_TAGS=service,env,version
 export service=payment-service
