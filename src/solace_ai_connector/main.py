@@ -142,7 +142,7 @@ def main():
 
     # Configure logging from LOGGING_CONFIG_PATH if set.
     # LOGGING_CONFIG_PATH provided in .env file takes precedence over LOGGING_CONFIG_PATH set in the environment.
-    logging_config.configure_from_logging_ini()
+    logging_config.configure_from_file()
 
 
     # Use the config files provided via arguments

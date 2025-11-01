@@ -4,11 +4,13 @@ import json
 
 import pytest
 
+from solace_ai_connector.common.exceptions import InitializationError
+
 sys.path.append("src")
 
-from solace_ai_connector.common.logging_config import configure_from_logging_ini
+from solace_ai_connector.common.logging_config import configure_from_file
 
-def test_configure_from_logging_ini_success_path(tmp_path, monkeypatch, isolated_logging):
+def test_configure_from_ini_success_path(tmp_path, monkeypatch):
     log_file = tmp_path / "test.log"
     config_content = f"""[loggers]
 keys=root
@@ -38,7 +40,7 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
     
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     
-    assert configure_from_logging_ini() is True
+    assert configure_from_file() is True
 
     test_logger = logging.getLogger("test_logger")
 
@@ -55,17 +57,17 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
     assert "test_logger" in log_content, "Logger name should be in log file"
 
 
-def test_configure_from_logging_ini_no_env_var(monkeypatch):
+def test_configure_from_ini_no_env_var(monkeypatch):
     """
     Test configure_from_logging_ini when LOGGING_CONFIG_PATH is not set.
     
     This should return False.
     """
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
-    assert configure_from_logging_ini() is False
+    assert configure_from_file() is False
 
 
-def test_configure_from_logging_ini_file_not_found(tmp_path, monkeypatch):
+def test_configure_from_ini_file_not_found(tmp_path, monkeypatch):
     """
     Test configure_from_logging_ini when the config file doesn't exist.
     
@@ -75,12 +77,12 @@ def test_configure_from_logging_ini_file_not_found(tmp_path, monkeypatch):
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(non_existent_file))
     
     with pytest.raises(FileNotFoundError) as exc_info:
-        configure_from_logging_ini()
+        configure_from_file()
     
     assert str(non_existent_file) in str(exc_info.value)
 
 
-def test_configure_from_logging_ini_invalid_config(tmp_path, monkeypatch):
+def test_configure_from_ini_invalid_config(tmp_path, monkeypatch):
     """
     Test configure_from_logging_ini with an invalid configuration file.
     
@@ -114,12 +116,12 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     
     with pytest.raises(ValueError) as exc_info:
-        configure_from_logging_ini()
+        configure_from_file()
 
     assert "Unknown level: 'INVALID_LEVEL'" in str(exc_info.value)
 
 
-def test_configure_from_logging_ini_with_json_formatter(tmp_path, monkeypatch, isolated_logging):
+def test_configure_from_ini_with_json_formatter(tmp_path, monkeypatch):
     """
     Test configure_from_logging_ini with pythonjsonlogger.jsonlogger.JsonFormatter.
 
@@ -159,7 +161,7 @@ format=%(asctime)s %(levelname)s %(name)s %(message)s
 
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
 
-    assert configure_from_logging_ini() is True
+    assert configure_from_file() is True
 
     test_logger = logging.getLogger("test_json_logger")
 
@@ -210,7 +212,7 @@ format=%(asctime)s %(levelname)s %(name)s %(message)s
     assert error_logs[0]["user_id"] == 12345, "user_id field should be included"
 
 
-def test_configure_from_logging_ini_env_var_substitution(tmp_path, monkeypatch, isolated_logging):
+def test_configure_from_ini_env_var_substitution(tmp_path, monkeypatch):
     """Test that environment variables are substituted into INI values using ${NAME,default} syntax and other variations"""
     log_file = tmp_path / "env_var_test.log"
     config_content = """[loggers]
@@ -243,7 +245,7 @@ format=${LOG_FORMAT ,%(levelname)s|%(message)s}
     monkeypatch.setenv("LOG_LEVEL2", "ERROR")
     monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
     
-    assert configure_from_logging_ini() is True
+    assert configure_from_file() is True
 
     root_logger = logging.getLogger()
 
@@ -256,7 +258,7 @@ format=${LOG_FORMAT ,%(levelname)s|%(message)s}
     assert handler.formatter._fmt == "%(levelname)s|%(message)s", "Handler should have correct format"
 
 
-def test_configure_from_logging_ini_empty_env_var(tmp_path, monkeypatch):
+def test_configure_from_ini_empty_env_var(tmp_path, monkeypatch):
     """Test that empty environment variables are treated as set (not falling back to default)."""
     log_file = tmp_path / "empty_env_var_test.log"
     config_content = """[loggers]
@@ -289,7 +291,7 @@ format=${LOG_FORMAT, %(name)s}
     monkeypatch.setenv("LOG_FORMAT", "")
     monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
     
-    assert configure_from_logging_ini() is True
+    assert configure_from_file() is True
 
     root_logger = logging.getLogger()
 
@@ -298,7 +300,7 @@ format=${LOG_FORMAT, %(name)s}
     assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
 
 
-def test_configure_from_logging_ini_missing_env_var_no_default(tmp_path, monkeypatch):
+def test_configure_from_ini_missing_env_var_no_default(tmp_path, monkeypatch):
     """Test that missing env var without default raises ValueError."""
     log_file = tmp_path / "missing_env_var_test.log"
     config_content = """[loggers]
@@ -331,12 +333,12 @@ format=%(name)s: %(message)s
     monkeypatch.delenv("MISSING_ENV_VAR", raising=False)  # Ensure it's not set
     
     with pytest.raises(ValueError) as exc_info:
-        configure_from_logging_ini()
+        configure_from_file()
     
     assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
 
 
-def test_configure_from_logging_ini_empty_value(tmp_path, monkeypatch, isolated_logging):
+def test_configure_from_ini_empty_value(tmp_path, monkeypatch):
     """Test that empty values in the INI file are handled correctly."""
     log_file = tmp_path / "empty_value_test.log"
     config_content = """[loggers]
@@ -367,7 +369,7 @@ format=
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
     
-    assert configure_from_logging_ini() is True
+    assert configure_from_file() is True
 
     root_logger = logging.getLogger()
 
@@ -375,7 +377,7 @@ format=
     assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
     assert handler.formatter._fmt == "%(message)s", "Handler should use the default formatting when LOG_FORMAT is the empty string"
 
-def test_configure_from_logging_ini_no_interpolation(tmp_path, monkeypatch, isolated_logging):
+def test_configure_from_ini_no_interpolation(tmp_path, monkeypatch):
     """Test that logging configuration works when interpolation is disabled with a format string containing %()s patterns."""
     log_file = tmp_path / "no_interpolation_test.log"
     config_content = """[loggers]
@@ -412,10 +414,237 @@ format=%(asctime)s | %(levelname)-5s | %(name)s | %(message)s
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
 
-    assert configure_from_logging_ini() is True
+    assert configure_from_file() is True
 
     root_logger = logging.getLogger()
 
     handler = root_logger.handlers[0]
     assert isinstance(handler, logging.FileHandler), "Handler should be a FileHandler"
     assert handler.formatter._fmt == "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s", "Handler should have correct format"
+
+
+# Tests for JSON dict configuration support
+
+def test_configure_from_logging_json_basic(tmp_path, monkeypatch):
+    """Test basic JSON dict configuration."""
+    log_file = tmp_path / "json_dict_test.log"
+    config_content = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "simple": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            }
+        },
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "level": "INFO",
+                "formatter": "simple",
+                "filename": str(log_file)
+            }
+        },
+        "root": {
+            "level": "INFO",
+            "handlers": ["file"]
+        }
+    }
+    
+    config_file = tmp_path / "logging_config.json"
+    config_file.write_text(json.dumps(config_content, indent=2))
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    
+    assert configure_from_file() is True
+    
+    test_logger = logging.getLogger("test_json_dict_logger")
+    test_message = "Test message from JSON dict config"
+    test_logger.info(test_message)
+    
+    assert log_file.exists(), "Log file should have been created"
+    log_content = log_file.read_text()
+    assert test_message in log_content
+    assert "test_json_dict_logger" in log_content
+
+
+def test_configure_from_logging_yaml_basic(tmp_path, monkeypatch):
+    """Test basic YAML dict configuration."""
+    log_file = tmp_path / "yaml_dict_test.log"
+    config_content = f"""
+version: 1
+disable_existing_loggers: false
+formatters:
+  simple:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+handlers:
+  file:
+    class: logging.FileHandler
+    level: INFO
+    formatter: simple
+    filename: {log_file}
+root:
+  level: INFO
+  handlers: [file]
+"""
+    
+    config_file = tmp_path / "logging_config.yaml"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    
+    assert configure_from_file() is True
+    
+    test_logger = logging.getLogger("test_yaml_dict_logger")
+    test_message = "Test message from YAML dict config"
+    test_logger.info(test_message)
+    
+    assert log_file.exists(), "Log file should have been created"
+    log_content = log_file.read_text()
+    assert test_message in log_content
+    assert "test_yaml_dict_logger" in log_content
+
+
+def test_configure_json_with_env_var_substitution(tmp_path, monkeypatch):
+    """Test JSON configuration with environment variable substitution."""
+    log_file = tmp_path / "json_env_var_test.log"
+    config_content = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "custom": {
+                "format": "${LOG_FORMAT, %(levelname)s - %(message)s}"
+            }
+        },
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "level": "${LOG_LEVEL,INFO}",
+                "formatter": "custom",
+                "filename": "${ LOG_FILE_PATH }"
+            }
+        },
+        "root": {
+            "level": "${ROOT_LOG_LEVEL,DEBUG }",
+            "handlers": ["file"]
+        }
+    }
+    
+    config_file = tmp_path / "logging_env_var.json"
+    config_file.write_text(json.dumps(config_content, indent=2))
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_LEVEL", "WARNING")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    monkeypatch.setenv("LOG_FORMAT", "%(name)s | %(levelname)s | %(message)s")
+    
+    assert configure_from_file() is True
+    
+    root_logger = logging.getLogger()
+    assert root_logger.level == logging.DEBUG, "Root logger should be at DEBUG level (from default)"
+    
+    handler = root_logger.handlers[0]
+    assert handler.level == logging.WARNING, "Handler should be at WARNING level (from env var)"
+    assert handler.formatter._fmt == "%(name)s | %(levelname)s | %(message)s"
+
+
+def test_configure_yaml_with_env_var_substitution(tmp_path, monkeypatch):
+    """Test YAML configuration with environment variable substitution."""
+    log_file = tmp_path / "yaml_env_var_test.log"
+    config_content = f"""
+version: 1
+disable_existing_loggers: false
+formatters:
+  custom:
+    format: '${{LOG_FORMAT, %(levelname)s - %(message)s}}'
+handlers:
+  file:
+    class: logging.FileHandler
+    level: '${{LOG_LEVEL, INFO}}'
+    formatter: custom
+    filename: '${{LOG_FILE_PATH}}'
+root:
+  level: '${{ROOT_LOG_LEVEL, DEBUG}}'
+  handlers: [file]
+"""
+    
+    config_file = tmp_path / "logging_env_var.yaml"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.setenv("LOG_LEVEL", "ERROR")
+    monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
+    monkeypatch.setenv("ROOT_LOG_LEVEL", "INFO")
+    
+    assert configure_from_file() is True
+    
+    root_logger = logging.getLogger()
+    assert root_logger.level == logging.INFO, "Root logger should be at INFO level (from env var)"
+    
+    handler = root_logger.handlers[0]
+    assert handler.level == logging.ERROR, "Handler should be at ERROR level (from env var)"
+
+
+def test_configure_dict_config_missing_env_var_no_default(tmp_path, monkeypatch):
+    """Test that missing env var without default raises ValueError in dict configs."""
+    config_content = {
+        "version": 1,
+        "handlers": {
+            "file": {
+                "class": "logging.FileHandler",
+                "level": "${MISSING_VAR}",
+                "filename": "test.log"
+            }
+        }
+    }
+    
+    config_file = tmp_path / "missing_var.json"
+    config_file.write_text(json.dumps(config_content))
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    monkeypatch.delenv("MISSING_VAR", raising=False)
+    
+    with pytest.raises(ValueError) as exc_info:
+        configure_from_file()
+    
+    assert "Environment variable 'MISSING_VAR' is not set and no default value provided" in str(exc_info.value)
+
+
+def test_configure_invalid_json_format(tmp_path, monkeypatch):
+    """Test that invalid JSON raises appropriate error."""
+    config_content = "{ invalid json content"
+    
+    config_file = tmp_path / "invalid.json"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    
+    with pytest.raises(InitializationError) as exc_info:
+        configure_from_file()
+    
+    error_str = str(exc_info.value)
+    assert "Logging configuration file 'LOGGING_CONFIG_PATH=%s' could not be parsed" in error_str
+    assert "The configuration must be valid JSON or YAML" in error_str
+    assert str(config_file) in error_str
+
+
+def test_configure_invalid_yaml_format(tmp_path, monkeypatch):
+    """Test that invalid YAML raises appropriate error."""
+    config_content = """
+invalid: yaml: content:
+  - this is
+  - not: valid
+    - yaml
+"""
+    
+    config_file = tmp_path / "invalid.yaml"
+    config_file.write_text(config_content)
+    
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+    
+    with pytest.raises(InitializationError) as exc_info:
+        configure_from_file()
+    
+    error_str = str(exc_info.value)
+    assert "Logging configuration file 'LOGGING_CONFIG_PATH=%s' could not be parsed" in error_str
+    assert "The configuration must be valid JSON or YAML" in error_str
+    assert str(config_file) in error_str

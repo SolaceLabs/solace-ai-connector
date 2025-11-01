@@ -1,7 +1,7 @@
 import logging
 import pytest
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def isolated_logging():
     """Fixture to isolate logging configuration changes and restore original state."""
     # Save original state
