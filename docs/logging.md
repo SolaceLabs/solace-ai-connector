@@ -4,45 +4,76 @@ The Solace AI Connector leverages Python's built-in logging module to provide fl
 
 ## Configuring Logging
 
-The Solace AI Connector uses Python's [fileConfig format](https://docs.python.org/3/library/logging.config.html#configuration-file-format) for logging configuration. To configure logging, create a logging configuration .ini file and point to the file with the environment variable: `LOGGING_CONFIG_PATH=./path/to/logging_config.ini`
+To configure logging, point the environment variable `LOGGING_CONFIG_PATH=./path/to/logging_config.yaml` to your logging configuration file.
 
-Here's an example .ini configuration that demonstrates a common setup:
+The application automatically detects the format of your configuration file and applies the appropriate configuration method:
 
-```ini
-[loggers]
-keys=root,solace_ai_connector,sam_trace
+1. **INI format** - Uses Python's [fileConfig](https://docs.python.org/3/library/logging.config.html#configuration-file-format)
+2. **JSON format** - Uses Python's [dictConfig](https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig)
+3. **YAML format** - Uses Python's [dictConfig](https://docs.python.org/3/library/logging.config.html#logging.config.dictConfig)
 
-[logger_root]
-level=WARN
-handlers=streamHandler,rotatingFileHandler
-qualname=root
+> **Notes:** 
+> - JSON and YAML formats are recommended as they provide advanced features not available with INI format.
+> - This document uses YAML in its examples, but examples can be easily adapted to JSON format.
 
-[logger_solace_ai_connector]
-level=${LOGGING_SOLACE_AI_CONNECTOR_LEVEL, INFO}
-handlers=
-qualname=solace_ai_connector
+Here's an example configuration that demonstrates a common setup:
+```yaml
+version: 1
+disable_existing_loggers: false
 
-[logger_sam_trace]
-level=${LOGGING_SAM_TRACE_LEVEL, INFO}
-handlers=
-qualname=sam_trace
+formatters:
+  simpleFormatter:
+    format: "%(asctime)s | %(levelname)-5s | %(threadName)s | %(name)s | %(message)s"
 
-[handlers]
-keys=streamHandler,rotatingFileHandler
+handlers:
+  streamHandler:
+    class: logging.StreamHandler
+    formatter: simpleFormatter
+    stream: "ext://sys.stdout"
+
+  rotatingFileHandler:
+    class: logging.handlers.RotatingFileHandler
+    formatter: simpleFormatter
+    filename: ${LOGGING_FILE_NAME, app.log}
+    mode: a
+    maxBytes: 52428800  # 50MB
+    backupCount: 10
+
+loggers:
+  solace_ai_connector:
+    level: INFO  
+    handlers: []
+    qualname: solace_ai_connector
+    propagate: true
+
+  sam_trace:
+    level: INFO
+    handlers: []
+    qualname: sam_trace
+    propagate: true
+
+root:
+  level: ${LOGGING_ROOT_LEVEL, WARNING}
+  handlers: [streamHandler, rotatingFileHandler]
 ```
 
 This configuration:
-- Creates a root logger that catches all unhandled log messages from any module at WARN or higher
+- Defines a simple log message format that is then applied to all handlers.
+- Configures two handlers: `streamHandler` for console output and `rotatingFileHandler` for writing logs to a rotating file.
+- Sets up the `solace_ai_connector` logger that captures INFO level logs specifically from the solace_ai_connector package
+- Includes a special `sam_trace` tracing logger that can be enabled during development for detailed troubleshooting of data structures and internal operations. To enable this logger, set its level to DEBUG.
+- Configures the root logger to catch all unhandled log messages from any module at WARNING or higher
+- Configures the root logger to route all log messages to both the console and the rotating log file.
+- Demonstrates the use of environment variable substitution for dynamic configuration.
 
-- Routes all qualifying log messages to both console and a rotating log file
+### Environment Variable Substitution
 
-- Defines a main application logger (`solace_ai_connector`) that captures INFO level logs specifically from the `solace_ai_connector` module
+All configuration formats support environment variable substitution with the syntax `${VAR_NAME, default_value}`:
 
-- Includes a special debug logger (`sam_trace`) that can be enabled during development for detailed troubleshooting of data structures and internal operations. To enable this logger, set its level to DEBUG.
+- `${VAR_NAME}` - Use the environment variable value; raises an error if not set
+- `${VAR_NAME, default_value}` - Use the environment variable value, or the default if not set
 
-Note that, as demonstrated in the above example, environment variable substitution is supported with the syntax `${VAR_NAME, default_value}`. Users can use variable names of their choice; the application will look for these environment variables at runtime and substitute their values accordingly. If the environment variable is not set, the provided default value will be used.
-
-For additional standard logging configuration options and information on creating handlers, refer to the [Python logging documentation](https://docs.python.org/3/library/logging.config.html#configuration-file-format).
+The application substitutes these environment variables at startup before applying the logging configuration.
 
 ### Effective Log Level
 
@@ -52,21 +83,30 @@ When configuring levels for different loggers, the effective log level is determ
 
 Structured logging outputs log messages in JSON format, making them easier to parse, search, and analyze in log aggregation systems. This project supports structured logging via the [python-json-logger](https://github.com/nhairs/python-json-logger) library.
 
-To enable JSON logging, define a formatter which uses `class=pythonjsonlogger.jsonlogger.JsonFormatter` and apply it to your chosen handlers:
+To enable JSON logging, define a formatter which instantiates a `pythonjsonlogger.json.JsonFormatter` and apply the formatter to the handlers of your choice:
 
-```ini
-[formatters]
-keys=simpleFormatter,jsonFormatter
-
-[formatter_simpleFormatter]
-format=%(asctime)s | %(levelname)-5s | %(name)s | %(message)s
-
-[formatter_jsonFormatter]
-class=pythonjsonlogger.jsonlogger.JsonFormatter
-format=%(asctime)s %(levelname)s %(name)s %(message)s
-
-[handler_rotatingFileHandler]
-class=logging.handlers.RotatingFileHandler
-formatter=jsonFormatter
-args=('sam.log', 'a', 52428800, 10)
+```yaml
+formatters:
+  simpleFormatter:
+    format: "%(asctime)s | %(levelname)-5s | %(threadName)s | %(name)s | %(message)s"
+  jsonFormatter:
+    class: pythonjsonlogger.json.JsonFormatter
+    format: "%(asctime)s %(levelname)s %(threadName)s %(name)s %(message)s"
+      
+handlers:
+  streamHandler:
+    class: logging.StreamHandler
+    formatter: simpleFormatter
+    stream: "ext://sys.stdout"
+  rotatingFileHandler:
+    class: logging.handlers.RotatingFileHandler
+    formatter: jsonFormatter
+    filename: sam.log
+    mode: a
+    maxBytes: 52428800
+    backupCount: 10
 ```
+This configuration:
+- Defines a jsonFormatter for structured JSON logs using `pythonjsonlogger.json.JsonFormatter`.
+- Applies the jsonFormatter to the file handler while keeping the console handler in a human-readable format.
+
