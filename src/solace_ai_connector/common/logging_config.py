@@ -46,17 +46,6 @@ def _is_ini_format(content: str) -> bool:
         return True
     return False
 
-def substitute_env_vars(content: str) -> str:
-    """Substitute environment variables in the given content string.
-
-    Args:
-        content: String content of the configuration file
-
-    Returns:
-        str: Content with environment variables substituted
-    """
-    return pattern.sub(_replace, content)
-
 def _parse_file(config_path: str) -> configparser.ConfigParser:
     """Parse an INI configuration file with environment variable substitution.
     
@@ -101,7 +90,8 @@ def configure_from_file():
             config = _parse_file(config_path)
             logging.config.fileConfig(config)
         else:
-            config = substitute_env_vars(content)
+            # Substitute environment variables in the given content string.
+            config = pattern.sub(_replace, content)
             try:
                 dict_config = json.loads(config)
                 print("INFO: Detected JSON format for logging configuration.")
