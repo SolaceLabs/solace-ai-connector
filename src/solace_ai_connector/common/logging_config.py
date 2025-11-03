@@ -4,10 +4,26 @@ import logging.config
 import os
 import sys
 import re
+import json
+import yaml
 
+from solace_ai_connector.common.exceptions import InitializationError
+
+# Regex pattern for environment variable substitution: ${VAR_NAME} or ${VAR_NAME, default_value}
 pattern = re.compile(r"\$\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:,\s*([^}]+?)\s*)?\}")
 
 def _replace(match: re.Match) -> str:
+    """Replace environment variable references with their values.
+    
+    Args:
+        match: Regex match object containing variable name and optional default value eg ${VAR_NAME, default_value}
+        
+    Returns:
+        str: The environment variable value or default value
+        
+    Raises:
+        ValueError: If environment variable is not set and no default is provided
+    """
     name = match.group(1)
     default = match.group(2)
     
@@ -19,7 +35,26 @@ def _replace(match: re.Match) -> str:
         
     return val
 
+def _is_ini_format(content: str) -> bool:
+    """Check if the content is in INI format by looking for section headers.
+
+    Args:
+        content: String content of the configuration file
+    """
+    # Look for INI section headers e.g. [formatters]
+    if re.search(r'^\s*\[.+\]\s*$', content, re.MULTILINE):
+        return True
+    return False
+
 def _parse_file(config_path: str) -> configparser.ConfigParser:
+    """Parse an INI configuration file with environment variable substitution.
+    
+    Args:
+        config_path: Path to the INI configuration file
+        
+    Returns:
+        configparser.ConfigParser: Parsed configuration with env vars substituted
+    """
     cp = configparser.ConfigParser(interpolation=None)
     cp.read(config_path)
 
@@ -34,14 +69,8 @@ def _parse_file(config_path: str) -> configparser.ConfigParser:
     return cp
 
 
-def configure_from_logging_ini():
-    """
-    Configure the root logger using fileConfig() with the file path
-    specified by the LOGGING_CONFIG_PATH environment variable.
-    
-    Returns:
-        bool: True if configuration was successful, False otherwise.
-    """
+def configure_from_file():
+
     config_path = os.getenv("LOGGING_CONFIG_PATH")
 
     if not config_path:
@@ -49,18 +78,39 @@ def configure_from_logging_ini():
         return False
 
     if not os.path.exists(config_path):
-        raise FileNotFoundError(f"LOGGING_CONFIG_PATH is set to '{config_path}', but the file was not found.")    
+        raise FileNotFoundError("LOGGING_CONFIG_PATH is set to '%s', but the file was not found.", config_path)
 
     try:
-        config = _parse_file(config_path)
+        with open(config_path, 'r', encoding='utf-8') as f:
+            content = f.read()
 
-        logging.config.fileConfig(config)
+        if _is_ini_format(content):
+            # Use fileConfig for INI files
+            print("INFO: Detected INI format for logging configuration.")
+            config = _parse_file(config_path)
+            logging.config.fileConfig(config)
+        else:
+            # Substitute environment variables in the given content string.
+            config = pattern.sub(_replace, content)
+            try:
+                dict_config = json.loads(config)
+                print("INFO: Detected JSON format for logging configuration.")
+            except ValueError as json_error:
+                try :
+                    dict_config = yaml.safe_load(config)
+                    print("INFO: Detected YAML format for logging configuration.")
+                except Exception:
+                    raise InitializationError("Logging configuration file 'LOGGING_CONFIG_PATH=%s' could not be parsed. The configuration must be valid JSON or YAML.", config_path)
+
+            logging.config.dictConfig(dict_config)
 
         logger = logging.getLogger(__name__)
         logger.info("Root logger successfully configured based on LOGGING_CONFIG_PATH=%s", config_path)
         return True
 
+    except InitializationError:
+        raise
     except Exception as e:
         import traceback
-        print(f"ERROR: Exception occurred while configuring root logger from '{config_path}' (specified by LOGGING_CONFIG_PATH environment variable). Exception: {traceback.format_exc()}", file=sys.stderr)
+        print(f"ERROR: Exception occurred while configuring logging from 'LOGGING_CONFIG_PATH={config_path}'. Validate the logging configuration. Exception: {traceback.format_exc()}", file=sys.stderr)
         raise e

@@ -49,7 +49,7 @@ def assert_sam_trace_logger_default_configuration():
     assert isinstance(sam_trace_logger.handlers[0], logging.FileHandler)
     assert sam_trace_logger.level == logging.WARNING # Effectively disabled trace
 
-def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config, isolated_logging):
+def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "test_connector.log"
 
@@ -85,7 +85,7 @@ def test_setup_logging_when_no_env_var(tmp_path, monkeypatch, apps_config, isola
 
     assert_sam_trace_logger_default_configuration()
 
-def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config, isolated_logging):
+def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "rolling_test.log"
 
@@ -131,7 +131,7 @@ def test_setup_logging_with_logback_config(tmp_path, monkeypatch, apps_config, i
     assert_sam_trace_logger_default_configuration()
 
 
-def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_config, isolated_logging):
+def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_config):
     """Test that connector uses default logging config when log section is missing"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
 
@@ -156,7 +156,7 @@ def test_setup_logging_with_missing_log_config_uses_defaults(monkeypatch, apps_c
 
     assert_sam_trace_logger_default_configuration()
 
-def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config, isolated_logging):
+def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config):
     """Test that connector sets up JSON logging format correctly"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "json_format_test.log"
@@ -199,7 +199,7 @@ def test_setup_logging_with_jsonl_formatting(tmp_path, monkeypatch, apps_config,
         ("log_file_level", "stdout_log_level"),
     ]
 )
-def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config, invalid_key, valid_key, isolated_logging):
+def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config, invalid_key, valid_key):
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "invalid_level_test.log"
 
@@ -225,7 +225,7 @@ def test_setup_logging_with_invalid_log_level(tmp_path, monkeypatch, apps_config
         ("log_file_level", "stdout_log_level"),
     ]
 )
-def test_setup_logging_with_boolean_true_log_levels(tmp_path, monkeypatch, apps_config, invalid_key, valid_key, isolated_logging):
+def test_setup_logging_with_boolean_true_log_levels(tmp_path, monkeypatch, apps_config, invalid_key, valid_key):
     """Test that boolean TRUE values for log levels raise InitializationError"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "boolean_level_test.log"
@@ -246,7 +246,7 @@ def test_setup_logging_with_boolean_true_log_levels(tmp_path, monkeypatch, apps_
     assert f"Invalid log level type 'bool' for '{invalid_key}'" in str(exc_info.value)
     assert "Must be int or str" in str(exc_info.value)
 
-def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps_config, isolated_logging):
+def test_sam_trace_logger_configuration_when_enabled(tmp_path, monkeypatch, apps_config):
     """Test that sam_trace logger is properly configured when enableTrace is True"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     
@@ -345,7 +345,7 @@ class TestValidateLogLevel:
         assert f"Invalid log level type '{expected_type_name}' for 'test_handler'" in str(exc_info.value)
         assert "Must be int or str" in str(exc_info.value)
 
-def test_setup_logging_with_numeric_log_levels(tmp_path, monkeypatch, apps_config, isolated_logging):
+def test_setup_logging_with_numeric_log_levels(tmp_path, monkeypatch, apps_config):
     """Test that setup_log works correctly with numeric log levels"""
     monkeypatch.delenv("LOGGING_CONFIG_PATH", raising=False)
     log_file = tmp_path / "numeric_levels_test.log"

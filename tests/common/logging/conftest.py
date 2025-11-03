@@ -1,10 +1,13 @@
 import logging
 import pytest
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def isolated_logging():
-    """Fixture to isolate logging configuration changes and restore original state."""
-    # Save original state
+    """
+    Fixture to prevent tests from altering main logging configuration.
+    Main logging application state is saved before each test and restored after every test.
+    """
+    # Save original state of root logger
     root_logger = logging.getLogger()
     original_handlers = root_logger.handlers[:]
     original_level = root_logger.level
@@ -24,13 +27,12 @@ def isolated_logging():
 
     yield
 
-    # Restore original state
+    # Clear changes done within tests and restore original state
     root_logger.handlers.clear()
     root_logger.handlers.extend(original_handlers)
     root_logger.setLevel(original_level)
     root_logger.disabled = original_disabled
 
-    # Restore state of all loggers
     for name, state in original_logger_states.items():
         logger = logging.getLogger(name)
         if hasattr(logger, 'handlers'):
