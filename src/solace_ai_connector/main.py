@@ -77,7 +77,7 @@ def normalize_sqlite_url(url):
     Normalize SQLite URLs to use forward slashes instead of backslashes.
     This prevents YAML parsing errors and ensures compatibility across platforms.
     """
-    if url and isinstance(url, str) and url.startswith("sqlite:///"):
+    if url and isinstance(url, str):
         # Extract the path part
         path_part = url[len("sqlite:///"):]
         # Replace backslashes with forward slashes
