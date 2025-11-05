@@ -72,17 +72,34 @@ def process_includes(file_path, base_dir):
     )
     return include_pattern.sub(include_repl, content)
 
+def normalize_sqlite_url(url):
+    """
+    Normalize SQLite URLs to use forward slashes instead of backslashes.
+    This prevents YAML parsing errors and ensures compatibility across platforms.
+    """
+    if url and isinstance(url, str):
+        # Extract the path part
+        path_part = url[len("sqlite:///"):]
+        # Replace backslashes with forward slashes
+        normalized_path = path_part.replace('\\', '/')
+        # Reconstruct the URL
+        return f"sqlite:///{normalized_path}"
+    return url
 
 def expandvars_with_defaults(text):
     """Expand environment variables with support for default values.
     Supported syntax: ${VAR_NAME} or ${VAR_NAME, default_value}"""
     pattern = re.compile(r"\$\{([^}:\s]+)(?:\s*,\s*([^}]*))?\}")
-
+    
     def replacer(match):
         var_name = match.group(1)
         default_value = match.group(2) if match.group(2) is not None else ""
-        return os.environ.get(var_name, default_value)
-
+        value = os.environ.get(var_name, default_value)
+        
+        # Normalize SQLite URLs to prevent YAML parsing errors
+        if value.startswith("sqlite:///"):
+            value = normalize_sqlite_url(value)
+        return value
     return pattern.sub(replacer, text)
 
 def merge_config(dict1, dict2):
