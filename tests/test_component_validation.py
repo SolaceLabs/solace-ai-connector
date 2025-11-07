@@ -4,33 +4,6 @@ import pytest
 from unittest.mock import Mock
 from solace_ai_connector.components.component_base import ComponentBase
 
-
-def test_missing_component_name_raises_error():
-    """Test that missing component_name raises a clear error"""
-    module_info = {
-        "class_name": "TestComponent",
-        "description": "Test component",
-    }
-
-    config = {
-        # Missing component_name - should fail
-        "component_module": "pass_through",
-    }
-
-    with pytest.raises(ValueError) as exc_info:
-        ComponentBase(
-            module_info,
-            config=config,
-            flow_name="test_flow",
-            stop_signal=Mock(),
-            error_queue=Mock(),
-            instance_name="test_instance",
-        )
-
-    error_message = str(exc_info.value)
-    assert "'component_name' is required but not provided" in error_message
-
-
 def test_component_name_not_string_raises_error():
     """Test that component_name must be a string"""
     module_info = {
@@ -55,33 +28,6 @@ def test_component_name_not_string_raises_error():
 
     error_message = str(exc_info.value)
     assert "'component_name' must be a string" in error_message
-
-
-def test_missing_component_module_raises_error():
-    """Test that missing component_module raises a clear error"""
-    module_info = {
-        "class_name": "TestComponent",
-        "description": "Test component",
-    }
-
-    config = {
-        "component_name": "test_component",
-        # Missing component_module - should fail
-    }
-
-    with pytest.raises(ValueError) as exc_info:
-        ComponentBase(
-            module_info,
-            config=config,
-            flow_name="test_flow",
-            stop_signal=Mock(),
-            error_queue=Mock(),
-            instance_name="test_instance",
-        )
-
-    error_message = str(exc_info.value)
-    assert "'component_module' is required" in error_message
-
 
 def test_component_module_not_string_raises_error():
     """Test that component_module must be a string"""

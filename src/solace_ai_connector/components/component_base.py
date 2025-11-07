@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 DEFAULT_QUEUE_TIMEOUT_MS = 1000
 DEFAULT_QUEUE_MAX_DEPTH = 5
 
+
 class ComponentBase:
 
     def __init__(self, module_info, **kwargs):
@@ -531,34 +532,25 @@ class ComponentBase:
 
     def validate_config(self):
         """Validates the component configuration structure and types."""
-        
+
         # Validate component_name is required and is a string
         component_name = self.config.get("component_name")
-        if not component_name:
-            raise ValueError(
-                "Configuration error: 'component_name' is required but not provided"
-            )
-        if not isinstance(component_name, str):
+        if component_name is not None and not isinstance(component_name, str):
             raise ValueError(
                 f"Configuration error in component '{component_name}': "
                 f"'component_name' must be a string. "
                 f"Found type: {type(component_name).__name__}"
             )
-        
+
         # Validate component_module is required and is a string
         component_module = self.config.get("component_module")
-        if not component_module:
-            raise ValueError(
-                f"Configuration error in component '{self.name}': "
-                f"'component_module' is required but not provided"
-            )
-        if not isinstance(component_module, str):
+        if component_module is not None and not isinstance(component_module, str):
             raise ValueError(
                 f"Configuration error in component '{self.name}': "
                 f"'component_module' must be a string. "
                 f"Found type: {type(component_module).__name__}"
             )
-        
+
         # Validate component_config is a dictionary if provided
         component_config = self.config.get("component_config")
         if component_config is not None and not isinstance(component_config, dict):
@@ -567,7 +559,7 @@ class ComponentBase:
                 f"'component_config' must be a dictionary. "
                 f"Found type: {type(component_config).__name__}"
             )
-        
+
         # Validate input_transforms is a list if provided
         input_transforms = self.config.get("input_transforms")
         if input_transforms is not None and not isinstance(input_transforms, list):
@@ -576,17 +568,17 @@ class ComponentBase:
                 f"'input_transforms' must be a list. "
                 f"Found type: {type(input_transforms).__name__}"
             )
-        
+
         # Validate input_selection type
         input_selection = self.config.get("input_selection")
         if input_selection is not None and not isinstance(input_selection, dict):
-                raise ValueError(
-                    f"Configuration error in component '{self.name}': "
-                    f"'input_selection' must be a dictionary. "
-                    f"Found type: {type(input_selection).__name__}. "
-                    f"Expected format: input_selection: {{source_expression: <expression>}}"
-                )
-        
+            raise ValueError(
+                f"Configuration error in component '{self.name}': "
+                f"'input_selection' must be a dictionary. "
+                f"Found type: {type(input_selection).__name__}. "
+                f"Expected format: input_selection: {{source_expression: <expression>}}"
+            )
+
         # Validate num_instances is an integer if provided
         num_instances = self.config.get("num_instances")
         if num_instances is not None and not isinstance(num_instances, int):
@@ -595,25 +587,31 @@ class ComponentBase:
                 f"'num_instances' must be an integer. "
                 f"Found type: {type(num_instances).__name__}"
             )
-        
+
         # Validate component_class is a string if provided
         component_class = self.config.get("component_class")
-        if component_class is not None and not isinstance(component_class, str):
+        if (
+            component_class is not None
+            and not isinstance(component_class, type)
+            and issubclass(component_class, ComponentBase)
+        ):
             raise ValueError(
                 f"Configuration error in component '{self.name}': "
-                f"'component_class' must be a string. "
+                f"'component_class' must be a subclass of ComponentBase. "
                 f"Found type: {type(component_class).__name__}"
             )
-        
+
         # Validate broker_request_response is a dictionary if provided
         broker_request_response = self.config.get("broker_request_response")
-        if broker_request_response is not None and not isinstance(broker_request_response, dict):
+        if broker_request_response is not None and not isinstance(
+            broker_request_response, dict
+        ):
             raise ValueError(
                 f"Configuration error in component '{self.name}': "
                 f"'broker_request_response' must be a dictionary. "
                 f"Found type: {type(broker_request_response).__name__}"
             )
-        
+
         config_params = self.module_info.get("config_parameters", [])
         # Only validate if schema parameters are defined
         if config_params:
@@ -841,9 +839,7 @@ class ComponentBase:
                 )
                 return None
             except TimeoutError as e:  # Catch timeout specifically
-                log.exception(
-                    f"[{self.name}] {self.log_identifier} RRC timed out"
-                )
+                log.exception(f"[{self.name}] {self.log_identifier} RRC timed out")
                 raise ValueError("RRC timed out") from e  # Re-raise timeout
             except Exception as e:
                 log.exception(
