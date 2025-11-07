@@ -87,7 +87,7 @@ def test_transform_with_run_component_test_with_static_import():
         }
 
     run_component_test(
-        solace_ai_connector.components.general.pass_through,
+        "pass_through",
         validation_func,
         input_data={"text": "Hello, World!"},
         input_transforms=[

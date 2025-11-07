@@ -166,7 +166,7 @@ def test_static_import_and_object_config():
                         "components": [
                             {
                                 "component_name": "delay1",
-                                "component_module": solace_ai_connector.components.general.pass_through,
+                                "component_module": "pass_through",
                                 "component_config": {"delay": 0.1},
                                 "input_selection": {
                                     "source_expression": "input.payload"
