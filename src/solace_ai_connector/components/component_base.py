@@ -593,11 +593,10 @@ class ComponentBase:
         if (
             component_class is not None
             and not isinstance(component_class, type)
-            and issubclass(component_class, ComponentBase)
         ):
             raise ValueError(
                 f"Configuration error in component '{self.name}': "
-                f"'component_class' must be a subclass of ComponentBase. "
+                f"'component_class' must be a type."
                 f"Found type: {type(component_class).__name__}"
             )
 

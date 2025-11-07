@@ -353,7 +353,7 @@ def test_component_class_not_string_raises_error():
         )
     
     error_message = str(exc_info.value)
-    assert "'component_class' must be a string" in error_message
+    assert "'component_class' must be a type" in error_message
 
 
 def test_component_class_as_string_succeeds():
@@ -362,11 +362,13 @@ def test_component_class_as_string_succeeds():
         "class_name": "TestComponent",
         "description": "Test component",
     }
+    class DummyClass(ComponentBase):
+        pass
     
     config = {
         "component_name": "test_component",
         "component_module": "pass_through",
-        "component_class": "MyCustomClass",  # Correct type
+        "component_class": DummyClass,  # Correct type
     }
     
     component = ComponentBase(
@@ -378,7 +380,7 @@ def test_component_class_as_string_succeeds():
         instance_name="test_instance",
     )
     
-    assert component.config.get("component_class") == "MyCustomClass"
+    assert component.config.get("component_class") == DummyClass
 
 
 def test_broker_request_response_not_dict_raises_error():
