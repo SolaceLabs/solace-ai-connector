@@ -143,6 +143,11 @@ def main():
         nargs="+",  # Require at least one config file
         help="One or more YAML configuration files for the connector.",
     )
+    parser.add_argument(
+        "--skip-logging-config",
+        action="store_true",
+        help="Skip loading logging configuration from LOGGING_CONFIG_PATH.",
+    )
 
     args = parser.parse_args()
 
@@ -159,7 +164,9 @@ def main():
 
     # Configure logging from LOGGING_CONFIG_PATH if set.
     # LOGGING_CONFIG_PATH provided in .env file takes precedence over LOGGING_CONFIG_PATH set in the environment.
-    logging_config.configure_from_file()
+    # Skip if --skip-logging-config is provided
+    if not args.skip_logging_config:
+        logging_config.configure_from_file()
 
 
     # Use the config files provided via arguments
