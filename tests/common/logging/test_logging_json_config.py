@@ -9,6 +9,11 @@ from solace_ai_connector.common.exceptions import InitializationError
 sys.path.append("src")
 
 from solace_ai_connector.common.logging_config import configure_from_file
+import solace_ai_connector.common.logging_config as logging_config
+
+@pytest.fixture(autouse=True)
+def reset_logging_initialized():
+    logging_config.logging_initialized = False
 
 def test_configure_json_basic(tmp_path, monkeypatch):
     """Test basic JSON dict configuration."""
@@ -113,7 +118,7 @@ def test_configure_json_missing_env_var_no_default(tmp_path, monkeypatch):
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     monkeypatch.delenv("MISSING_VAR", raising=False)
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
     assert "Environment variable 'MISSING_VAR' is not set and no default value provided" in str(exc_info.value)
@@ -132,7 +137,7 @@ def test_configure_json_invalid_format(tmp_path, monkeypatch):
         configure_from_file()
 
     error_str = str(exc_info.value)
-    assert "Logging configuration file 'LOGGING_CONFIG_PATH=%s' could not be parsed" in error_str
+    assert f"Logging configuration file 'LOGGING_CONFIG_PATH={str(config_file)}' could not be parsed" in error_str
     assert "The configuration must be valid JSON or YAML" in error_str
     assert str(config_file) in error_str
 
