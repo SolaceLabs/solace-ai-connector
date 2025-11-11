@@ -118,7 +118,7 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
     with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
-    assert "Unknown level: 'INVALID_LEVEL'" in str(exc_info.value)
+    assert "Unknown level: 'INVALID_LEVEL'" in str(exc_info.value.__cause__)
 
 
 def test_configure_ini_with_json_formatter(tmp_path, monkeypatch):
@@ -335,7 +335,7 @@ format=%(name)s: %(message)s
     with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
-    assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
+    assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value.__cause__)
 
 
 def test_configure_ini_empty_value(tmp_path, monkeypatch):

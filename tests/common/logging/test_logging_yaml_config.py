@@ -112,7 +112,7 @@ def test_configure_yaml_missing_env_var_no_default(tmp_path, monkeypatch):
     with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
-    assert "Environment variable 'MISSING_VAR' is not set and no default value provided" in str(exc_info.value)
+    assert "Environment variable 'MISSING_VAR' is not set and no default value provided" in str(exc_info.value.__cause__)
 
 def test_configure_yaml_invalid_format(tmp_path, monkeypatch):
     """Test that invalid YAML raises appropriate error."""
