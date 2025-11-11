@@ -114,9 +114,7 @@ def configure_from_file():
     except InitializationError:
         raise
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
         raise InitializationError(
             f"Exception occurred while configuring logging from 'LOGGING_CONFIG_PATH={config_path}'. "
-            f"Validate the logging configuration.\nTraceback:\n{tb}"
+            f"Validate the logging configuration."
         ) from e
