@@ -5,15 +5,10 @@ import json
 import pytest
 
 from solace_ai_connector.common.logging_config import configure_from_file
-import solace_ai_connector.common.logging_config as logging_config
 
 from solace_ai_connector.common.exceptions import InitializationError
 
 sys.path.append("src")
-
-@pytest.fixture(autouse=True)
-def reset_logging_initialized():
-    logging_config.logging_initialized = False
 
 def test_configure_ini_success_path(tmp_path, monkeypatch):
     log_file = tmp_path / "test.log"

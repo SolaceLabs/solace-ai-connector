@@ -1,5 +1,6 @@
 import logging
 import pytest
+import solace_ai_connector.common.logging_config as logging_config
 
 @pytest.fixture(autouse=True)
 def isolated_logging():
@@ -24,6 +25,7 @@ def isolated_logging():
                 'disabled': logger.disabled,
                 'propagate': logger.propagate
             }
+    logging_config.logging_initialized = False
 
     yield
 
@@ -41,3 +43,4 @@ def isolated_logging():
             logger.setLevel(state['level'])
             logger.disabled = state['disabled']
             logger.propagate = state['propagate']
+    logging_config.logging_initialized = True

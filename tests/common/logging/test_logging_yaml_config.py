@@ -9,11 +9,6 @@ from solace_ai_connector.common.exceptions import InitializationError
 sys.path.append("src")
 
 from solace_ai_connector.common.logging_config import configure_from_file
-import solace_ai_connector.common.logging_config as logging_config
-
-@pytest.fixture(autouse=True)
-def reset_logging_initialized():
-    logging_config.logging_initialized = False
 
 
 def test_configure_yaml_basic(tmp_path, monkeypatch):
