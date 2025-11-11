@@ -204,3 +204,63 @@ root:
         # Ensure 'service' and 'env' are the last two keys. We want contextual info at the end of the log.
         keys = list(log_json.keys())
         assert keys[-2:] == ["service", "env"]
+
+def test_ISO_timestamp_formatting(tmp_path, monkeypatch):
+    """Test that ISO timestamp formatting works in YAML logging config."""
+    log_file = tmp_path / "yaml_iso_timestamp_test.log"
+    config_content = f"""
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  jsonFormatter:
+    "()": pythonjsonlogger.json.JsonFormatter
+    format: "%(timestamp)s %(levelname)s %(threadName)s %(name)s %(message)s"
+    timestamp: "timestamp"
+
+handlers:
+  rotatingFileHandler:
+    class: logging.handlers.RotatingFileHandler
+    formatter: jsonFormatter
+    filename: {log_file}
+    mode: a
+    maxBytes: 52428800
+    backupCount: 10
+
+loggers:
+  solace_ai_connector:
+    level: INFO
+    handlers: []
+    propagate: true
+
+root:
+  level: WARNING
+  handlers:
+    - rotatingFileHandler
+"""
+    config_file = tmp_path / "logging_iso_timestamp.yaml"
+    config_file.write_text(config_content)
+
+    monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
+
+    assert configure_from_file() is True
+
+    test_logger = logging.getLogger("test_yaml_iso_timestamp_logger")
+    test_message = "Test message with ISO timestamp"
+    test_logger.warning(test_message)
+
+    assert log_file.exists(), "Log file should have been created"
+    log_content = log_file.read_text()
+    log_lines = [line for line in log_content.strip().splitlines() if line.strip()]
+    assert len(log_lines) == 2, "There should be two log entries"
+
+    log_json = json.loads(log_lines[1])
+    timestamp = log_json.get("timestamp")
+    assert timestamp is not None, "Log entry should contain 'timestamp' field"
+
+    # Check if timestamp is in ISO 8601 format
+    try:
+        from datetime import datetime
+        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        pytest.fail(f"Timestamp '{timestamp}' is not in valid ISO 8601 format")
