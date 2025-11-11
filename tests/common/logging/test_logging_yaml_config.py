@@ -261,6 +261,6 @@ root:
     # Check if timestamp is in ISO 8601 format
     try:
         from datetime import datetime
-        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        datetime.fromisoformat(timestamp)
     except ValueError:
         pytest.fail(f"Timestamp '{timestamp}' is not in valid ISO 8601 format")
