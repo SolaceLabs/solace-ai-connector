@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from datetime import datetime
 
 import pytest
 
@@ -260,7 +261,6 @@ root:
 
     # Check if timestamp is in ISO 8601 format
     try:
-        from datetime import datetime
         datetime.fromisoformat(timestamp)
     except ValueError:
         pytest.fail(f"Timestamp '{timestamp}' is not in valid ISO 8601 format")
