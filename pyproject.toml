@@ -31,7 +31,7 @@ dependencies = [
     "gevent==25.8.2",
     "gevent-websocket==0.10.1",
     "python-json-logger==4.0.0",
-    "urllib3==2.5.0",
+    "urllib3==2.5.0"
 ]
 
 [project.optional-dependencies]
@@ -263,6 +263,19 @@ test = [
     # Add other test-specific dependencies here
 ]
 
+# Integration test dependencies
+integration-test = [
+    "trustme>=0.9.0",  # For generating test certificates
+    "aiohttp>=3.8.0",  # For creating mock servers
+    "bcrypt>=4.1.2,<5.0.0",
+    "passlib>=1.7.4,<1.8.0",    
+    "requests-mock>=1.10.0",
+    "mitmproxy>=9.0.0",  # For SSL proxy testing
+    "pytest-mock>=3.0.0",
+    "pytest-asyncio>=0.21.0",  # For async testing support
+    "proxy-py @ git+https://github.com/abhinavsingh/proxy.py.git@master"
+]
+
 
 # All dependencies
 all = [
@@ -356,6 +369,9 @@ packages = ["src/solace_ai_connector"]
 
 [tool.hatch.version] # Commented out for workaround
 path = "src/solace_ai_connector/__init__.py" # Commented out for workaround
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.ruff]
 lint.select = ["E4", "E7", "E9", "F"]

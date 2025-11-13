@@ -14,8 +14,6 @@ component_config:
   set_response_uuid_in_user_properties: <boolean>
   timeout: <string>
   suppress_debug_info: <boolean>
-  aiohttp_trust_env: <boolean>
-  ssl_verify: <string>
   retry_policy: <string>
   allowed_fails_policy: <string>
   stream_to_flow: <string>
@@ -51,8 +49,6 @@ component_config:
 | set_response_uuid_in_user_properties | False | False | Whether to set the response_uuid in the user_properties of the input_message. This will allow other components to correlate streaming chunks with the full response. |
 | timeout | False | 60 | Request timeout in seconds |
 | suppress_debug_info | False | False | Whether to suppress debug info in LiteLLM |
-| aiohttp_trust_env | False | True | Whether to trust environment variables for aiohttp |
-| ssl_verify | False | False | Whether to verify SSL certificates. Can be a boolean or a path to a PEM file. |
 | retry_policy | False |  | Retry policy for the load balancer. Find more at https://docs.litellm.ai/docs/routing#cooldowns |
 | allowed_fails_policy | False |  | Allowed fails policy for the load balancer. Find more at https://docs.litellm.ai/docs/routing#cooldowns |
 | stream_to_flow | False |  | Name the flow to stream the output to - this must be configured for llm_mode='stream'. This is mutually exclusive with stream_to_next_component. |
