@@ -1,5 +1,6 @@
 """Base class for LiteLLM chat models"""
 
+import os
 import logging
 import litellm
 import time
@@ -85,19 +86,6 @@ litellm_info_base = {
             "type": "boolean",
         },
         {
-            "name": "aiohttp_trust_env",
-            "required": False,
-            "description": "Whether to trust environment variables for aiohttp",
-            "default": True,
-            "type": "boolean",
-        },
-        {
-            "name": "ssl_verify",
-            "required": False,
-            "description": "Whether to verify SSL certificates. Can be a boolean or a path to a PEM file.",
-            "default": False,
-        },
-        {
             "name": "retry_policy",
             "required": False,
             "description": (
@@ -127,19 +115,34 @@ class LiteLLMBase(ComponentBase):
     def init(self):
         # Get configuration parameters
         suppress_debug_info = self.get_config("suppress_debug_info", False)
-        aiohttp_trust_env = self.get_config("aiohttp_trust_env", True)
-        ssl_verify = self.get_config("ssl_verify", False)
+        litellm.aiohttp_trust_env = True  # Always trust environment for proxy settings
+
+        disable_ssl_verify = os.getenv("DISABLE_SSL_VERIFY", "false").lower() == "true"
+        ssl_cert_file = os.getenv("SSL_CERT_FILE")
+
+        if ssl_cert_file:
+            if disable_ssl_verify:
+                # Both DISABLE_SSL_VERIFY is set to true and SSL_CERT_FILE is provided. These settings are conflicting
+                raise ValueError(
+                    "Cannot have both DISABLE_SSL_VERIFY set to true and SSL_CERT_FILE provided.")
+            elif not os.path.isfile(ssl_cert_file):
+                raise ValueError(
+                    "Supplied SSL_CERT_FILE {ssl_cert_file} does not exist or is not a file.")
+            litellm.ssl_verify = ssl_cert_file
+
+
+        if disable_ssl_verify:
+           litellm.ssl_verify = False
+           log.warning("DISABLE_SSL_VERIFY is set to true. SSL verification is disabled (insecure mode).")
 
         # Set LiteLLM parameters
         litellm.suppress_debug_info = suppress_debug_info
-        litellm.aiohttp_trust_env = aiohttp_trust_env
-        litellm.ssl_verify = ssl_verify
-        
+          
         # Turn on debug if suppress_debug_info is True
         if suppress_debug_info:
             litellm._turn_on_debug()
             
-        log.info(f"LiteLLM initialized with suppress_debug_info={suppress_debug_info}, aiohttp_trust_env={aiohttp_trust_env}, ssl_verify={ssl_verify}")
+        log.info(f"LiteLLM initialized with suppress_debug_info={suppress_debug_info}, ssl_verify_disabled={disable_ssl_verify} and ssl_cert_file={ssl_cert_file}")
         
         self.timeout = self.get_config("timeout")
         self.retry_policy_config = self.get_config("retry_policy")

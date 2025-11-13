@@ -14,8 +14,6 @@ component_config:
   set_response_uuid_in_user_properties: <boolean>
   timeout: <string>
   suppress_debug_info: <boolean>
-  aiohttp_trust_env: <boolean>
-  ssl_verify: <string>
   retry_policy: <string>
   allowed_fails_policy: <string>
   stream_to_flow: <string>
