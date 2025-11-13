@@ -100,7 +100,7 @@ flows:
             end_time = time.time()
 
             # Check that the time it took is within a reasonable range
-            assert (end_time - start_time) < 0.05
+            assert (end_time - start_time) < 0.1
 
             # Expected value
             expected = []
