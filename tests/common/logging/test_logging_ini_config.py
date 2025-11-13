@@ -6,6 +6,8 @@ import pytest
 
 from solace_ai_connector.common.logging_config import configure_from_file
 
+from solace_ai_connector.common.exceptions import InitializationError
+
 sys.path.append("src")
 
 def test_configure_ini_success_path(tmp_path, monkeypatch):
@@ -113,10 +115,10 @@ format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
-    assert "Unknown level: 'INVALID_LEVEL'" in str(exc_info.value)
+    assert "Unknown level: 'INVALID_LEVEL'" in str(exc_info.value.__cause__)
 
 
 def test_configure_ini_with_json_formatter(tmp_path, monkeypatch):
@@ -330,10 +332,10 @@ format=%(name)s: %(message)s
     monkeypatch.setenv("LOG_FILE_PATH", str(log_file))
     monkeypatch.delenv("MISSING_ENV_VAR", raising=False)  # Ensure it's not set
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
-    assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value)
+    assert "Environment variable 'MISSING_ENV_VAR' is not set and no default value provided in logging config." in str(exc_info.value.__cause__)
 
 
 def test_configure_ini_empty_value(tmp_path, monkeypatch):

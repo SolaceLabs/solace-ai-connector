@@ -110,10 +110,10 @@ def test_configure_yaml_missing_env_var_no_default(tmp_path, monkeypatch):
     monkeypatch.setenv("LOGGING_CONFIG_PATH", str(config_file))
     monkeypatch.delenv("MISSING_VAR", raising=False)
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(InitializationError) as exc_info:
         configure_from_file()
 
-    assert "Environment variable 'MISSING_VAR' is not set and no default value provided" in str(exc_info.value)
+    assert "Environment variable 'MISSING_VAR' is not set and no default value provided" in str(exc_info.value.__cause__)
 
 def test_configure_yaml_invalid_format(tmp_path, monkeypatch):
     """Test that invalid YAML raises appropriate error."""
@@ -133,7 +133,7 @@ invalid: yaml: content:
         configure_from_file()
 
     error_str = str(exc_info.value)
-    assert "Logging configuration file 'LOGGING_CONFIG_PATH=%s' could not be parsed" in error_str
+    assert f"Logging configuration file 'LOGGING_CONFIG_PATH={str(config_file)}' could not be parsed" in error_str
     assert "The configuration must be valid JSON or YAML" in error_str
     assert str(config_file) in error_str
 

@@ -182,10 +182,10 @@ def main():
 
     def shutdown():
         """Shutdown the connector."""
-        print("Stopping Solace AI Connector")
+        log.warning("Stopping Solace AI Connector")
         sac.stop()
         sac.cleanup()
-        print("Solace AI Connector exited successfully!")
+        log.warning("Solace AI Connector exited successfully!")
         os._exit(0)
 
     def signal_handler(signum, frame):
@@ -224,7 +224,7 @@ def main():
         # If wait_for_flows completes without interruption, initiate clean shutdown
         shutdown()
     except (KeyboardInterrupt, SystemExit) as e:
-        print(f"Shutdown initiated due to {type(e).__name__}.")
+        log.warning("Shutdown initiated due to %s.", type(e).__name__)
         shutdown()
     except Exception as e:
         print(f"Error running Solace AI Connector: {e}", file=sys.stderr)
