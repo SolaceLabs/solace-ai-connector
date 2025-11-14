@@ -273,7 +273,7 @@ integration-test = [
     "mitmproxy>=9.0.0",  # For SSL proxy testing
     "pytest-mock>=3.0.0",
     "pytest-asyncio>=0.21.0",  # For async testing support
-    "proxy-py @ git+https://github.com/abhinavsingh/proxy.py.git@master"
+ #  "proxy-py @ git+https://github.com/abhinavsingh/proxy.py.git@master" - temporary, to allow release
 ]
 
 
