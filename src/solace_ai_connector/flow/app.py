@@ -25,7 +25,7 @@ class App:
 
     # Define the schema for app_config parameters for the base App class
     # Subclasses can override or extend this.
-    app_schema: Dict[str, List[Dict[str, Any]]] = {"config_parameters": []}
+    app_schema: Dict[str, List[Dict[str, Any]]] = {}
 
     def __init__(
         self,
