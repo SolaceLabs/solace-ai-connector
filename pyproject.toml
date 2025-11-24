@@ -170,7 +170,7 @@ openai_ext_release = [
     "jiter==0.9.0",
     "jsonpatch==1.33",
     "jsonpointer==3.0.0",
-    "langchain-core==0.3.72",
+    "langchain-core==0.3.80",
     "langchain-openai==0.3.8",
     "langsmith==0.3.45",
     "openai==1.72.0",
