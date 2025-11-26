@@ -91,7 +91,8 @@ def configure_from_file():
         if _is_ini_format(content):
             # Use fileConfig for INI files
             config = _parse_file(config_path)
-            logging.config.fileConfig(config)
+            # disable_existing_loggers can't be set via INI config file. Set it here explicitly.
+            logging.config.fileConfig(config, disable_existing_loggers=False)
         else:
             # Substitute environment variables in the given content string.
             config = pattern.sub(_replace, content)
