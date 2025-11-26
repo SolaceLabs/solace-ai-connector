@@ -282,6 +282,8 @@ class SolaceMessaging(Messaging):
                     .build()
                 )
 
+            log.info(f"{self.error_prefix} Connecting to broker at {self.broker_properties.get('host')}.")
+
             # Blocking connect thread
             result = self.messaging_service.connect_async()
 
