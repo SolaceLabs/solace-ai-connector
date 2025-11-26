@@ -92,19 +92,19 @@ class ColoredFormatter(logging.Formatter):
         Returns:
             True if colors are supported, False otherwise
         """
+        if os.environ.get('NO_COLOR'):
+            return False
+        
+        # Check for FORCE_COLOR environment variable
+        # This overrides TTY detection
+        if os.environ.get('FORCE_COLOR'):
+            return True
+        
         # Check if stdout is a TTY
         if not hasattr(sys.stdout, 'isatty'):
             return False
         if not sys.stdout.isatty():
             return False
-        
-        # Check for NO_COLOR environment variable (https://no-color.org/)
-        if os.environ.get('NO_COLOR'):
-            return False
-        
-        # Check for FORCE_COLOR environment variable
-        if os.environ.get('FORCE_COLOR'):
-            return True
         
         # On Windows, check for ANSICON or WT_SESSION (Windows Terminal)
         if sys.platform == 'win32':
