@@ -17,21 +17,15 @@ permissions:
   contents: write
   pull-requests: read
 
-
 jobs:
-  release:
-    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_pypi.yml@main
+  # Run security checks first via reusable workflow
+  security-checks:
+    uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_security_checks.yml@main
     with:
-      ENVIRONMENT: pypi
       sonarqube_hotspot_check: true
-      version: ${{ github.event.inputs.version }}
       whitesource_project_name: ${{ github.event.repository.name }}
       whitesource_product_name: "solaceai"
-      pypi-project: ${{ github.event.repository.name }}
-
     secrets:
-      COMMIT_KEY: ${{ secrets.COMMIT_KEY }}
-      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
       SONARQUBE_PROJECT_KEY: ${{ github.event.repository.owner }}_${{ github.event.repository.name }}
       SONARQUBE_PROJECT_MAIN_BRANCH: "main"
       SONARQUBE_QUERY_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
@@ -40,3 +34,27 @@ jobs:
       MANIFEST_AWS_ACCESS_KEY_ID: ${{ secrets.MANIFEST_READ_ONLY_AWS_ACCESS_KEY_ID }}
       MANIFEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.MANIFEST_READ_ONLY_AWS_SECRET_ACCESS_KEY }}
       MANIFEST_AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+  # Release to PyPI using Trusted Publishing
+  release:
+    name: Release to PyPI
+    needs: security-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: pypi
+    outputs:
+      new_version: ${{ steps.release.outputs.new_version }}
+      commit_hash: ${{ steps.release.outputs.commit_hash }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.COMMIT_KEY }}
+
+      - name: Release to PyPI
+        id: release
+        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-release-pypi@main
+        with:
+          version: ${{ github.event.inputs.version }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
