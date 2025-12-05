@@ -267,10 +267,9 @@ test = [
 integration-test = [
     "trustme>=0.9.0",  # For generating test certificates
     "aiohttp>=3.8.0",  # For creating mock servers
-    "bcrypt>=4.1.2,<5.0.0",
     "passlib>=1.7.4,<1.8.0",    
     "requests-mock>=1.10.0",
-    "mitmproxy>=9.0.0",  # For SSL proxy testing
+    "mitmproxy>=12.2.1",  # For SSL proxy testing
     "pytest-mock>=3.0.0",
     "pytest-asyncio>=0.21.0",  # For async testing support
  #  "proxy-py @ git+https://github.com/abhinavsingh/proxy.py.git@master" - temporary, to allow release
