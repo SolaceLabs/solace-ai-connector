@@ -31,7 +31,7 @@ dependencies = [
     "gevent==25.8.2",
     "gevent-websocket==0.10.1",
     "python-json-logger==4.0.0",
-    "urllib3==2.5.0"
+    "urllib3==2.6.0"
 ]
 
 [project.optional-dependencies]
