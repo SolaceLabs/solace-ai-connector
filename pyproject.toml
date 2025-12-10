@@ -356,9 +356,7 @@ dependencies = [
   "pytest-xdist>=3.5.0",
   "pytest-asyncio>=1.2.0"
 ]
-extra-dependencies = [
-   "solace_ai_connector[all]"
-]
+features = ["all"]
 
 # Specify minimum and maximum Python versions to test
 [[tool.hatch.envs.hatch-test.matrix]]
