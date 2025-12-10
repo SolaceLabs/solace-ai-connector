@@ -354,10 +354,8 @@ dependencies = [
   "pytest-mock>=3.0.0",
   "pytest-cov>=4.0.0",
   "pytest-xdist>=3.5.0",
-  "pytest-asyncio>=1.2.0"
-]
-extra-dependencies = [
-   "solace_ai_connector[all]"
+  "pytest-asyncio>=1.2.0",
+  "solace_ai_connector[all]"
 ]
 
 # Specify minimum and maximum Python versions to test
