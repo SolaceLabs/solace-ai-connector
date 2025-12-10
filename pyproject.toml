@@ -31,7 +31,7 @@ dependencies = [
     "gevent==25.8.2",
     "gevent-websocket==0.10.1",
     "python-json-logger==4.0.0",
-    "urllib3==2.5.0"
+    "urllib3==2.6.0"
 ]
 
 [project.optional-dependencies]
@@ -348,16 +348,14 @@ solace-ai-connector = "solace_ai_connector.main:main"
 solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:main"
 
 [tool.hatch.envs.hatch-test]
-installer = "pip"
+installer = "uv"
 dependencies = [
   "pytest>=8.0.0",
   "pytest-mock>=3.0.0",
   "pytest-cov>=4.0.0",
   "pytest-xdist>=3.5.0",
-  "pytest-asyncio>=1.2.0"
-]
-extra-dependencies = [
-   "solace_ai_connector[all]"
+  "pytest-asyncio>=1.2.0",
+  "solace_ai_connector[all]"
 ]
 
 # Specify minimum and maximum Python versions to test
