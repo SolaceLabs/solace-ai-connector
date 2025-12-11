@@ -80,6 +80,11 @@ class SolaceAiConnector:
                 on_flow_creation(self.flows)
 
             log.info("Solace AI Event Connector started successfully")
+
+            # Mark health check as ready if enabled
+            if self.health_checker:
+                self.health_checker.mark_ready()
+                self.health_checker.start_monitoring()
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt

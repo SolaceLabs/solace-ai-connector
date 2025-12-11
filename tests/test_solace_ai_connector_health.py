@@ -67,3 +67,41 @@ class TestSolaceAiConnectorHealth:
                 readiness_path="/readyz"
             )
             mock_health_server.start.assert_called_once()
+
+
+    @patch('solace_ai_connector.solace_ai_connector.HealthCheckServer')
+    @patch('solace_ai_connector.solace_ai_connector.HealthChecker')
+    def test_health_checker_marked_ready_after_create_apps(self, mock_health_checker_class, mock_health_server_class):
+        """Test health checker is marked ready after create_apps"""
+        mock_health_checker = Mock()
+        mock_health_server = Mock()
+        mock_health_checker_class.return_value = mock_health_checker
+        mock_health_server_class.return_value = mock_health_server
+
+        config = {
+            "apps": [{"name": "test", "flows": []}],
+            "health_check": {
+                "enabled": True
+            }
+        }
+
+        with patch('solace_ai_connector.solace_ai_connector.setup_log'), \
+             patch('solace_ai_connector.solace_ai_connector.resolve_config_values'), \
+             patch('solace_ai_connector.solace_ai_connector.TimerManager'), \
+             patch('solace_ai_connector.solace_ai_connector.CacheService'), \
+             patch('solace_ai_connector.solace_ai_connector.create_storage_backend'), \
+             patch('solace_ai_connector.solace_ai_connector.Monitoring'), \
+             patch.object(SolaceAiConnector, 'create_apps'):
+
+            sac = SolaceAiConnector(config)
+
+            # Mark ready and start monitoring should not be called yet
+            mock_health_checker.mark_ready.assert_not_called()
+            mock_health_checker.start_monitoring.assert_not_called()
+
+            # Run the connector
+            sac.run()
+
+            # Now they should be called
+            mock_health_checker.mark_ready.assert_called_once()
+            mock_health_checker.start_monitoring.assert_called_once()
