@@ -674,6 +674,12 @@ class SolaceAiConnector:
         log.info("Stopping Solace AI Event Connector")
         self.stop_signal.set()
 
+        # Stop health check components first
+        if self.health_server:
+            self.health_server.stop()
+        if self.health_checker:
+            self.health_checker.stop()
+
         # Stop core services first
         self.timer_manager.stop()  # Stop the timer manager first
         self.cache_service.stop()  # Stop the cache service
