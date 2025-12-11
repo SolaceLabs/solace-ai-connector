@@ -2,6 +2,7 @@
 
 import logging
 import threading
+import time
 
 log = logging.getLogger(__name__)
 
@@ -37,3 +38,23 @@ class HealthChecker:
             with self._lock:
                 self._ready = True
             log.info("Health check: Connector is READY")
+
+    def start_monitoring(self):
+        """Start background thread to monitor ongoing health"""
+        self.monitor_thread = threading.Thread(
+            target=self._monitor_loop, daemon=True
+        )
+        self.monitor_thread.start()
+
+    def _monitor_loop(self):
+        """Periodically check if flows are still healthy"""
+        while not self.stop_event.is_set():
+            time.sleep(self.check_interval_seconds)
+            if self._ready and not self._check_all_threads_alive():
+                with self._lock:
+                    self._ready = False
+                log.warning("Health check: Connector degraded - flows not healthy")
+
+    def stop(self):
+        """Stop monitoring"""
+        self.stop_event.set()

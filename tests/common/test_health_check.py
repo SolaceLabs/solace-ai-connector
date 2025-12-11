@@ -1,4 +1,5 @@
 import pytest
+import time
 from unittest.mock import Mock
 from solace_ai_connector.common.health_check import HealthChecker
 
@@ -99,3 +100,64 @@ class TestHealthChecker:
         checker.mark_ready()
 
         assert checker.is_ready() is False
+
+    def test_start_monitoring_creates_daemon_thread(self):
+        """Test start_monitoring creates and starts a daemon thread"""
+        mock_connector = Mock()
+        mock_connector.apps = []
+
+        checker = HealthChecker(mock_connector)
+        checker.start_monitoring()
+
+        assert checker.monitor_thread is not None
+        assert checker.monitor_thread.daemon is True
+        assert checker.monitor_thread.is_alive() is True
+
+        # Clean up
+        checker.stop()
+
+    def test_monitoring_detects_thread_death(self):
+        """Test monitoring loop detects when threads die"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True  # Initially alive
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector, check_interval_seconds=1)
+
+        # Mark as ready
+        checker.mark_ready()
+        assert checker.is_ready() is True
+
+        # Start monitoring
+        checker.start_monitoring()
+
+        # Simulate thread death
+        mock_thread.is_alive.return_value = False
+
+        # Wait for monitoring loop to detect it
+        time.sleep(1.5)
+
+        assert checker.is_ready() is False
+
+        # Clean up
+        checker.stop()
+
+    def test_stop_halts_monitoring(self):
+        """Test stop method halts the monitoring thread"""
+        mock_connector = Mock()
+        mock_connector.apps = []
+
+        checker = HealthChecker(mock_connector)
+        checker.start_monitoring()
+
+        assert checker.monitor_thread.is_alive() is True
+
+        checker.stop()
+
+        assert checker.stop_event.is_set() is True
