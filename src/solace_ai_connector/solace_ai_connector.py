@@ -18,6 +18,7 @@ from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 from .common.monitoring import Monitoring
+from .common.health_check import HealthChecker, HealthCheckServer
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +49,24 @@ class SolaceAiConnector:
         # Initialize monitoring
         monitoring_config = self.config.get("monitoring", None)
         self.monitoring = Monitoring(monitoring_config)
+
+        # Initialize health check if enabled
+        self.health_checker = None
+        self.health_server = None
+        if self.config.get("health_check", {}).get("enabled", False):
+            health_config = self.config.get("health_check", {})
+            self.health_checker = HealthChecker(
+                self,
+                check_interval_seconds=health_config.get("check_interval_seconds", 5)
+            )
+            self.health_server = HealthCheckServer(
+                self.health_checker,
+                port=health_config.get("port", 8080),
+                liveness_path=health_config.get("liveness_path", "/healthz"),
+                readiness_path=health_config.get("readiness_path", "/readyz")
+            )
+            self.health_server.start()
+            log.info(f"Health check server started on port {health_config.get('port', 8080)}")
 
     def run(self):
         """Run the Solace AI Event Connector"""
