@@ -21,3 +21,12 @@ class HealthChecker:
         """Thread-safe check if connector is ready"""
         with self._lock:
             return self._ready
+
+    def _check_all_threads_alive(self):
+        """Check if all flow threads are alive"""
+        for app in self.connector.apps:
+            for flow in app.flows:
+                for thread in flow.threads:
+                    if not thread.is_alive():
+                        return False
+        return True
