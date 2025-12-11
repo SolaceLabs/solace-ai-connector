@@ -1,6 +1,8 @@
 import pytest
 import time
 import json
+import socket
+import urllib.request
 from unittest.mock import Mock, patch
 from io import BytesIO
 from solace_ai_connector.common.health_check import HealthChecker
@@ -233,3 +235,94 @@ class TestHealthCheckRequestHandler:
         HealthCheckRequestHandler._handle_not_found(handler)
 
         handler.send_response.assert_called_once_with(404)
+
+
+class TestHealthCheckServer:
+    def test_server_initialization(self):
+        """Test HealthCheckServer initializes correctly"""
+        from solace_ai_connector.common.health_check import HealthCheckServer
+
+        mock_health_checker = Mock()
+        server = HealthCheckServer(
+            mock_health_checker,
+            port=8080,
+            liveness_path="/healthz",
+            readiness_path="/readyz"
+        )
+
+        assert server.health_checker is mock_health_checker
+        assert server.port == 8080
+        assert server.liveness_path == "/healthz"
+        assert server.readiness_path == "/readyz"
+        assert server.httpd is None
+        assert server.server_thread is None
+
+    def test_server_starts_and_stops(self):
+        """Test server starts and stops correctly"""
+        from solace_ai_connector.common.health_check import HealthCheckServer
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_ready.return_value = True
+
+        # Find available port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            port = s.getsockname()[1]
+
+        server = HealthCheckServer(
+            mock_health_checker,
+            port=port,
+            liveness_path="/healthz",
+            readiness_path="/readyz"
+        )
+
+        server.start()
+
+        assert server.httpd is not None
+        assert server.server_thread is not None
+        assert server.server_thread.is_alive() is True
+        assert server.server_thread.daemon is True
+
+        # Clean up
+        server.stop()
+
+        # Verify stopped
+        time.sleep(0.1)
+        assert server.server_thread.is_alive() is False
+
+    def test_server_serves_requests(self):
+        """Test server actually serves HTTP requests"""
+        from solace_ai_connector.common.health_check import HealthCheckServer
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_ready.return_value = True
+
+        # Find available port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            port = s.getsockname()[1]
+
+        server = HealthCheckServer(
+            mock_health_checker,
+            port=port,
+            liveness_path="/healthz",
+            readiness_path="/readyz"
+        )
+
+        server.start()
+        time.sleep(0.1)  # Give server time to start
+
+        try:
+            # Test liveness endpoint
+            response = urllib.request.urlopen(f"http://localhost:{port}/healthz")
+            assert response.status == 200
+            data = json.loads(response.read().decode())
+            assert data["status"] == "ok"
+
+            # Test readiness endpoint
+            response = urllib.request.urlopen(f"http://localhost:{port}/readyz")
+            assert response.status == 200
+            data = json.loads(response.read().decode())
+            assert data["status"] == "ok"
+        finally:
+            server.stop()

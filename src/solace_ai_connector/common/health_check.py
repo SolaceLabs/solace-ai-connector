@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 import json
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 log = logging.getLogger(__name__)
 
@@ -111,3 +111,40 @@ class HealthCheckRequestHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         """Override to suppress default logging"""
         pass
+
+
+class HealthCheckServer:
+    """HTTP server for Kubernetes health checks"""
+
+    def __init__(self, health_checker, port, liveness_path, readiness_path):
+        self.health_checker = health_checker
+        self.port = port
+        self.liveness_path = liveness_path
+        self.readiness_path = readiness_path
+        self.httpd = None
+        self.server_thread = None
+
+    def start(self):
+        """Start the HTTP server in a daemon thread"""
+        # Set class attributes for request handler
+        HealthCheckRequestHandler.health_checker = self.health_checker
+        HealthCheckRequestHandler.liveness_path = self.liveness_path
+        HealthCheckRequestHandler.readiness_path = self.readiness_path
+
+        # Create HTTP server
+        self.httpd = HTTPServer(('', self.port), HealthCheckRequestHandler)
+
+        # Start server in daemon thread
+        self.server_thread = threading.Thread(
+            target=self.httpd.serve_forever,
+            daemon=True
+        )
+        self.server_thread.start()
+        log.info(f"Health check server started on port {self.port}")
+
+    def stop(self):
+        """Stop the HTTP server"""
+        if self.httpd:
+            self.httpd.shutdown()
+            self.httpd.server_close()
+            log.info("Health check server stopped")
