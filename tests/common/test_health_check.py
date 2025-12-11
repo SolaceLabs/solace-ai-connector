@@ -63,3 +63,39 @@ class TestHealthChecker:
 
         checker = HealthChecker(mock_connector)
         assert checker._check_all_threads_alive() is True
+
+    def test_mark_ready_when_threads_alive(self):
+        """Test mark_ready sets ready state when all threads alive"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        assert checker.is_ready() is False
+
+        checker.mark_ready()
+
+        assert checker.is_ready() is True
+
+    def test_mark_ready_when_threads_dead(self):
+        """Test mark_ready does not set ready when threads are dead"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = False
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        checker.mark_ready()
+
+        assert checker.is_ready() is False

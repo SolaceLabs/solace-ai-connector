@@ -30,3 +30,10 @@ class HealthChecker:
                     if not thread.is_alive():
                         return False
         return True
+
+    def mark_ready(self):
+        """Mark connector as ready if all threads are alive"""
+        if self._check_all_threads_alive():
+            with self._lock:
+                self._ready = True
+            log.info("Health check: Connector is READY")
