@@ -1,6 +1,8 @@
 import pytest
 import time
-from unittest.mock import Mock
+import json
+from unittest.mock import Mock, patch
+from io import BytesIO
 from solace_ai_connector.common.health_check import HealthChecker
 
 
@@ -161,3 +163,73 @@ class TestHealthChecker:
         checker.stop()
 
         assert checker.stop_event.is_set() is True
+
+
+class TestHealthCheckRequestHandler:
+    def test_liveness_endpoint_returns_ok(self):
+        """Test liveness endpoint always returns 200 OK"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+        HealthCheckRequestHandler.liveness_path = "/healthz"
+        HealthCheckRequestHandler.readiness_path = "/readyz"
+
+        # Create a mock handler instance
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.liveness_path = "/healthz"
+        handler.readiness_path = "/readyz"
+        handler.path = "/healthz"
+        handler.wfile = BytesIO()
+
+        # Call the actual method
+        HealthCheckRequestHandler._handle_liveness(handler)
+
+        # Verify 200 was sent
+        handler.send_response.assert_called_once_with(200)
+
+    def test_readiness_endpoint_ready(self):
+        """Test readiness endpoint returns 200 when ready"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_ready.return_value = True
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+        HealthCheckRequestHandler.liveness_path = "/healthz"
+        HealthCheckRequestHandler.readiness_path = "/readyz"
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = BytesIO()
+
+        HealthCheckRequestHandler._handle_readiness(handler)
+
+        handler.send_response.assert_called_once_with(200)
+
+    def test_readiness_endpoint_not_ready(self):
+        """Test readiness endpoint returns 503 when not ready"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_ready.return_value = False
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = BytesIO()
+
+        HealthCheckRequestHandler._handle_readiness(handler)
+
+        handler.send_response.assert_called_once_with(503)
+
+    def test_unknown_path_returns_404(self):
+        """Test unknown paths return 404"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.wfile = BytesIO()
+
+        HealthCheckRequestHandler._handle_not_found(handler)
+
+        handler.send_response.assert_called_once_with(404)
