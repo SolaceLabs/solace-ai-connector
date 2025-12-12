@@ -26,8 +26,14 @@ class HealthChecker:
             return self._ready
 
     def _check_all_threads_alive(self):
-        """Check if all flow threads are alive"""
+        """Check if all flow threads are alive and apps are ready"""
         for app in self.connector.apps:
+            # Check if app has custom readiness logic
+            if hasattr(app, 'is_ready') and callable(app.is_ready):
+                if not app.is_ready():
+                    return False
+
+            # Check threads
             for flow in app.flows:
                 for thread in flow.threads:
                     if not thread.is_alive():

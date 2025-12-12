@@ -166,6 +166,97 @@ class TestHealthChecker:
 
         assert checker.stop_event.is_set() is True
 
+    def test_check_all_threads_alive_with_app_callback_ready(self):
+        """Test _check_all_threads_alive calls app is_ready() callback when available"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_ready.return_value = True  # App reports ready
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_threads_alive()
+
+        assert result is True
+        mock_app.is_ready.assert_called_once()
+
+    def test_check_all_threads_alive_with_app_callback_not_ready(self):
+        """Test _check_all_threads_alive returns False when app callback reports not ready"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True  # Thread is alive
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_ready.return_value = False  # But app reports not ready
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_threads_alive()
+
+        assert result is False
+        mock_app.is_ready.assert_called_once()
+
+    def test_check_all_threads_alive_without_app_callback(self):
+        """Test _check_all_threads_alive works when app doesn't have is_ready callback"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock(spec=['flows'])  # App without is_ready method
+        mock_app.flows = [mock_flow]
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_threads_alive()
+
+        # Should still work, just checking threads
+        assert result is True
+
+    def test_check_all_threads_alive_multiple_apps_mixed_readiness(self):
+        """Test _check_all_threads_alive with multiple apps, some with callbacks"""
+        mock_connector = Mock()
+
+        # App 1: Has callback, reports ready
+        mock_thread1 = Mock()
+        mock_thread1.is_alive.return_value = True
+        mock_flow1 = Mock()
+        mock_flow1.threads = [mock_thread1]
+        mock_app1 = Mock()
+        mock_app1.flows = [mock_flow1]
+        mock_app1.is_ready.return_value = True
+
+        # App 2: No callback
+        mock_thread2 = Mock()
+        mock_thread2.is_alive.return_value = True
+        mock_flow2 = Mock()
+        mock_flow2.threads = [mock_thread2]
+        mock_app2 = Mock(spec=['flows'])
+        mock_app2.flows = [mock_flow2]
+
+        mock_connector.apps = [mock_app1, mock_app2]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_threads_alive()
+
+        assert result is True
+        mock_app1.is_ready.assert_called_once()
+
 
 class TestHealthCheckRequestHandler:
     def test_liveness_endpoint_returns_ok(self):

@@ -347,6 +347,24 @@ class App:
         for flow in self.flows:
             flow.wait_for_threads()
 
+    def is_ready(self) -> bool:
+        """
+        Check if the app is ready to process messages.
+
+        Override this method in custom app classes to provide app-specific readiness logic.
+        The default implementation always returns True, relying on thread health checks.
+
+        Examples of custom readiness checks:
+        - Database connection established
+        - External service available
+        - Configuration loaded and validated
+        - Cache warmed up
+
+        Returns:
+            bool: True if the app is ready, False otherwise
+        """
+        return True
+
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
         log.info("Cleaning up app: %s", self.name)

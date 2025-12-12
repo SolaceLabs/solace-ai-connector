@@ -42,11 +42,42 @@ Indicates if the connector is ready to process messages.
 
 ### Runtime Monitoring
 
-The health checker continuously monitors flow threads:
+The health checker continuously monitors:
 
-- If any flow thread dies → Readiness changes to 503
-- Kubernetes will stop routing traffic to the pod
+- **Flow threads**: If any flow thread dies → Readiness changes to 503
+- **App-level readiness**: Custom apps can provide their own readiness logic
+- Kubernetes will stop routing traffic to the pod if not ready
 - Monitoring interval controlled by `check_interval_seconds`
+
+### Custom App Readiness
+
+Apps can implement custom readiness logic by overriding the `is_ready()` method:
+
+```python
+from solace_ai_connector.flow.app import App
+
+class MyCustomApp(App):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.db_connected = False
+        self.cache_loaded = False
+
+    def is_ready(self) -> bool:
+        """Custom readiness check"""
+        # Only ready when both DB is connected and cache is loaded
+        return self.db_connected and self.cache_loaded
+```
+
+**When to use custom readiness:**
+- Database connections must be established
+- External services must be available
+- Configuration must be loaded and validated
+- Cache must be warmed up
+- Any app-specific initialization that's required before processing messages
+
+The connector is only marked ready when:
+1. All flow threads are alive AND
+2. All apps with custom `is_ready()` methods return `True`
 
 ## Kubernetes Configuration
 
