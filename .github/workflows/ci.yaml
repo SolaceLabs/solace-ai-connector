@@ -22,6 +22,7 @@ jobs:
       whitesource_project_name: ${{ github.event.repository.name }}
       whitesource_product_name: "solaceai"
       whitesource_config_file: "wss-unified-agent.config"
+      sca_scanners: "fossa"
 
     secrets:
       SONAR_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
