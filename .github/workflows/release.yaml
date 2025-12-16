@@ -23,6 +23,7 @@ jobs:
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_security_checks.yml@main
     with:
       sonarqube_hotspot_check: true
+      fossa_check: true
       whitesource_project_name: ${{ github.event.repository.name }}
       whitesource_product_name: "solaceai"
     secrets:
