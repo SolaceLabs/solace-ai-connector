@@ -3,8 +3,9 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    types: [opened, synchronize]
+      - fossa-integration
+  # pull_request:
+  #   types: [opened, synchronize]
 
 permissions:
   id-token: write
