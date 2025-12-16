@@ -67,7 +67,7 @@ class WebSearchDuckDuckGo(WebSearchBase):
         self.no_html = self.get_config("no_html", 1)
         self.count = self.get_config("count", 10)
         self.skip_disambig = self.get_config("skip_disambig", 1)
-        self.url = "http://api.duckduckgo.com/"
+        self.url = "https://api.duckduckgo.com/"
 
     def invoke(self, message, data):
         if not isinstance(data, str) or not data:
@@ -81,7 +81,7 @@ class WebSearchDuckDuckGo(WebSearchBase):
         }
 
         response = requests.get(self.url, params=params)
-        if response.status_code == 200:
+        if response.status_code == 200 or response.status_code == 202:
             response = response.json()
             response = self.parse(response)
             return response
