@@ -43,6 +43,7 @@ class TestSolaceAiConnectorHealth:
                 "port": 8080,
                 "liveness_path": "/healthz",
                 "readiness_path": "/readyz",
+                "startup_path": "/startup",
                 "check_interval_seconds": 5
             }
         }
@@ -64,7 +65,8 @@ class TestSolaceAiConnectorHealth:
                 mock_health_checker,
                 port=8080,
                 liveness_path="/healthz",
-                readiness_path="/readyz"
+                readiness_path="/readyz",
+                startup_path="/startup"
             )
             mock_health_server.start.assert_called_once()
 

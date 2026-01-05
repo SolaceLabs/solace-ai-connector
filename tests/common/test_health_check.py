@@ -17,6 +17,7 @@ class TestHealthChecker:
         assert checker.connector is mock_connector
         assert checker.check_interval_seconds == 5
         assert checker.is_ready() is False
+        assert checker.is_startup_complete() is False
         assert checker.monitor_thread is None
         assert checker.stop_event.is_set() is False
 
@@ -104,6 +105,54 @@ class TestHealthChecker:
         checker.mark_ready()
 
         assert checker.is_ready() is False
+
+    def test_startup_complete_set_when_mark_ready_succeeds(self):
+        """Test _startup_complete is set to True when mark_ready succeeds"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        assert checker.is_startup_complete() is False
+
+        checker.mark_ready()
+
+        assert checker.is_startup_complete() is True
+
+    def test_startup_complete_latches_when_readiness_degrades(self):
+        """Test _startup_complete stays True even when readiness becomes False"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        checker.mark_ready()
+
+        assert checker.is_startup_complete() is True
+        assert checker.is_ready() is True
+
+        # Simulate thread death - readiness should degrade but startup stays True
+        mock_thread.is_alive.return_value = False
+
+        # Manually trigger health check (simulating monitoring loop)
+        checker._ready = not checker._check_all_threads_alive()
+        with checker._lock:
+            checker._ready = False
+
+        assert checker.is_ready() is False
+        assert checker.is_startup_complete() is True  # Latched!
 
     def test_start_monitoring_creates_daemon_thread(self):
         """Test start_monitoring creates and starts a daemon thread"""
@@ -257,6 +306,116 @@ class TestHealthChecker:
         assert result is True
         mock_app1.is_ready.assert_called_once()
 
+    def test_check_all_apps_startup_complete_with_callback_complete(self):
+        """Test _check_all_apps_startup_complete when app callback reports complete"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_startup_complete.return_value = True
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_apps_startup_complete()
+
+        assert result is True
+        mock_app.is_startup_complete.assert_called_once()
+
+    def test_check_all_apps_startup_complete_with_callback_not_complete(self):
+        """Test _check_all_apps_startup_complete when app callback reports not complete"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_startup_complete.return_value = False
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_apps_startup_complete()
+
+        assert result is False
+        mock_app.is_startup_complete.assert_called_once()
+
+    def test_check_all_apps_startup_complete_without_callback(self):
+        """Test _check_all_apps_startup_complete when app has no is_startup_complete method"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        # App without is_startup_complete method
+        mock_app = Mock(spec=['flows'])
+        mock_app.flows = [mock_flow]
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        result = checker._check_all_apps_startup_complete()
+
+        # Should return True (assume complete if no callback)
+        assert result is True
+
+    def test_mark_ready_checks_app_startup_complete(self):
+        """Test mark_ready only sets startup complete when apps report complete"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_ready.return_value = True
+        mock_app.is_startup_complete.return_value = False  # Not complete yet
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        checker.mark_ready()
+
+        # Should NOT be startup complete because app says not complete
+        assert checker.is_startup_complete() is False
+        # But readiness can still be True (threads alive, is_ready True)
+        assert checker.is_ready() is True
+
+    def test_mark_ready_sets_startup_complete_when_apps_complete(self):
+        """Test mark_ready sets startup complete when all apps report complete"""
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_ready.return_value = True
+        mock_app.is_startup_complete.return_value = True  # Complete!
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        checker.mark_ready()
+
+        # Both should be True
+        assert checker.is_startup_complete() is True
+        assert checker.is_ready() is True
+
 
 class TestHealthCheckRequestHandler:
     def test_liveness_endpoint_returns_ok(self):
@@ -327,6 +486,38 @@ class TestHealthCheckRequestHandler:
 
         handler.send_response.assert_called_once_with(404)
 
+    def test_startup_endpoint_returns_503_before_startup(self):
+        """Test startup endpoint returns 503 before startup complete"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_startup_complete.return_value = False
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = BytesIO()
+
+        HealthCheckRequestHandler._handle_startup(handler)
+
+        handler.send_response.assert_called_once_with(503)
+
+    def test_startup_endpoint_returns_200_after_startup(self):
+        """Test startup endpoint returns 200 after startup complete"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_startup_complete.return_value = True
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = BytesIO()
+
+        HealthCheckRequestHandler._handle_startup(handler)
+
+        handler.send_response.assert_called_once_with(200)
+
 
 class TestHealthCheckServer:
     def test_server_initialization(self):
@@ -338,13 +529,15 @@ class TestHealthCheckServer:
             mock_health_checker,
             port=8080,
             liveness_path="/healthz",
-            readiness_path="/readyz"
+            readiness_path="/readyz",
+            startup_path="/startup"
         )
 
         assert server.health_checker is mock_health_checker
         assert server.port == 8080
         assert server.liveness_path == "/healthz"
         assert server.readiness_path == "/readyz"
+        assert server.startup_path == "/startup"
         assert server.httpd is None
         assert server.server_thread is None
 
@@ -364,7 +557,8 @@ class TestHealthCheckServer:
             mock_health_checker,
             port=port,
             liveness_path="/healthz",
-            readiness_path="/readyz"
+            readiness_path="/readyz",
+            startup_path="/startup"
         )
 
         server.start()
@@ -397,7 +591,8 @@ class TestHealthCheckServer:
             mock_health_checker,
             port=port,
             liveness_path="/healthz",
-            readiness_path="/readyz"
+            readiness_path="/readyz",
+            startup_path="/startup"
         )
 
         server.start()

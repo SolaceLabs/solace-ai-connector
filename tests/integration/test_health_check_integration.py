@@ -38,6 +38,7 @@ class TestHealthCheckIntegration:
                 "port": port,
                 "liveness_path": "/healthz",
                 "readiness_path": "/readyz",
+                "startup_path": "/startup",
                 "check_interval_seconds": 1
             }
         }
@@ -88,6 +89,82 @@ class TestHealthCheckIntegration:
             # Server should no longer respond
             with pytest.raises(Exception):
                 urllib.request.urlopen(f"http://localhost:{port}/healthz", timeout=1)
+
+        finally:
+            if sac:
+                try:
+                    sac.stop()
+                    sac.cleanup()
+                except:
+                    pass
+
+    def test_startup_probe_latches_after_init(self):
+        """Test startup probe returns 503 before init and latches to 200 after"""
+        # Find available port
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            port = s.getsockname()[1]
+
+        config = {
+            "log": {
+                "stdout_log_level": "ERROR",
+                "log_file_level": "ERROR",
+                "log_file": "/tmp/test.log"
+            },
+            "apps": [{
+                "name": "test_app",
+                "flows": [{
+                    "name": "test_flow",
+                    "components": [{
+                        "component_name": "test_component",
+                        "component_module": "pass_through"
+                    }]
+                }]
+            }],
+            "health_check": {
+                "enabled": True,
+                "port": port,
+                "liveness_path": "/healthz",
+                "readiness_path": "/readyz",
+                "startup_path": "/startup",
+                "check_interval_seconds": 1
+            }
+        }
+
+        sac = None
+        try:
+            # Create connector
+            sac = SolaceAiConnector(config)
+
+            # Give server time to start
+            time.sleep(0.2)
+
+            # Startup should return 503 before initialization
+            try:
+                urllib.request.urlopen(f"http://localhost:{port}/startup")
+                assert False, "Should have returned 503"
+            except urllib.error.HTTPError as e:
+                assert e.code == 503
+                data = json.loads(e.read().decode())
+                assert data["status"] == "not ready"
+
+            # Run the connector to create apps/flows
+            with patch.object(sac, 'wait_for_flows'):
+                sac.run()
+
+            # Give time for startup to complete
+            time.sleep(0.2)
+
+            # Now startup should return 200
+            response = urllib.request.urlopen(f"http://localhost:{port}/startup")
+            assert response.status == 200
+            data = json.loads(response.read().decode())
+            assert data["status"] == "ok"
+
+            # Verify startup stays 200 even if readiness would degrade
+            # (We can't easily simulate thread death, but we verify it's latched)
+            response = urllib.request.urlopen(f"http://localhost:{port}/startup")
+            assert response.status == 200
 
         finally:
             if sac:

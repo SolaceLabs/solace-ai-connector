@@ -63,7 +63,8 @@ class SolaceAiConnector:
                 self.health_checker,
                 port=health_config.get("port", 8080),
                 liveness_path=health_config.get("liveness_path", "/healthz"),
-                readiness_path=health_config.get("readiness_path", "/readyz")
+                readiness_path=health_config.get("readiness_path", "/readyz"),
+                startup_path=health_config.get("startup_path", "/startup")
             )
             self.health_server.start()
             log.info(f"Health check server started on port {health_config.get('port', 8080)}")
