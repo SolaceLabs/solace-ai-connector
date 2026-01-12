@@ -216,7 +216,7 @@ class HealthCheckServer:
             daemon=True
         )
         self.server_thread.start()
-        log.info(f"Health check server started on port {self.port}")
+        log.info("Health check server started on port %s", self.port)
 
     def stop(self):
         """Stop the HTTP server"""
