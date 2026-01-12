@@ -10,15 +10,17 @@ log = logging.getLogger(__name__)
 
 
 class HealthChecker:
-    """Monitors connector health for readiness checks"""
+    """Monitors connector health for readiness and startup checks"""
 
-    def __init__(self, connector, check_interval_seconds=5):
+    def __init__(self, connector, readiness_check_period_seconds=5, startup_check_period_seconds=5):
         self.connector = connector
-        self.check_interval_seconds = check_interval_seconds
+        self.readiness_check_period_seconds = readiness_check_period_seconds
+        self.startup_check_period_seconds = startup_check_period_seconds
         self._ready = False
         self._startup_complete = False
         self._lock = threading.Lock()
-        self.monitor_thread = None
+        self.readiness_monitor_thread = None
+        self.startup_monitor_thread = None
         self.stop_event = threading.Event()
 
     def is_ready(self):
@@ -69,20 +71,41 @@ class HealthChecker:
                 log.info("Health check: Startup complete")
 
     def start_monitoring(self):
-        """Start background thread to monitor ongoing health"""
-        self.monitor_thread = threading.Thread(
-            target=self._monitor_loop, daemon=True
+        """Start background threads to monitor ongoing health"""
+        # Start readiness monitoring thread
+        self.readiness_monitor_thread = threading.Thread(
+            target=self._readiness_monitor_loop, daemon=True
         )
-        self.monitor_thread.start()
+        self.readiness_monitor_thread.start()
 
-    def _monitor_loop(self):
+        # Start startup monitoring thread (polls until startup completes, then exits)
+        if not self._startup_complete:
+            self.startup_monitor_thread = threading.Thread(
+                target=self._startup_monitor_loop, daemon=True
+            )
+            self.startup_monitor_thread.start()
+
+    def _readiness_monitor_loop(self):
         """Periodically check if flows are still healthy"""
         while not self.stop_event.is_set():
-            time.sleep(self.check_interval_seconds)
+            time.sleep(self.readiness_check_period_seconds)
             if self._ready and not self._check_all_threads_alive():
                 with self._lock:
                     self._ready = False
                 log.warning("Health check: Connector degraded - flows not healthy")
+
+    def _startup_monitor_loop(self):
+        """Periodically check if startup has completed until it latches"""
+        while not self.stop_event.is_set():
+            time.sleep(self.startup_check_period_seconds)
+            if self._startup_complete:
+                # Already complete, exit the loop
+                return
+            if self._check_all_apps_startup_complete():
+                with self._lock:
+                    self._startup_complete = True
+                log.info("Health check: Startup complete")
+                return
 
     def stop(self):
         """Stop monitoring"""

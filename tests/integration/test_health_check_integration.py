@@ -39,7 +39,8 @@ class TestHealthCheckIntegration:
                 "liveness_path": "/healthz",
                 "readiness_path": "/readyz",
                 "startup_path": "/startup",
-                "check_interval_seconds": 1
+                "readiness_check_period_seconds": 1,
+                "startup_check_period_seconds": 1
             }
         }
 
@@ -127,7 +128,8 @@ class TestHealthCheckIntegration:
                 "liveness_path": "/healthz",
                 "readiness_path": "/readyz",
                 "startup_path": "/startup",
-                "check_interval_seconds": 1
+                "readiness_check_period_seconds": 1,
+                "startup_check_period_seconds": 1
             }
         }
 

@@ -57,7 +57,8 @@ class SolaceAiConnector:
             health_config = self.config.get("health_check", {})
             self.health_checker = HealthChecker(
                 self,
-                check_interval_seconds=health_config.get("check_interval_seconds", 5)
+                readiness_check_period_seconds=health_config.get("readiness_check_period_seconds", 5),
+                startup_check_period_seconds=health_config.get("startup_check_period_seconds", 5)
             )
             self.health_server = HealthCheckServer(
                 self.health_checker,

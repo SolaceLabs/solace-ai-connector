@@ -44,7 +44,8 @@ class TestSolaceAiConnectorHealth:
                 "liveness_path": "/healthz",
                 "readiness_path": "/readyz",
                 "startup_path": "/startup",
-                "check_interval_seconds": 5
+                "readiness_check_period_seconds": 5,
+                "startup_check_period_seconds": 10
             }
         }
 
@@ -60,7 +61,7 @@ class TestSolaceAiConnectorHealth:
             assert sac.health_checker is mock_health_checker
             assert sac.health_server is mock_health_server
 
-            mock_health_checker_class.assert_called_once_with(sac, check_interval_seconds=5)
+            mock_health_checker_class.assert_called_once_with(sac, readiness_check_period_seconds=5, startup_check_period_seconds=10)
             mock_health_server_class.assert_called_once_with(
                 mock_health_checker,
                 port=8080,

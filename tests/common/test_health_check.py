@@ -12,13 +12,15 @@ class TestHealthChecker:
     def test_health_checker_initialization(self):
         """Test HealthChecker initializes with correct default state"""
         mock_connector = Mock()
-        checker = HealthChecker(mock_connector, check_interval_seconds=5)
+        checker = HealthChecker(mock_connector, readiness_check_period_seconds=5, startup_check_period_seconds=10)
 
         assert checker.connector is mock_connector
-        assert checker.check_interval_seconds == 5
+        assert checker.readiness_check_period_seconds == 5
+        assert checker.startup_check_period_seconds == 10
         assert checker.is_ready() is False
         assert checker.is_startup_complete() is False
-        assert checker.monitor_thread is None
+        assert checker.readiness_monitor_thread is None
+        assert checker.startup_monitor_thread is None
         assert checker.stop_event.is_set() is False
 
     def test_check_all_threads_alive_with_alive_threads(self):
@@ -154,17 +156,20 @@ class TestHealthChecker:
         assert checker.is_ready() is False
         assert checker.is_startup_complete() is True  # Latched!
 
-    def test_start_monitoring_creates_daemon_thread(self):
-        """Test start_monitoring creates and starts a daemon thread"""
+    def test_start_monitoring_creates_daemon_threads(self):
+        """Test start_monitoring creates and starts daemon threads"""
         mock_connector = Mock()
         mock_connector.apps = []
 
         checker = HealthChecker(mock_connector)
         checker.start_monitoring()
 
-        assert checker.monitor_thread is not None
-        assert checker.monitor_thread.daemon is True
-        assert checker.monitor_thread.is_alive() is True
+        assert checker.readiness_monitor_thread is not None
+        assert checker.readiness_monitor_thread.daemon is True
+        assert checker.readiness_monitor_thread.is_alive() is True
+        # Startup monitor thread should also be started since startup not complete
+        assert checker.startup_monitor_thread is not None
+        assert checker.startup_monitor_thread.daemon is True
 
         # Clean up
         checker.stop()
@@ -181,7 +186,7 @@ class TestHealthChecker:
         mock_app.flows = [mock_flow]
         mock_connector.apps = [mock_app]
 
-        checker = HealthChecker(mock_connector, check_interval_seconds=1)
+        checker = HealthChecker(mock_connector, readiness_check_period_seconds=1)
 
         # Mark as ready
         checker.mark_ready()
@@ -202,14 +207,14 @@ class TestHealthChecker:
         checker.stop()
 
     def test_stop_halts_monitoring(self):
-        """Test stop method halts the monitoring thread"""
+        """Test stop method halts the monitoring threads"""
         mock_connector = Mock()
         mock_connector.apps = []
 
         checker = HealthChecker(mock_connector)
         checker.start_monitoring()
 
-        assert checker.monitor_thread.is_alive() is True
+        assert checker.readiness_monitor_thread.is_alive() is True
 
         checker.stop()
 

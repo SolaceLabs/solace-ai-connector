@@ -13,7 +13,8 @@ health_check:
   liveness_path: /healthz                # Default: /healthz
   readiness_path: /readyz                # Default: /readyz
   startup_path: /startup                 # Default: /startup
-  check_interval_seconds: 5              # Default: 5
+  readiness_check_period_seconds: 5      # Default: 5 - How often to check readiness
+  startup_check_period_seconds: 5        # Default: 5 - How often to poll for startup completion
 ```
 
 ## Endpoints
@@ -61,7 +62,8 @@ The health checker continuously monitors:
 - **Flow threads**: If any flow thread dies → Readiness changes to 503
 - **App-level readiness**: Custom apps can provide their own readiness logic
 - Kubernetes will stop routing traffic to the pod if not ready
-- Monitoring interval controlled by `check_interval_seconds`
+- Readiness monitoring interval controlled by `readiness_check_period_seconds`
+- Startup polling interval controlled by `startup_check_period_seconds`
 
 ### Custom App Startup
 

@@ -6,7 +6,9 @@ health_check:
   port: 8080
   liveness_path: /healthz
   readiness_path: /readyz
-  check_interval_seconds: 5
+  startup_path: /startup
+  readiness_check_period_seconds: 5
+  startup_check_period_seconds: 5
 
 # Logging configuration
 log:
