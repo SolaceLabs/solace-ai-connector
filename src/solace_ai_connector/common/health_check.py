@@ -13,6 +13,14 @@ class HealthChecker:
     """Monitors connector health for readiness and startup checks"""
 
     def __init__(self, connector, readiness_check_period_seconds=5, startup_check_period_seconds=5):
+        """
+        Args:
+            connector: The SolaceAiConnector instance to monitor.
+            readiness_check_period_seconds: Seconds between readiness checks. Set this to at least
+                the maximum time your readiness checks take to complete.
+            startup_check_period_seconds: Seconds between startup completion polls. Set this to at least
+                the maximum time your startup checks take to complete.
+        """
         self.connector = connector
         self.readiness_check_period_seconds = readiness_check_period_seconds
         self.startup_check_period_seconds = startup_check_period_seconds

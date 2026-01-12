@@ -13,9 +13,11 @@ health_check:
   liveness_path: /healthz                # Default: /healthz
   readiness_path: /readyz                # Default: /readyz
   startup_path: /startup                 # Default: /startup
-  readiness_check_period_seconds: 5      # Default: 5 - How often to check readiness
-  startup_check_period_seconds: 5        # Default: 5 - How often to poll for startup completion
+  readiness_check_period_seconds: 5      # Default: 5 (should be >= max check duration)
+  startup_check_period_seconds: 5        # Default: 5 (should be >= max check duration)
 ```
+
+**Note:** Set `readiness_check_period_seconds` and `startup_check_period_seconds` to at least the maximum time you expect the respective checks to take. If your custom `is_ready()` or `is_startup_complete()` methods perform I/O operations (database pings, HTTP calls, etc.), account for their worst-case latency.
 
 ## Endpoints
 
