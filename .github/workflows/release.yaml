@@ -23,6 +23,7 @@ jobs:
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_security_checks.yml@main
     with:
       sonarqube_hotspot_check: true
+      fossa_check: true
       whitesource_project_name: ${{ github.event.repository.name }}
       whitesource_product_name: "solaceai"
     secrets:
@@ -34,6 +35,7 @@ jobs:
       MANIFEST_AWS_ACCESS_KEY_ID: ${{ secrets.MANIFEST_READ_ONLY_AWS_ACCESS_KEY_ID }}
       MANIFEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.MANIFEST_READ_ONLY_AWS_SECRET_ACCESS_KEY }}
       MANIFEST_AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
   # Release to PyPI using Trusted Publishing
   release:
