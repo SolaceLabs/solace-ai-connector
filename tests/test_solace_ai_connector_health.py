@@ -4,7 +4,7 @@ from solace_ai_connector.solace_ai_connector import SolaceAiConnector
 
 
 class TestSolaceAiConnectorHealth:
-    @patch('solace_ai_connector.solace_ai_connector.HealthCheckServer')
+    @patch('solace_ai_connector.solace_ai_connector.HealthCheckHttpServer')
     @patch('solace_ai_connector.solace_ai_connector.HealthChecker')
     def test_health_check_disabled_by_default(self, mock_health_checker_class, mock_health_server_class):
         """Test health check is not started when disabled"""
@@ -27,7 +27,7 @@ class TestSolaceAiConnectorHealth:
             mock_health_server_class.assert_not_called()
 
 
-    @patch('solace_ai_connector.solace_ai_connector.HealthCheckServer')
+    @patch('solace_ai_connector.solace_ai_connector.HealthCheckHttpServer')
     @patch('solace_ai_connector.solace_ai_connector.HealthChecker')
     def test_health_check_enabled_in_config(self, mock_health_checker_class, mock_health_server_class):
         """Test health check is started when enabled in config"""
@@ -72,7 +72,7 @@ class TestSolaceAiConnectorHealth:
             mock_health_server.start.assert_called_once()
 
 
-    @patch('solace_ai_connector.solace_ai_connector.HealthCheckServer')
+    @patch('solace_ai_connector.solace_ai_connector.HealthCheckHttpServer')
     @patch('solace_ai_connector.solace_ai_connector.HealthChecker')
     def test_health_checker_marked_ready_after_create_apps(self, mock_health_checker_class, mock_health_server_class):
         """Test health checker is marked ready after create_apps"""
@@ -110,7 +110,7 @@ class TestSolaceAiConnectorHealth:
             mock_health_checker.start_monitoring.assert_called_once()
 
 
-    @patch('solace_ai_connector.solace_ai_connector.HealthCheckServer')
+    @patch('solace_ai_connector.solace_ai_connector.HealthCheckHttpServer')
     @patch('solace_ai_connector.solace_ai_connector.HealthChecker')
     def test_health_check_stopped_on_connector_stop(self, mock_health_checker_class, mock_health_server_class):
         """Test health check server and checker are stopped when connector stops"""

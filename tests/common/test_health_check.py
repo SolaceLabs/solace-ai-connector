@@ -524,13 +524,13 @@ class TestHealthCheckRequestHandler:
         handler.send_response.assert_called_once_with(200)
 
 
-class TestHealthCheckServer:
+class TestHealthCheckHttpServer:
     def test_server_initialization(self):
-        """Test HealthCheckServer initializes correctly"""
-        from solace_ai_connector.common.health_check import HealthCheckServer
+        """Test HealthCheckHttpServer initializes correctly"""
+        from solace_ai_connector.common.health_check import HealthCheckHttpServer
 
         mock_health_checker = Mock()
-        server = HealthCheckServer(
+        server = HealthCheckHttpServer(
             mock_health_checker,
             port=8080,
             liveness_path="/healthz",
@@ -548,7 +548,7 @@ class TestHealthCheckServer:
 
     def test_server_starts_and_stops(self):
         """Test server starts and stops correctly"""
-        from solace_ai_connector.common.health_check import HealthCheckServer
+        from solace_ai_connector.common.health_check import HealthCheckHttpServer
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = True
@@ -558,7 +558,7 @@ class TestHealthCheckServer:
             s.bind(('', 0))
             port = s.getsockname()[1]
 
-        server = HealthCheckServer(
+        server = HealthCheckHttpServer(
             mock_health_checker,
             port=port,
             liveness_path="/healthz",
@@ -582,7 +582,7 @@ class TestHealthCheckServer:
 
     def test_server_serves_requests(self):
         """Test server actually serves HTTP requests"""
-        from solace_ai_connector.common.health_check import HealthCheckServer
+        from solace_ai_connector.common.health_check import HealthCheckHttpServer
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = True
@@ -592,7 +592,7 @@ class TestHealthCheckServer:
             s.bind(('', 0))
             port = s.getsockname()[1]
 
-        server = HealthCheckServer(
+        server = HealthCheckHttpServer(
             mock_health_checker,
             port=port,
             liveness_path="/healthz",

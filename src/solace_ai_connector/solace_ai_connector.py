@@ -18,7 +18,7 @@ from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 from .common.monitoring import Monitoring
-from .common.health_check import HealthChecker, HealthCheckServer
+from .common.health_check import HealthChecker, HealthCheckHttpServer
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class SolaceAiConnector:
                 readiness_check_period_seconds=health_config.get("readiness_check_period_seconds", 5),
                 startup_check_period_seconds=health_config.get("startup_check_period_seconds", 5)
             )
-            self.health_server = HealthCheckServer(
+            self.health_server = HealthCheckHttpServer(
                 self.health_checker,
                 port=health_config.get("port", 8080),
                 liveness_path=health_config.get("liveness_path", "/healthz"),

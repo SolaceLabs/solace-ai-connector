@@ -123,7 +123,7 @@ class HealthChecker:
 class HealthCheckRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for health check endpoints"""
 
-    # Class attributes set by HealthCheckServer
+    # Class attributes set by HealthCheckHttpServer
     health_checker = None
     liveness_path = None
     readiness_path = None
@@ -187,7 +187,7 @@ class HealthCheckRequestHandler(BaseHTTPRequestHandler):
         pass
 
 
-class HealthCheckServer:
+class HealthCheckHttpServer:
     """HTTP server for Kubernetes health checks"""
 
     def __init__(self, health_checker, port, liveness_path, readiness_path, startup_path):
