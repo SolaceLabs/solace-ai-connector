@@ -18,6 +18,7 @@ from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 from .common.monitoring import Monitoring
+from .common.health_check import HealthChecker, HealthCheckHttpServer
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +50,26 @@ class SolaceAiConnector:
         monitoring_config = self.config.get("monitoring", None)
         self.monitoring = Monitoring(monitoring_config)
 
+        # Initialize health check if enabled
+        self.health_checker = None
+        self.health_server = None
+        if self.config.get("health_check", {}).get("enabled", False):
+            health_config = self.config.get("health_check", {})
+            self.health_checker = HealthChecker(
+                self,
+                readiness_check_period_seconds=health_config.get("readiness_check_period_seconds", 5),
+                startup_check_period_seconds=health_config.get("startup_check_period_seconds", 5)
+            )
+            self.health_server = HealthCheckHttpServer(
+                self.health_checker,
+                port=health_config.get("port", 8080),
+                liveness_path=health_config.get("liveness_path", "/healthz"),
+                readiness_path=health_config.get("readiness_path", "/readyz"),
+                startup_path=health_config.get("startup_path", "/startup")
+            )
+            self.health_server.start()
+            log.info(f"Health check server started on port {health_config.get('port', 8080)}")
+
     def run(self):
         """Run the Solace AI Event Connector"""
         log.info("Starting Solace AI Event Connector")
@@ -61,6 +82,11 @@ class SolaceAiConnector:
                 on_flow_creation(self.flows)
 
             log.info("Solace AI Event Connector started successfully")
+
+            # Mark health check as ready if enabled
+            if self.health_checker:
+                self.health_checker.mark_ready()
+                self.health_checker.start_monitoring()
         except KeyboardInterrupt:
             log.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt
@@ -649,6 +675,12 @@ class SolaceAiConnector:
         """Stop the Solace AI Event Connector"""
         log.info("Stopping Solace AI Event Connector")
         self.stop_signal.set()
+
+        # Stop health check components first
+        if self.health_server:
+            self.health_server.stop()
+        if self.health_checker:
+            self.health_checker.stop()
 
         # Stop core services first
         self.timer_manager.stop()  # Stop the timer manager first

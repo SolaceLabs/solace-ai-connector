@@ -1,0 +1,45 @@
+# Example configuration with health check endpoints enabled
+
+# Health check configuration for Kubernetes
+health_check:
+  enabled: true
+  port: 8080
+  liveness_path: /healthz
+  readiness_path: /readyz
+  startup_path: /startup
+  readiness_check_period_seconds: 5
+  startup_check_period_seconds: 5
+
+# Logging configuration
+log:
+  stdout_log_level: INFO
+  log_file_level: DEBUG
+  log_file: logs/solace_ai_connector.log
+
+# Example application
+apps:
+  - name: example_app
+    flows:
+      - name: example_flow
+        components:
+          - component_name: input
+            component_module: broker_input
+            component_config:
+              broker_type: solace
+              broker_url: ${SOLACE_BROKER_URL}
+              broker_username: ${SOLACE_USERNAME}
+              broker_password: ${SOLACE_PASSWORD}
+              broker_vpn: ${SOLACE_VPN}
+              broker_queue_name: input_queue
+
+          - component_name: processor
+            component_module: pass_through
+
+          - component_name: output
+            component_module: broker_output
+            component_config:
+              broker_type: solace
+              broker_url: ${SOLACE_BROKER_URL}
+              broker_username: ${SOLACE_USERNAME}
+              broker_password: ${SOLACE_PASSWORD}
+              broker_vpn: ${SOLACE_VPN}

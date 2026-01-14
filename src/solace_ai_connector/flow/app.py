@@ -347,6 +347,50 @@ class App:
         for flow in self.flows:
             flow.wait_for_threads()
 
+    def is_startup_complete(self) -> bool:
+        """
+        Check if the app has completed its startup/initialization phase.
+
+        Override this method in custom app classes to provide app-specific startup logic.
+        The default implementation always returns True, indicating startup is complete
+        once the app is created.
+
+        Unlike is_ready(), this method is only checked until it returns True, then the
+        startup state is latched. Use this for one-time initialization checks.
+
+        Examples of custom startup checks:
+        - ML model loaded into memory
+        - Database connection pool initialized
+        - Cache warmed up
+        - Initial data sync completed
+        - Message broker subscriptions active
+
+        Returns:
+            bool: True if startup is complete, False if still initializing
+        """
+        return True
+
+    def is_ready(self) -> bool:
+        """
+        Check if the app is ready to process messages.
+
+        Override this method in custom app classes to provide app-specific readiness logic.
+        The default implementation always returns True, relying on thread health checks.
+
+        Unlike is_startup_complete(), this method is called continuously and can toggle
+        between ready and not ready based on current operational state.
+
+        Examples of custom readiness checks:
+        - Database connection established
+        - External service available
+        - Configuration loaded and validated
+        - Cache warmed up
+
+        Returns:
+            bool: True if the app is ready, False otherwise
+        """
+        return True
+
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
         log.info("Cleaning up app: %s", self.name)

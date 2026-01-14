@@ -56,6 +56,91 @@ def test_app_creation():
     app.cleanup()
 
 
+def test_app_is_startup_complete_default():
+    """Test that the default is_startup_complete() returns True"""
+    app_info = {
+        "name": "test_app",
+        "flows": [
+            {
+                "name": "test_flow",
+                "components": [
+                    {
+                        "component_name": "pass_through",
+                        "component_module": "pass_through",
+                    }
+                ],
+            }
+        ],
+    }
+
+    stop_signal = threading.Event()
+    error_queue = queue.Queue()
+
+    app = App(
+        app_info=app_info,
+        app_index=0,
+        stop_signal=stop_signal,
+        error_queue=error_queue,
+        instance_name="test_instance",
+    )
+
+    # Default implementation should return True
+    assert app.is_startup_complete() is True
+
+    # Clean up
+    stop_signal.set()
+    app.cleanup()
+
+
+def test_app_is_startup_complete_override():
+    """Test that is_startup_complete() can be overridden by subclasses"""
+
+    class CustomApp(App):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.initialization_done = False
+
+        def is_startup_complete(self) -> bool:
+            return self.initialization_done
+
+    app_info = {
+        "name": "custom_app",
+        "flows": [
+            {
+                "name": "test_flow",
+                "components": [
+                    {
+                        "component_name": "pass_through",
+                        "component_module": "pass_through",
+                    }
+                ],
+            }
+        ],
+    }
+
+    stop_signal = threading.Event()
+    error_queue = queue.Queue()
+
+    app = CustomApp(
+        app_info=app_info,
+        app_index=0,
+        stop_signal=stop_signal,
+        error_queue=error_queue,
+        instance_name="test_instance",
+    )
+
+    # Initially not complete
+    assert app.is_startup_complete() is False
+
+    # After setting flag, should be complete
+    app.initialization_done = True
+    assert app.is_startup_complete() is True
+
+    # Clean up
+    stop_signal.set()
+    app.cleanup()
+
+
 def test_app_get_config():
     """Test that app.get_config works correctly"""
     app_info = {
