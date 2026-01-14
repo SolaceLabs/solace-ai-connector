@@ -41,18 +41,20 @@ class HealthChecker:
         with self._lock:
             return self._startup_complete
 
-    def _check_all_threads_alive(self):
-        """Check if all flow threads are alive and apps are ready"""
+    def _check_components_ready(self):
+        """Check if all apps are ready (threads alive and readiness callbacks pass)"""
         for app in self.connector.apps:
             # Check if app has custom readiness logic
             if hasattr(app, 'is_ready') and callable(app.is_ready):
                 if not app.is_ready():
+                    log.debug("App '%s' is not ready", app.name)
                     return False
 
             # Check threads
             for flow in app.flows:
                 for thread in flow.threads:
                     if not thread.is_alive():
+                        log.debug("Thread in flow '%s' is not alive", flow.name)
                         return False
         return True
 
@@ -66,8 +68,8 @@ class HealthChecker:
         return True
 
     def mark_ready(self):
-        """Mark connector as ready if all threads are alive"""
-        if self._check_all_threads_alive():
+        """Mark connector as ready if readiness checks pass"""
+        if self._check_components_ready():
             with self._lock:
                 self._ready = True
             log.info("Health check: Connector is READY")
@@ -94,13 +96,18 @@ class HealthChecker:
             self.startup_monitor_thread.start()
 
     def _readiness_monitor_loop(self):
-        """Periodically check if flows are still healthy"""
+        """Periodically check if connector is still ready"""
         while not self.stop_event.is_set():
             time.sleep(self.readiness_check_period_seconds)
-            if self._ready and not self._check_all_threads_alive():
+            is_healthy = self._check_components_ready()
+            if self._ready and not is_healthy:
                 with self._lock:
                     self._ready = False
-                log.warning("Health check: Connector degraded - flows not healthy")
+                log.warning("Health check: Connector degraded - not ready")
+            elif not self._ready and is_healthy:
+                with self._lock:
+                    self._ready = True
+                log.info("Health check: Connector recovered - ready")
 
     def _startup_monitor_loop(self):
         """Periodically check if startup has completed until it latches"""
