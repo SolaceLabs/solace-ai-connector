@@ -23,257 +23,257 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "PyYAML==6.0.2",
-    "requests==2.32.5",
-    "solace_pubsubplus==1.9.0",
-    "SQLAlchemy==2.0.40",
-    'pywin32==311; sys_platform == "win32"',
-    "gevent==25.8.2",
-    "gevent-websocket==0.10.1",
-    "python-json-logger==4.0.0",
-    "urllib3==2.6.0"
+    "PyYAML",
+    "requests",
+    "solace_pubsubplus",
+    "SQLAlchemy",
+    'pywin32>=311; sys_platform >= "win32"',
+    "gevent",
+    "gevent-websocket",
+    "python-json-logger",
+    "urllib3"
 ]
 
 [project.optional-dependencies]
 # Basic LLM functionality
 llm = [
-    "litellm==1.74.3",
+    "litellm",
 ]
 
 # OpenAI specific dependencies
 openai = [
-    "openai==1.72.0",
-    "langchain-openai==0.3.8",
+    "openai",
+    "langchain-openai",
 ]
 
 # AWS integration (Bedrock, etc.)
 aws = [
-    "boto3==1.39.0",
-    "langchain_aws==0.2.19",
-    "requests_aws4auth>=1.3.1",
+    "boto3",
+    "langchain_aws",
+    "requests_aws4auth",
 ]
 
 # Vector stores
 chromadb-vector-store = [
-    "chromadb==1.0.15",
-    "langchain-chroma==0.2.4",
+    "chromadb",
+    "langchain-chroma",
 ]
 
 qdrant-vector-store = [
-    "langchain-qdrant==0.2.0",
+    "langchain-qdrant",
 ]
 
 milvus-vector-store = [
-    "langchain_milvus==0.1.8",
-    "pymilvus==2.5.6",
+    "langchain_milvus",
+    "pymilvus",
 ]
 
 # PostgreSQL vector database
 pgvector-vector-store = [
-    "pgvector==0.3.6",
-    "langchain-postgres==0.0.15",
-    "psycopg-binary==3.2.6",
+    "pgvector",
+    "langchain-postgres",
+    "psycopg-binary",
 ]
 
 # LangChain core and utilities
 langchain = [
-    "langchain==0.3.21",
+    "langchain",
 ]
 
 # Web search capabilities
 webscraping = [
-    "playwright==1.51.0",
-    "beautifulsoup4==4.13.3",
-    "Brotli==1.2.0",
+    "playwright",
+    "beautifulsoup4",
+    "Brotli",
 ]
 
 # RAG (Retrieval Augmented Generation)
 splitter = [
-    "langchain-text-splitters==0.3.9",
+    "langchain-text-splitters",
 ]
 
 # Mongo database
 mongodb = [
-    "pymongo==4.10.1",
+    "pymongo",
 ]
 
 # SQL database
 sql = [
-    "mysql_connector_python==9.3.0",
-    "psycopg2-binary==2.9.10",
+    "mysql_connector_python",
+    "psycopg2-binary",
 ]
 
 # Web Socket
 websocket = [
-    "Flask==3.0.3",
-    "Flask-SocketIO==5.4.1",
-    "Flask-WTF==1.2.2",
+    "Flask",
+    "Flask-SocketIO",
+    "Flask-WTF",
 ]
 
 llm_ext_release = [
-    "aiohappyeyeballs==2.6.1",
-    "aiohttp==3.12.14",
-    "aiosignal>=1.4.0",
-    "annotated-types==0.7.0",
-    "anyio==4.9.0",
-    "attrs==25.3.0",
-    "certifi==2025.1.31",
-    "charset-normalizer==3.4.1",
-    "click==8.1.8",
-    "distro==1.9.0",
-    "filelock==3.18.0",
-    "frozenlist==1.5.0",
-    "fsspec==2025.3.2",
-    "h11==0.16.0",
-    "httpcore==1.0.9",
-    "httpx==0.28.1",
-    "huggingface-hub==0.30.2",
-    "idna==3.10",
-    "importlib_metadata==8.6.1",
-    "Jinja2==3.1.6",
-    "jiter==0.9.0",
-    "jsonschema==4.23.0",
-    "jsonschema-specifications==2024.10.1",
-    "litellm==1.74.3",
-    "MarkupSafe==3.0.2",
-    "multidict==6.2.0",
-    "openai==1.72.0",
-    "packaging==24.2",
-    "propcache==0.3.1",
-    "pydantic==2.11.3",
-    "pydantic_core==2.33.1",
-    "python-dotenv==1.1.1",
-    "dotenv==0.9.9",
-    "PyYAML==6.0.2",
-    "referencing==0.36.2",
-    "regex==2024.11.6",
-    "rpds-py==0.24.0",
-    "sniffio==1.3.1",
-    "tiktoken==0.9.0",
-    "tokenizers==0.21.1",
-    "tqdm==4.67.1",
-    "typing_extensions==4.13.1",
-    "typing-inspection==0.4.0",
-    "yarl==1.19.0",
-    "zipp==3.21.0",
+    "aiohappyeyeballs",
+    "aiohttp",
+    "aiosignal",
+    "annotated-types",
+    "anyio",
+    "attrs",
+    "certifi",
+    "charset-normalizer",
+    "click",
+    "distro",
+    "filelock",
+    "frozenlist",
+    "fsspec",
+    "h11",
+    "httpcore",
+    "httpx",
+    "huggingface-hub",
+    "idna",
+    "importlib_metadata",
+    "Jinja2",
+    "jiter",
+    "jsonschema",
+    "jsonschema-specifications",
+    "litellm",
+    "MarkupSafe",
+    "multidict",
+    "openai",
+    "packaging",
+    "propcache",
+    "pydantic",
+    "pydantic_core",
+    "python-dotenv",
+    "dotenv",
+    "PyYAML",
+    "referencing",
+    "regex",
+    "rpds-py",
+    "sniffio",
+    "tiktoken",
+    "tokenizers",
+    "tqdm",
+    "typing_extensions",
+    "typing-inspection",
+    "yarl",
+    "zipp",
 ]
 
 openai_ext_release = [
-    "annotated-types==0.7.0",
-    "anyio==4.9.0",
-    "certifi==2025.1.31",
-    "charset-normalizer==3.4.1",
-    "distro==1.9.0",
-    "h11==0.16.0",
-    "httpcore==1.0.9",
-    "httpx==0.28.1",
-    "idna==3.10",
-    "jiter==0.9.0",
-    "jsonpatch==1.33",
-    "jsonpointer==3.0.0",
-    "langchain-core==0.3.80",
-    "langchain-openai==0.3.8",
-    "langsmith==0.3.45",
-    "openai==1.72.0",
-    "orjson==3.10.16",
-    "packaging==24.2",
-    "pydantic==2.11.3",
-    "pydantic_core==2.33.1",
-    "PyYAML==6.0.2",
-    "regex==2024.11.6",
-    "requests-toolbelt==1.0.0",
-    "sniffio==1.3.1",
-    "tenacity==9.1.2",
-    "tiktoken==0.9.0",
-    "tqdm==4.67.1",
-    "typing_extensions==4.13.1",
-    "typing-inspection==0.4.0",
-    "zstandard==0.23.0",
+    "annotated-types",
+    "anyio",
+    "certifi",
+    "charset-normalizer",
+    "distro",
+    "h11",
+    "httpcore",
+    "httpx",
+    "idna",
+    "jiter",
+    "jsonpatch",
+    "jsonpointer",
+    "langchain-core",
+    "langchain-openai",
+    "langsmith",
+    "openai",
+    "orjson",
+    "packaging",
+    "pydantic",
+    "pydantic_core",
+    "PyYAML",
+    "regex",
+    "requests-toolbelt",
+    "sniffio",
+    "tenacity",
+    "tiktoken",
+    "tqdm",
+    "typing_extensions",
+    "typing-inspection",
+    "zstandard",
 ]
 
 qdrant_ext_release = [
-    "annotated-types==0.7.0",
-    "anyio==4.9.0",
-    "certifi==2025.1.31",
-    "charset-normalizer==3.4.1",
-    "grpcio==1.73.1",
-    "grpcio-tools==1.73.1",
-    "h11==0.16.0",
-    "h2==4.3.0",
-    "hpack==4.1.0",
-    "httpcore==1.0.9",
-    "httpx==0.28.1",
-    "hyperframe==6.1.0",
-    "idna==3.10",
-    "jsonpatch==1.33",
-    "jsonpointer==3.0.0",
-    "langchain-core==0.3.80",
-    "langchain-qdrant==0.2.0",
-    "langsmith==0.3.45",
-    "orjson==3.10.16",
-    "packaging==24.2",
-    "portalocker==2.10.1",
-    "protobuf==6.31.1",
-    "pydantic==2.11.3",
-    "pydantic_core==2.33.1",
-    "PyYAML==6.0.2",
-    "qdrant-client==1.14.3",
-    "requests==2.32.5",
-    "requests-toolbelt==1.0.0",
-    "setuptools==78.1.1",
-    "sniffio==1.3.1",
-    "tenacity==9.1.2",
-    "typing_extensions==4.13.1",
-    "typing-inspection==0.4.0",
-    "zstandard==0.23.0",
+    "annotated-types",
+    "anyio",
+    "certifi",
+    "charset-normalizer",
+    "grpcio",
+    "grpcio-tools",
+    "h11",
+    "h2",
+    "hpack",
+    "httpcore",
+    "httpx",
+    "hyperframe",
+    "idna",
+    "jsonpatch",
+    "jsonpointer",
+    "langchain-core",
+    "langchain-qdrant",
+    "langsmith",
+    "orjson",
+    "packaging",
+    "portalocker",
+    "protobuf",
+    "pydantic",
+    "pydantic_core",
+    "PyYAML",
+    "qdrant-client",
+    "requests",
+    "requests-toolbelt",
+    "setuptools",
+    "sniffio",
+    "tenacity",
+    "typing_extensions",
+    "typing-inspection",
+    "zstandard",
 ]
 
 splitter_ext_release = [
-    "annotated-types==0.7.0",
-    "anyio==4.9.0",
-    "certifi==2025.1.31",
-    "charset-normalizer==3.4.1",
-    "h11==0.16.0",
-    "httpcore==1.0.9",
-    "httpx==0.28.1",
-    "idna==3.10",
-    "jsonpatch==1.33",
-    "jsonpointer==3.0.0",
-    "langchain-core==0.3.80",
-    "langchain-text-splitters==0.3.9",
-    "langsmith==0.3.45",
-    "orjson==3.10.16",
-    "packaging==24.2",
-    "pydantic==2.11.3",
-    "pydantic_core==2.33.1",
-    "PyYAML==6.0.2",
-    "requests-toolbelt==1.0.0",
-    "sniffio==1.3.1",
-    "tenacity==9.1.2",
-    "typing_extensions==4.13.1",
-    "typing-inspection==0.4.0",
-    "zstandard==0.23.0",
+    "annotated-types",
+    "anyio",
+    "certifi",
+    "charset-normalizer",
+    "h11",
+    "httpcore",
+    "httpx",
+    "idna",
+    "jsonpatch",
+    "jsonpointer",
+    "langchain-core",
+    "langchain-text-splitters",
+    "langsmith",
+    "orjson",
+    "packaging",
+    "pydantic",
+    "pydantic_core",
+    "PyYAML",
+    "requests-toolbelt",
+    "sniffio",
+    "tenacity",
+    "typing_extensions",
+    "typing-inspection",
+    "zstandard",
 ]
 
 # Test specific dependencies
 test = [
-    "pytest>=8.0.0", # Example version, adjust as needed
-    "pytest-mock>=3.0.0", # Example version
-    "pytest-cov>=4.0.0", # If you use coverage
-    "pytest-asyncio>=1.2.0",
+    "pytest", # Example version, adjust as needed
+    "pytest-mock", # Example version
+    "pytest-cov", # If you use coverage
+    "pytest-asyncio",
     # Add other test-specific dependencies here
 ]
 
 # Integration test dependencies
 integration-test = [
-    "trustme>=0.9.0",  # For generating test certificates
-    "aiohttp>=3.8.0",  # For creating mock servers
-    "bcrypt>=4.1.2,<5.0.0",
-    "passlib>=1.7.4,<1.8.0",    
-    "requests-mock>=1.10.0",
-    "mitmproxy>=9.0.0",  # For SSL proxy testing
-    "pytest-mock>=3.0.0",
-    "pytest-asyncio>=0.21.0",  # For async testing support
+    "trustme",  # For generating test certificates
+    "aiohttp",  # For creating mock servers
+    "bcrypt",
+    "passlib",    
+    "requests-mock",
+    "mitmproxy",  # For SSL proxy testing
+    "pytest-mock",
+    "pytest-asyncio",  # For async testing support
  #  "proxy-py @ git+https://github.com/abhinavsingh/proxy.py.git@master" - temporary, to allow release
 ]
 
@@ -281,61 +281,61 @@ integration-test = [
 # All dependencies
 all = [
     "numpy",
-    "python-dotenv==1.1.1",
-    "dotenv==0.9.9",
+    "python-dotenv",
+    "dotenv",
 
     # From langchain
-    "langchain==0.3.21",
+    "langchain",
 
     # From llm
-    "litellm==1.74.3",
+    "litellm",
     
     # From openai
-    "openai==1.72.0",
-    "langchain-openai==0.3.8",
+    "openai",
+    "langchain-openai",
     
     # From aws
-    "boto3==1.39.0",
-    "langchain_aws==0.2.19",
-    "requests_aws4auth>=1.3.1",
+    "boto3",
+    "langchain_aws",
+    "requests_aws4auth",
     
     # From chromadb-vector-store
-    "chromadb==1.0.15",
-    "langchain-chroma==0.2.4",
+    "chromadb",
+    "langchain-chroma",
     
     # From qdrant-vector-store
-    "langchain-qdrant==0.2.0",
-    "qdrant-client==1.14.3",
+    "langchain-qdrant",
+    "qdrant-client",
     
     # From milvus-vector-store
-    "langchain_milvus==0.1.8",
-    "pymilvus==2.5.6",
+    "langchain_milvus",
+    "pymilvus",
     
     # From pgvector-vector-store
-    "pgvector==0.3.6",
-    "langchain-postgres==0.0.15",
-    "psycopg-binary==3.2.6",
+    "pgvector",
+    "langchain-postgres",
+    "psycopg-binary",
     
     # From webscraping
-    "playwright==1.51.0",
-    "beautifulsoup4==4.13.3",
-    "Brotli==1.2.0",
-    "python-dotenv==1.1.1",
+    "playwright",
+    "beautifulsoup4",
+    "Brotli",
+    "python-dotenv",
     
     # From splitter
-    "langchain-text-splitters==0.3.9",
+    "langchain-text-splitters",
     
     # From mongodb
-    "pymongo==4.10.1",
+    "pymongo",
 
     # From sql
-    "mysql_connector_python==9.3.0",
-    "psycopg2-binary==2.9.10",
+    "mysql_connector_python",
+    "psycopg2-binary",
     
     # From websocket
-    "Flask==3.0.3",
-    "Flask-SocketIO==5.4.1",
-    "Flask-WTF==1.2.2",
+    "Flask",
+    "Flask-SocketIO",
+    "Flask-WTF",
 ]
 
 
@@ -352,11 +352,11 @@ solace-ai-connector-gen-docs = "solace_ai_connector.tools.gen_component_docs:mai
 [tool.hatch.envs.hatch-test]
 installer = "pip"
 dependencies = [
-  "pytest>=8.0.0",
-  "pytest-mock>=3.0.0",
-  "pytest-cov>=4.0.0",
-  "pytest-xdist>=3.5.0",
-  "pytest-asyncio>=1.2.0"
+  "pytest",
+  "pytest-mock",
+  "pytest-cov",
+  "pytest-xdist",
+  "pytest-asyncio"
 ]
 features = ["all"]
 
