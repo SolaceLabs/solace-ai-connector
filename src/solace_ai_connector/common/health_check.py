@@ -32,9 +32,17 @@ class HealthChecker:
         self.stop_event = threading.Event()
 
     def is_ready(self):
-        """Thread-safe check if connector is ready"""
+        """Thread-safe check if connector is ready.
+
+        Returns True only when both:
+        - Components are healthy (threads alive, app.is_ready() passes)
+        - Startup has completed (app.is_startup_complete() passes)
+
+        This ensures readiness returns 503 until startup completes,
+        preventing Kubernetes from routing traffic prematurely.
+        """
         with self._lock:
-            return self._ready
+            return self._ready and self._startup_complete
 
     def is_startup_complete(self):
         """Thread-safe check if startup has completed (latches to True)"""

@@ -375,7 +375,10 @@ class TestHealthChecker:
         assert result is True
 
     def test_mark_ready_checks_app_startup_complete(self):
-        """Test mark_ready only sets startup complete when apps report complete"""
+        """Test mark_ready only sets startup complete when apps report complete.
+
+        Per design doc: readiness should return 503 until startup completes.
+        """
         mock_connector = Mock()
 
         mock_thread = Mock()
@@ -395,8 +398,8 @@ class TestHealthChecker:
 
         # Should NOT be startup complete because app says not complete
         assert checker.is_startup_complete() is False
-        # But readiness can still be True (threads alive, is_ready True)
-        assert checker.is_ready() is True
+        # Readiness should also be False until startup completes (per design doc)
+        assert checker.is_ready() is False
 
     def test_mark_ready_sets_startup_complete_when_apps_complete(self):
         """Test mark_ready sets startup complete when all apps report complete"""
@@ -420,6 +423,34 @@ class TestHealthChecker:
         # Both should be True
         assert checker.is_startup_complete() is True
         assert checker.is_ready() is True
+
+    def test_is_ready_returns_false_when_startup_not_complete(self):
+        """Test is_ready returns False when startup is not complete, even if components are ready.
+
+        Per the design doc, readiness should return 503 (not ready) until startup completes.
+        This ensures Kubernetes doesn't route traffic until the app is fully initialized.
+        """
+        mock_connector = Mock()
+
+        mock_thread = Mock()
+        mock_thread.is_alive.return_value = True
+        mock_flow = Mock()
+        mock_flow.threads = [mock_thread]
+
+        mock_app = Mock()
+        mock_app.flows = [mock_flow]
+        mock_app.is_ready.return_value = True
+        mock_app.is_startup_complete.return_value = False  # Startup not complete
+
+        mock_connector.apps = [mock_app]
+
+        checker = HealthChecker(mock_connector)
+        checker.mark_ready()
+
+        # Startup should not be complete
+        assert checker.is_startup_complete() is False
+        # Readiness should also be False until startup completes
+        assert checker.is_ready() is False
 
 
 class TestHealthCheckRequestHandler:
