@@ -554,7 +554,12 @@ class BrokerRequestResponse(BrokerBase):
     def stop_component(self):
         if self.response_thread:
             self._local_stop_signal.set()
-            self.response_thread.join()
+            self.response_thread.join(timeout=2.0)
+            if self.response_thread.is_alive():
+                log.warning(
+                    "Response thread did not exit within timeout. "
+                    "Thread will be abandoned (daemon thread)."
+                )
         super().stop_component()
 
     def get_metrics(self):
