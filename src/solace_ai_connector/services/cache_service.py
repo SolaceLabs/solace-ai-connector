@@ -311,7 +311,12 @@ class CacheService:
     def stop(self):
         self.stop_event.set()
         self.expiry_event.set()  # Wake up the expiry thread
-        self.expiry_thread.join()
+        self.expiry_thread.join(timeout=2.0)
+        if self.expiry_thread.is_alive():
+            log.warning(
+                "Cache service expiry thread did not exit within timeout. "
+                "Thread will be abandoned (daemon thread)."
+            )
         log.debug("Cache service stopped")
 
 
