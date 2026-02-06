@@ -74,8 +74,21 @@ class DevBroker(Messaging):
         )
 
     def register_reconnection_callback(self, callback):
-        """No-op for DevBroker (no real reconnection scenarios)."""
+        """Register a callback to be invoked on reconnection."""
         self._reconnection_callbacks.append(callback)
+
+    def simulate_reconnection(self):
+        """Simulate a reconnection event for testing.
+
+        This method invokes all registered reconnection callbacks,
+        mimicking what happens in SolaceMessaging when the broker reconnects.
+        """
+        log.info("DevBroker: Simulating reconnection event")
+        for callback in self._reconnection_callbacks:
+            try:
+                callback()
+            except Exception:
+                log.exception("DevBroker: Error in reconnection callback")
 
     def restore_subscriptions_with_rebind(
         self,
