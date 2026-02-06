@@ -1,5 +1,6 @@
 """Input broker component for the Solace AI Event Connector"""
 import logging
+import threading
 import time
 from solace.messaging.utils.manageable import ApiMetrics, Metric as SolaceMetrics
 
@@ -82,6 +83,7 @@ class BrokerInput(BrokerBase):
         self.need_acknowledgement = True
         self.temporary_queue = self.get_config("temporary_queue", False)
         self.active_subscriptions = set()
+        self._subscription_lock = threading.Lock()
         # If broker_queue_name is not provided, use temporary queue
         if not self.get_config("broker_queue_name"):
             self.temporary_queue = True
@@ -101,6 +103,49 @@ class BrokerInput(BrokerBase):
                     self.active_subscriptions.add(sub_dict)
 
         self.connect()
+        self._register_reconnection_handler()
+
+    def _register_reconnection_handler(self):
+        """Register callback to restore subscriptions on reconnection."""
+        if hasattr(self.messaging_service, "register_reconnection_callback"):
+            self.messaging_service.register_reconnection_callback(self._on_reconnected)
+
+    def _on_reconnected(self):
+        """Handle reconnection by restoring subscriptions for temporary queues."""
+        with self._subscription_lock:
+            subscriptions_to_restore = self.active_subscriptions.copy()
+
+        if not subscriptions_to_restore:
+            return
+
+        # Only rebind for temporary queues - durable queues retain subscriptions
+        if not self.temporary_queue:
+            log.info(
+                "%s Durable queue - subscriptions persist on broker",
+                self.log_identifier,
+            )
+            return
+
+        log.info(
+            "%s Restoring %d subscriptions after reconnection",
+            self.log_identifier,
+            len(subscriptions_to_restore),
+        )
+
+        if hasattr(self.messaging_service, "restore_subscriptions_with_rebind"):
+            queue_name = self.broker_properties.get("queue_name")
+            success, failed = self.messaging_service.restore_subscriptions_with_rebind(
+                subscriptions=subscriptions_to_restore,
+                queue_name=queue_name,
+                temporary=self.temporary_queue,
+                max_redelivery_count=self.broker_properties.get("max_redelivery_count"),
+            )
+            if failed > 0:
+                log.warning(
+                    "%s Failed to restore %d subscriptions",
+                    self.log_identifier,
+                    failed,
+                )
 
     def invoke(self, message, data):
         return {
@@ -267,7 +312,8 @@ class BrokerInput(BrokerBase):
             return False
 
         if success:
-            self.active_subscriptions.add(topic_str)
+            with self._subscription_lock:
+                self.active_subscriptions.add(topic_str)
             log.info(
                 "%s Successfully added subscription '%s'. Active subscriptions: %s",
                 self.log_identifier,
@@ -330,7 +376,8 @@ class BrokerInput(BrokerBase):
             return False
 
         if success:
-            self.active_subscriptions.discard(topic_str)
+            with self._subscription_lock:
+                self.active_subscriptions.discard(topic_str)
             log.info(
                 "%s Successfully removed subscription '%s'. Active subscriptions: %s",
                 self.log_identifier,
@@ -346,5 +393,6 @@ class BrokerInput(BrokerBase):
         return success
 
     def get_active_subscriptions(self) -> set:
-        """Returns the set of currently active topic subscriptions."""
-        return self.active_subscriptions
+        """Returns a copy of the currently active topic subscriptions."""
+        with self._subscription_lock:
+            return self.active_subscriptions.copy()

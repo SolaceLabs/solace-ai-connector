@@ -52,6 +52,7 @@ class DevBroker(Messaging):
 
         # Need this to be able to use the same interface as the other brokers
         self.persistent_receiver = {}
+        self._reconnection_callbacks = []
 
     def connect(self):
         self.connected = True
@@ -71,6 +72,20 @@ class DevBroker(Messaging):
             if self.connected
             else DevConnectionStatus.DISCONNECTED
         )
+
+    def register_reconnection_callback(self, callback):
+        """No-op for DevBroker (no real reconnection scenarios)."""
+        self._reconnection_callbacks.append(callback)
+
+    def restore_subscriptions_with_rebind(
+        self,
+        subscriptions: set,
+        queue_name: str,
+        temporary: bool = True,
+        max_redelivery_count: int = None,
+    ):
+        """No-op for DevBroker - subscriptions persist in memory."""
+        return (len(subscriptions), 0)
 
     def receive_message(self, timeout_ms, queue_name: str):
         if not self.connected:
