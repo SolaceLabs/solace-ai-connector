@@ -257,128 +257,12 @@ class TestDevBrokerSubscriptionManagement:
         assert msg["payload"] == "match2"
 
 
-class TestDevBrokerSimulateReconnection:
-    """Tests for DevBroker.simulate_reconnection() method."""
-
-    @pytest.fixture
-    def flow_lock_manager(self):
-        return StubFlowLockManager()
-
-    @pytest.fixture
-    def flow_kv_store(self):
-        return StubFlowKvStore()
-
-    @pytest.fixture
-    def dev_broker(self, flow_lock_manager, flow_kv_store):
-        broker_properties = {
-            "queue_name": "test_queue",
-            "subscriptions": [{"topic": "initial/topic"}],
-        }
-        broker = DevBroker(broker_properties, flow_lock_manager, flow_kv_store)
-        broker.connect()
-        return broker
-
-    def test_simulate_reconnection_invokes_callbacks(self, dev_broker):
-        """Test that simulate_reconnection invokes registered callbacks."""
-        callback_invoked = [False]
-
-        def on_reconnected():
-            callback_invoked[0] = True
-
-        dev_broker.register_reconnection_callback(on_reconnected)
-        dev_broker.simulate_reconnection()
-
-        assert callback_invoked[0] is True
-
-    def test_simulate_reconnection_invokes_all_callbacks(self, dev_broker):
-        """Test that all registered callbacks are invoked."""
-        call_order = []
-
-        def callback1():
-            call_order.append(1)
-
-        def callback2():
-            call_order.append(2)
-
-        def callback3():
-            call_order.append(3)
-
-        dev_broker.register_reconnection_callback(callback1)
-        dev_broker.register_reconnection_callback(callback2)
-        dev_broker.register_reconnection_callback(callback3)
-
-        dev_broker.simulate_reconnection()
-
-        assert call_order == [1, 2, 3]
-
-    def test_simulate_reconnection_handles_callback_exception(self, dev_broker):
-        """Test that one callback exception doesn't block others."""
-        results = []
-
-        def callback1():
-            results.append(1)
-
-        def callback2():
-            raise ValueError("Intentional error")
-
-        def callback3():
-            results.append(3)
-
-        dev_broker.register_reconnection_callback(callback1)
-        dev_broker.register_reconnection_callback(callback2)
-        dev_broker.register_reconnection_callback(callback3)
-
-        # Should not raise, and callback3 should still be called
-        dev_broker.simulate_reconnection()
-
-        assert results == [1, 3]
-
-    def test_multiple_reconnections(self, dev_broker):
-        """Test that multiple reconnections work correctly."""
-        reconnection_count = [0]
-
-        def on_reconnected():
-            reconnection_count[0] += 1
-
-        dev_broker.register_reconnection_callback(on_reconnected)
-
-        # Simulate multiple reconnections
-        dev_broker.simulate_reconnection()
-        dev_broker.simulate_reconnection()
-        dev_broker.simulate_reconnection()
-
-        assert reconnection_count[0] == 3
-
-    def test_reconnection_with_thread_safety(self, dev_broker):
-        """Test thread-safe reconnection handling."""
-        call_count = [0]
-        lock = threading.Lock()
-
-        def on_reconnected():
-            with lock:
-                call_count[0] += 1
-
-        dev_broker.register_reconnection_callback(on_reconnected)
-
-        # Simulate reconnections from multiple threads
-        threads = []
-        for _ in range(10):
-            t = threading.Thread(target=dev_broker.simulate_reconnection)
-            threads.append(t)
-            t.start()
-
-        for t in threads:
-            t.join()
-
-        assert call_count[0] == 10
-
-
 class TestBrokerInputReconnection:
     """Integration tests for BrokerInput reconnection using real DevBroker.
 
     These tests exercise the production BrokerInput._on_reconnected code path
-    by creating a real BrokerInput backed by DevBroker, then triggering
-    simulate_reconnection() on the underlying messaging service.
+    by creating a real BrokerInput backed by DevBroker, then calling
+    _on_reconnected() directly.
     """
 
     def test_reconnection_restores_subscriptions_for_temporary_queue(self):
@@ -399,7 +283,7 @@ class TestBrokerInputReconnection:
 
         dev_broker.restore_subscriptions_with_rebind = spy_restore
 
-        dev_broker.simulate_reconnection()
+        broker_input._on_reconnected()
 
         assert len(restore_calls) == 1
         assert restore_calls[0]["subscriptions"] == {"test/topic/a", "test/topic/b"}
@@ -423,7 +307,7 @@ class TestBrokerInputReconnection:
 
         dev_broker.restore_subscriptions_with_rebind = spy_restore
 
-        dev_broker.simulate_reconnection()
+        broker_input._on_reconnected()
 
         assert restore_called[0] is False
 
@@ -451,7 +335,7 @@ class TestBrokerInputReconnection:
 
         dev_broker.restore_subscriptions_with_rebind = spy_restore
 
-        dev_broker.simulate_reconnection()
+        broker_input._on_reconnected()
 
         assert len(restore_calls) == 1
         restored_subs = restore_calls[0]["subscriptions"]
@@ -475,7 +359,7 @@ class TestBrokerInputReconnection:
 
         dev_broker.restore_subscriptions_with_rebind = spy_restore
 
-        dev_broker.simulate_reconnection()
+        broker_input._on_reconnected()
 
         assert restore_called[0] is False
 
@@ -485,7 +369,6 @@ class TestBrokerInputReconnection:
             subscriptions=[{"topic": f"topic/{i}"} for i in range(5)],
             temporary_queue=True,
         )
-        dev_broker = broker_input.messaging_service
         errors = []
 
         def add_subs():
@@ -505,7 +388,7 @@ class TestBrokerInputReconnection:
         def reconnect():
             try:
                 for _ in range(3):
-                    dev_broker.simulate_reconnection()
+                    broker_input._on_reconnected()
             except Exception as e:
                 errors.append(e)
 
@@ -554,7 +437,7 @@ class TestBrokerInputReconnection:
 
         dev_broker.restore_subscriptions_with_rebind = spy_restore
 
-        dev_broker.simulate_reconnection()
+        broker_input._on_reconnected()
 
         assert len(restore_calls) == 1
         restored_subs = restore_calls[0]["subscriptions"]

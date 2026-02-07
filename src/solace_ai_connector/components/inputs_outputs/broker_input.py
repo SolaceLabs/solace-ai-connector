@@ -141,10 +141,14 @@ class BrokerInput(BrokerBase):
                 max_redelivery_count=self.broker_properties.get("max_redelivery_count"),
             )
             if failed > 0:
-                log.warning(
-                    "%s Failed to restore %d subscriptions",
+                log.error(
+                    "%s Failed to restore %d of %d subscriptions for queue '%s'. "
+                    "Messages on these topics will be lost until next reconnection: %s",
                     self.log_identifier,
                     failed,
+                    len(subscriptions_to_restore),
+                    queue_name,
+                    subscriptions_to_restore,
                 )
 
     def invoke(self, message, data):
