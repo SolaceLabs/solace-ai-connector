@@ -491,15 +491,24 @@ class SolaceMessaging(Messaging):
             self._reconnection_callbacks.append(callback)
 
     def _on_reconnected(self):
-        """Internal handler called when reconnection succeeds."""
+        """Internal handler called when reconnection succeeds.
+
+        Dispatches callbacks to a daemon thread to avoid blocking the
+        SDK's ServiceListenerThread, since restore_subscriptions_with_rebind
+        may sleep/retry for several seconds.
+        """
         with self._reconnection_lock:
             callbacks = list(self._reconnection_callbacks)
 
-        for callback in callbacks:
-            try:
-                callback()
-            except Exception:
-                log.exception(f"{self.error_prefix} Error in reconnection callback")
+        def run_callbacks():
+            for callback in callbacks:
+                try:
+                    callback()
+                except Exception:
+                    log.exception(f"{self.error_prefix} Error in reconnection callback")
+
+        thread = threading.Thread(target=run_callbacks, daemon=True)
+        thread.start()
 
     def send_message(
         self,
@@ -528,11 +537,12 @@ class SolaceMessaging(Messaging):
         )
 
     def receive_message(self, timeout_ms, queue_id):
-        if not self.persistent_receiver:
+        receiver = self.persistent_receiver
+        if not receiver:
             return None
 
         try:
-            broker_message = self.persistent_receiver.receive_message(timeout_ms)
+            broker_message = receiver.receive_message(timeout_ms)
         except IllegalStateError as e:
             # Receiver terminated during reconnection - return None to retry
             if "terminated" in str(e).lower():
@@ -709,7 +719,8 @@ class SolaceMessaging(Messaging):
 
     def ack_message(self, broker_message):
         if "_original_message" in broker_message:
-            if not self.persistent_receiver:
+            receiver = self.persistent_receiver
+            if not receiver:
                 log.warning(
                     f"{self.error_prefix} Cannot acknowledge message: "
                     "receiver is not available (reconnection in progress). "
@@ -717,7 +728,7 @@ class SolaceMessaging(Messaging):
                 )
                 return
             try:
-                self.persistent_receiver.ack(broker_message["_original_message"])
+                receiver.ack(broker_message["_original_message"])
             except (IllegalStateError, PubSubPlusClientError) as e:
                 log.warning(
                     f"{self.error_prefix} Cannot acknowledge message: {e}. "
@@ -741,7 +752,8 @@ class SolaceMessaging(Messaging):
             outcome (Message_NACK_Outcome): The outcome to be used for settling the message.
         """
         if "_original_message" in broker_message:
-            if not self.persistent_receiver:
+            receiver = self.persistent_receiver
+            if not receiver:
                 log.warning(
                     f"{self.error_prefix} Cannot settle message: "
                     "receiver is not available (reconnection in progress). "
@@ -749,7 +761,7 @@ class SolaceMessaging(Messaging):
                 )
                 return
             try:
-                self.persistent_receiver.settle(
+                receiver.settle(
                     broker_message["_original_message"], outcome
                 )
             except (IllegalStateError, PubSubPlusClientError) as e:

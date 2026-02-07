@@ -2,6 +2,7 @@
 messages to/from queues. It supports subscriptions based on topics."""
 
 import logging
+import threading
 from typing import Dict, List, Any
 import queue
 import re
@@ -53,6 +54,7 @@ class DevBroker(Messaging):
         # Need this to be able to use the same interface as the other brokers
         self.persistent_receiver = {}
         self._reconnection_callbacks = []
+        self._reconnection_lock = threading.Lock()
 
     def connect(self):
         self.connected = True
@@ -75,7 +77,8 @@ class DevBroker(Messaging):
 
     def register_reconnection_callback(self, callback):
         """Register a callback to be invoked on reconnection."""
-        self._reconnection_callbacks.append(callback)
+        with self._reconnection_lock:
+            self._reconnection_callbacks.append(callback)
 
     def simulate_reconnection(self):
         """Simulate a reconnection event for testing.
@@ -84,7 +87,10 @@ class DevBroker(Messaging):
         mimicking what happens in SolaceMessaging when the broker reconnects.
         """
         log.info("DevBroker: Simulating reconnection event")
-        for callback in self._reconnection_callbacks:
+        with self._reconnection_lock:
+            callbacks = list(self._reconnection_callbacks)
+
+        for callback in callbacks:
             try:
                 callback()
             except Exception:
