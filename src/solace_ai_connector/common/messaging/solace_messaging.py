@@ -31,10 +31,7 @@ from solace.messaging.config.retry_strategy import RetryStrategy
 from solace.messaging.config.missing_resources_creation_configuration import (
     MissingResourcesCreationStrategy,
 )
-from solace.messaging.errors.pubsubplus_client_error import (
-    PubSubPlusClientError,
-    IllegalStateError,
-)
+from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
 from solace import SOLACE_LOGGING_CONFIG
 
 from .messaging import Messaging
@@ -494,8 +491,7 @@ class SolaceMessaging(Messaging):
         """Internal handler called when reconnection succeeds.
 
         Dispatches callbacks to a daemon thread to avoid blocking the
-        SDK's ServiceListenerThread, since restore_subscriptions_with_rebind
-        may sleep/retry for several seconds.
+        SDK's ServiceListenerThread.
         """
         with self._reconnection_lock:
             callbacks = list(self._reconnection_callbacks)
@@ -537,17 +533,7 @@ class SolaceMessaging(Messaging):
         )
 
     def receive_message(self, timeout_ms, queue_id):
-        receiver = self.persistent_receiver
-        if not receiver:
-            return None
-
-        try:
-            broker_message = receiver.receive_message(timeout_ms)
-        except IllegalStateError as e:
-            # Receiver terminated during reconnection - return None to retry
-            if "terminated" in str(e).lower():
-                return None
-            raise
+        broker_message = self.persistent_receiver.receive_message(timeout_ms)
 
         if broker_message is None:
             return None
@@ -631,109 +617,57 @@ class SolaceMessaging(Messaging):
             )
             return False
 
-    def restore_subscriptions_with_rebind(
-        self,
-        subscriptions: set,
-        queue_name: str,
-        temporary: bool = True,
-        max_redelivery_count: int = None,
-    ):
-        """Restore subscriptions by recreating the receiver after reconnection.
-
-        For temporary queues, the old receiver becomes stale after reconnection.
-        This method terminates it and creates a new one with the subscriptions.
+    def restore_subscriptions(self, subscriptions: set, max_retries: int = 5):
+        """Restore subscriptions by removing and re-adding them on the existing receiver.
 
         Args:
             subscriptions: Set of topic subscription strings to restore.
-            queue_name: The queue name to bind to.
-            temporary: Whether the queue is temporary (non-durable).
-            max_redelivery_count: Optional max redelivery count.
-
-        Returns:
-            Tuple of (success_count, failure_count)
+            max_retries: Max retry attempts per subscription for add failures.
         """
         log.info(
-            f"{self.error_prefix} Recreating receiver for queue '{queue_name}' "
-            f"with {len(subscriptions)} subscriptions"
+            f"{self.error_prefix} Restoring {len(subscriptions)} subscriptions"
         )
-
-        old_receiver = self.persistent_receiver
-
-        # Terminate old receiver FIRST to release exclusive queue binding
-        if old_receiver:
+        success = 0
+        failed = 0
+        for topic in subscriptions:
+            sub = TopicSubscription.of(topic)
             try:
-                old_receiver.terminate()
-                if old_receiver in self.persistent_receivers:
-                    self.persistent_receivers.remove(old_receiver)
-                self.persistent_receiver = None
-            except Exception as e:
-                log.exception(
-                    f"{self.error_prefix} Error terminating old receiver: {e}"
+                self.persistent_receiver.remove_subscription(sub)
+            except Exception:
+                log.warning(
+                    f"{self.error_prefix} Could not remove subscription '{topic}' "
+                    "before re-adding (may not have existed)"
                 )
-
-        # Convert subscriptions to format expected by bind_to_queue
-        subscription_list = [{"topic": topic} for topic in subscriptions]
-
-        # Wait for broker to release the exclusive binding from the old receiver
-        initial_delay = 0.5
-        time.sleep(initial_delay)
-
-        max_attempts = 5
-        retry_delay = 0.5
-        for attempt in range(1, max_attempts + 1):
-            try:
-                self.bind_to_queue(
-                    queue_name=queue_name,
-                    subscriptions=subscription_list,
-                    temporary=temporary,
-                    max_redelivery_count=max_redelivery_count,
-                    create_queue_on_start=True,
-                )
-                log.info(
-                    f"{self.error_prefix} Successfully recreated receiver "
-                    f"with {len(subscriptions)} subscriptions"
-                )
-                return (len(subscriptions), 0)
-            except PubSubPlusClientError as e:
-                self.persistent_receiver = None
-                if attempt < max_attempts:
-                    log.warning(
-                        f"{self.error_prefix} Bind attempt {attempt}/{max_attempts} "
-                        f"failed: {e}. Retrying in {retry_delay}s..."
-                    )
-                    time.sleep(retry_delay)
-                    retry_delay = min(retry_delay * 2, 5.0)
-                else:
-                    log.error(
-                        f"{self.error_prefix} Failed to recreate receiver "
-                        f"after {max_attempts} attempts: {e}"
-                    )
-            except Exception as e:
-                self.persistent_receiver = None
-                log.error(
-                    f"{self.error_prefix} Unexpected error recreating receiver: {e}"
-                )
-                return (0, len(subscriptions))
-
-        return (0, len(subscriptions))
+            delay = 0.5
+            for attempt in range(1, max_retries + 1):
+                try:
+                    self.persistent_receiver.add_subscription(sub)
+                    success += 1
+                    break
+                except Exception:
+                    if attempt < max_retries:
+                        log.warning(
+                            f"{self.error_prefix} Failed to re-add subscription "
+                            f"'{topic}' (attempt {attempt}/{max_retries}), "
+                            f"retrying in {delay}s"
+                        )
+                        time.sleep(delay)
+                        delay = min(delay * 2, 8.0)
+                    else:
+                        log.error(
+                            f"{self.error_prefix} Failed to re-add subscription "
+                            f"'{topic}' after {max_retries} attempts"
+                        )
+                        failed += 1
+        log.info(
+            f"{self.error_prefix} Subscription restore complete: "
+            f"{success} succeeded, {failed} failed"
+        )
+        return (success, failed)
 
     def ack_message(self, broker_message):
         if "_original_message" in broker_message:
-            receiver = self.persistent_receiver
-            if not receiver:
-                log.warning(
-                    f"{self.error_prefix} Cannot acknowledge message: "
-                    "receiver is not available (reconnection in progress). "
-                    "The broker will redeliver this message."
-                )
-                return
-            try:
-                receiver.ack(broker_message["_original_message"])
-            except (IllegalStateError, PubSubPlusClientError) as e:
-                log.warning(
-                    f"{self.error_prefix} Cannot acknowledge message: {e}. "
-                    "The broker will redeliver this message."
-                )
+            self.persistent_receiver.ack(broker_message["_original_message"])
         else:
             log.warning(
                 f"{self.error_prefix} Cannot acknowledge message: original Solace message not found"
@@ -752,23 +686,9 @@ class SolaceMessaging(Messaging):
             outcome (Message_NACK_Outcome): The outcome to be used for settling the message.
         """
         if "_original_message" in broker_message:
-            receiver = self.persistent_receiver
-            if not receiver:
-                log.warning(
-                    f"{self.error_prefix} Cannot settle message: "
-                    "receiver is not available (reconnection in progress). "
-                    "The broker will redeliver this message."
-                )
-                return
-            try:
-                receiver.settle(
-                    broker_message["_original_message"], outcome
-                )
-            except (IllegalStateError, PubSubPlusClientError) as e:
-                log.warning(
-                    f"{self.error_prefix} Cannot settle message: {e}. "
-                    "The broker will redeliver this message."
-                )
+            self.persistent_receiver.settle(
+                broker_message["_original_message"], outcome
+            )
         else:
             log.warning(
                 f"{self.error_prefix} Cannot drop message: original Solace message not found"

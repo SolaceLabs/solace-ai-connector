@@ -138,14 +138,10 @@ class TestDevBrokerReconnection:
         assert len(dev_broker._reconnection_callbacks) == 3
 
     def test_dev_broker_restore_subscriptions_returns_success(self, dev_broker):
-        """Test that restore_subscriptions_with_rebind returns success counts."""
+        """Test that restore_subscriptions returns success counts."""
         subscriptions = {"topic/a", "topic/b", "topic/c"}
 
-        success, failed = dev_broker.restore_subscriptions_with_rebind(
-            subscriptions=subscriptions,
-            queue_name="test_queue",
-            temporary=True,
-        )
+        success, failed = dev_broker.restore_subscriptions(subscriptions)
 
         assert success == 3
         assert failed == 0
@@ -154,11 +150,7 @@ class TestDevBrokerReconnection:
         """Test restore with empty subscription set."""
         subscriptions = set()
 
-        success, failed = dev_broker.restore_subscriptions_with_rebind(
-            subscriptions=subscriptions,
-            queue_name="test_queue",
-            temporary=True,
-        )
+        success, failed = dev_broker.restore_subscriptions(subscriptions)
 
         assert success == 0
         assert failed == 0
@@ -266,31 +258,30 @@ class TestBrokerInputReconnection:
     """
 
     def test_reconnection_restores_subscriptions_for_temporary_queue(self):
-        """Reconnection calls restore_subscriptions_with_rebind for temporary queues."""
+        """Reconnection calls restore_subscriptions for temporary queues."""
         broker_input = _make_broker_input(
             subscriptions=[{"topic": "test/topic/a"}, {"topic": "test/topic/b"}],
             temporary_queue=True,
         )
         dev_broker = broker_input.messaging_service
 
-        # Spy on restore_subscriptions_with_rebind to verify it's called
+        # Spy on restore_subscriptions to verify it's called
         restore_calls = []
-        original_restore = dev_broker.restore_subscriptions_with_rebind
+        original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(**kwargs):
-            restore_calls.append(kwargs)
-            return original_restore(**kwargs)
+        def spy_restore(subscriptions, max_retries=5):
+            restore_calls.append(subscriptions)
+            return original_restore(subscriptions, max_retries=max_retries)
 
-        dev_broker.restore_subscriptions_with_rebind = spy_restore
+        dev_broker.restore_subscriptions = spy_restore
 
         broker_input._on_reconnected()
 
         assert len(restore_calls) == 1
-        assert restore_calls[0]["subscriptions"] == {"test/topic/a", "test/topic/b"}
-        assert restore_calls[0]["temporary"] is True
+        assert restore_calls[0] == {"test/topic/a", "test/topic/b"}
 
     def test_reconnection_skips_restore_for_durable_queue(self):
-        """Reconnection does NOT call restore_subscriptions_with_rebind for durable queues."""
+        """Reconnection does NOT call restore_subscriptions for durable queues."""
         broker_input = _make_broker_input(
             subscriptions=[{"topic": "test/topic"}],
             queue_name="my_durable_queue",
@@ -299,13 +290,13 @@ class TestBrokerInputReconnection:
         dev_broker = broker_input.messaging_service
 
         restore_called = [False]
-        original_restore = dev_broker.restore_subscriptions_with_rebind
+        original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(**kwargs):
+        def spy_restore(subscriptions, max_retries=5):
             restore_called[0] = True
-            return original_restore(**kwargs)
+            return original_restore(subscriptions, max_retries=max_retries)
 
-        dev_broker.restore_subscriptions_with_rebind = spy_restore
+        dev_broker.restore_subscriptions = spy_restore
 
         broker_input._on_reconnected()
 
@@ -327,20 +318,19 @@ class TestBrokerInputReconnection:
 
         # Spy on restore to capture the subscription set
         restore_calls = []
-        original_restore = dev_broker.restore_subscriptions_with_rebind
+        original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(**kwargs):
-            restore_calls.append(kwargs)
-            return original_restore(**kwargs)
+        def spy_restore(subscriptions, max_retries=5):
+            restore_calls.append(subscriptions)
+            return original_restore(subscriptions, max_retries=max_retries)
 
-        dev_broker.restore_subscriptions_with_rebind = spy_restore
+        dev_broker.restore_subscriptions = spy_restore
 
         broker_input._on_reconnected()
 
         assert len(restore_calls) == 1
-        restored_subs = restore_calls[0]["subscriptions"]
-        assert "initial/topic" in restored_subs
-        assert "dynamic/topic" in restored_subs
+        assert "initial/topic" in restore_calls[0]
+        assert "dynamic/topic" in restore_calls[0]
 
     def test_reconnection_with_no_subscriptions_is_noop(self):
         """Reconnection with empty subscription set does not call restore."""
@@ -351,13 +341,13 @@ class TestBrokerInputReconnection:
         dev_broker = broker_input.messaging_service
 
         restore_called = [False]
-        original_restore = dev_broker.restore_subscriptions_with_rebind
+        original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(**kwargs):
+        def spy_restore(subscriptions, max_retries=5):
             restore_called[0] = True
-            return original_restore(**kwargs)
+            return original_restore(subscriptions, max_retries=max_retries)
 
-        dev_broker.restore_subscriptions_with_rebind = spy_restore
+        dev_broker.restore_subscriptions = spy_restore
 
         broker_input._on_reconnected()
 
@@ -429,17 +419,16 @@ class TestBrokerInputReconnection:
 
         # Spy on restore
         restore_calls = []
-        original_restore = dev_broker.restore_subscriptions_with_rebind
+        original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(**kwargs):
-            restore_calls.append(kwargs)
-            return original_restore(**kwargs)
+        def spy_restore(subscriptions, max_retries=5):
+            restore_calls.append(subscriptions)
+            return original_restore(subscriptions, max_retries=max_retries)
 
-        dev_broker.restore_subscriptions_with_rebind = spy_restore
+        dev_broker.restore_subscriptions = spy_restore
 
         broker_input._on_reconnected()
 
         assert len(restore_calls) == 1
-        restored_subs = restore_calls[0]["subscriptions"]
-        assert "keep/this" in restored_subs
-        assert "remove/this" not in restored_subs
+        assert "keep/this" in restore_calls[0]
+        assert "remove/this" not in restore_calls[0]

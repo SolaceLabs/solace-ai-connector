@@ -132,22 +132,17 @@ class BrokerInput(BrokerBase):
             len(subscriptions_to_restore),
         )
 
-        if hasattr(self.messaging_service, "restore_subscriptions_with_rebind"):
-            queue_name = self.broker_properties.get("queue_name")
-            success, failed = self.messaging_service.restore_subscriptions_with_rebind(
-                subscriptions=subscriptions_to_restore,
-                queue_name=queue_name,
-                temporary=self.temporary_queue,
-                max_redelivery_count=self.broker_properties.get("max_redelivery_count"),
+        if hasattr(self.messaging_service, "restore_subscriptions"):
+            success, failed = self.messaging_service.restore_subscriptions(
+                subscriptions_to_restore,
             )
             if failed > 0:
                 log.error(
-                    "%s Failed to restore %d of %d subscriptions for queue '%s'. "
+                    "%s Failed to restore %d of %d subscriptions. "
                     "Messages on these topics will be lost until next reconnection: %s",
                     self.log_identifier,
                     failed,
                     len(subscriptions_to_restore),
-                    queue_name,
                     subscriptions_to_restore,
                 )
 
