@@ -1,7 +1,7 @@
 """Tests for reconnection and subscription restoration functionality.
 
-These tests avoid mocking where possible, using real Python objects
-and the DevBroker test double for integration-style tests.
+Tests use real BrokerInput and DevBroker instances to exercise the
+production reconnection code path end-to-end, with no mocking.
 """
 
 import sys
@@ -11,186 +11,7 @@ import threading
 sys.path.append("src")
 
 from solace_ai_connector.common.messaging.dev_broker_messaging import DevBroker
-
-
-class TestReconnectionCallbacksPurePython:
-    """Tests for callback mechanics using pure Python (no mocking)."""
-
-    def test_callback_list_starts_empty(self):
-        """Verify callback list is initialized empty."""
-        callbacks = []
-        assert len(callbacks) == 0
-
-    def test_callback_registration_appends_to_list(self):
-        """Test that registering callbacks appends them to a list."""
-        callbacks = []
-
-        def callback1():
-            pass
-
-        def callback2():
-            pass
-
-        callbacks.append(callback1)
-        callbacks.append(callback2)
-
-        assert len(callbacks) == 2
-        assert callback1 in callbacks
-        assert callback2 in callbacks
-
-    def test_all_callbacks_invoked_in_order(self):
-        """Test that all callbacks are invoked when iterating."""
-        call_order = []
-
-        def callback1():
-            call_order.append(1)
-
-        def callback2():
-            call_order.append(2)
-
-        def callback3():
-            call_order.append(3)
-
-        callbacks = [callback1, callback2, callback3]
-
-        for callback in callbacks:
-            callback()
-
-        assert call_order == [1, 2, 3]
-
-    def test_exception_in_callback_doesnt_stop_iteration(self):
-        """Test that one callback raising doesn't prevent others from running."""
-        results = []
-
-        def callback1():
-            results.append(1)
-
-        def callback2():
-            raise ValueError("Intentional error")
-
-        def callback3():
-            results.append(3)
-
-        callbacks = [callback1, callback2, callback3]
-
-        for callback in callbacks:
-            try:
-                callback()
-            except Exception:
-                pass  # Swallow exception, continue to next
-
-        assert results == [1, 3]
-
-    def test_thread_safe_callback_registration(self):
-        """Test that callback registration is thread-safe with a lock."""
-        callbacks = []
-        lock = threading.Lock()
-        registration_count = 100
-
-        def register_callback(n):
-            with lock:
-                callbacks.append(lambda: n)
-
-        threads = []
-        for i in range(registration_count):
-            t = threading.Thread(target=register_callback, args=(i,))
-            threads.append(t)
-            t.start()
-
-        for t in threads:
-            t.join()
-
-        assert len(callbacks) == registration_count
-
-
-class TestSubscriptionTrackingPurePython:
-    """Tests for subscription tracking using pure Python."""
-
-    def test_subscription_set_operations(self):
-        """Test basic set operations for tracking subscriptions."""
-        active_subscriptions = set()
-
-        # Add subscriptions
-        active_subscriptions.add("topic/a")
-        active_subscriptions.add("topic/b")
-        active_subscriptions.add("topic/c")
-
-        assert len(active_subscriptions) == 3
-        assert "topic/a" in active_subscriptions
-        assert "topic/b" in active_subscriptions
-        assert "topic/c" in active_subscriptions
-
-    def test_subscription_copy_is_independent(self):
-        """Test that copying subscriptions creates an independent copy."""
-        active_subscriptions = {"topic/a", "topic/b"}
-
-        # Get a copy
-        copy = active_subscriptions.copy()
-
-        # Modify the copy
-        copy.add("topic/c")
-        copy.discard("topic/a")
-
-        # Original should be unchanged
-        assert active_subscriptions == {"topic/a", "topic/b"}
-        assert copy == {"topic/b", "topic/c"}
-
-    def test_thread_safe_subscription_access(self):
-        """Test that subscription operations are thread-safe with a lock."""
-        active_subscriptions = set()
-        lock = threading.Lock()
-        num_operations = 100
-
-        def add_subscription(topic):
-            with lock:
-                active_subscriptions.add(topic)
-
-        def remove_subscription(topic):
-            with lock:
-                active_subscriptions.discard(topic)
-
-        # Add subscriptions from multiple threads
-        add_threads = []
-        for i in range(num_operations):
-            t = threading.Thread(target=add_subscription, args=(f"topic/{i}",))
-            add_threads.append(t)
-            t.start()
-
-        for t in add_threads:
-            t.join()
-
-        assert len(active_subscriptions) == num_operations
-
-        # Remove half from multiple threads
-        remove_threads = []
-        for i in range(0, num_operations, 2):
-            t = threading.Thread(target=remove_subscription, args=(f"topic/{i}",))
-            remove_threads.append(t)
-            t.start()
-
-        for t in remove_threads:
-            t.join()
-
-        assert len(active_subscriptions) == num_operations // 2
-
-    def test_get_subscriptions_returns_copy_not_reference(self):
-        """Test that getting subscriptions returns a copy for thread safety."""
-        active_subscriptions = {"topic/a", "topic/b"}
-        lock = threading.Lock()
-
-        def get_active_subscriptions():
-            with lock:
-                return active_subscriptions.copy()
-
-        # Get subscriptions
-        subs = get_active_subscriptions()
-
-        # Modify returned set
-        subs.add("topic/c")
-
-        # Original should be unchanged
-        assert "topic/c" not in active_subscriptions
-        assert len(active_subscriptions) == 2
+from solace_ai_connector.components.inputs_outputs.broker_input import BrokerInput
 
 
 class StubFlowLockManager:
@@ -216,6 +37,49 @@ class StubFlowKvStore:
 
     def set(self, key, value):
         self._store[key] = value
+
+
+def _make_broker_input(
+    subscriptions=None,
+    queue_name=None,
+    temporary_queue=None,
+    flow_lock_manager=None,
+    flow_kv_store=None,
+):
+    """Create a BrokerInput backed by a DevBroker for testing."""
+    if subscriptions is None:
+        subscriptions = [{"topic": "test/topic"}]
+    if flow_lock_manager is None:
+        flow_lock_manager = StubFlowLockManager()
+    if flow_kv_store is None:
+        flow_kv_store = StubFlowKvStore()
+
+    component_config = {
+        "broker_type": "dev_broker",
+        "broker_subscriptions": subscriptions,
+        "broker_url": "tcp://localhost:55555",
+        "broker_username": "test",
+        "broker_password": "test",
+        "broker_vpn": "test",
+    }
+    if queue_name is not None:
+        component_config["broker_queue_name"] = queue_name
+    if temporary_queue is not None:
+        component_config["temporary_queue"] = temporary_queue
+
+    return BrokerInput(
+        config={
+            "component_name": "test_input",
+            "component_config": component_config,
+        },
+        flow_lock_manager=flow_lock_manager,
+        flow_kv_store=flow_kv_store,
+        stop_signal=threading.Event(),
+        flow_name="test_flow",
+        instance_name="test",
+        index=0,
+        component_index=0,
+    )
 
 
 class TestDevBrokerReconnection:
@@ -469,72 +333,6 @@ class TestDevBrokerSimulateReconnection:
 
         assert results == [1, 3]
 
-    def test_full_reconnection_flow_with_subscription_restore(self, dev_broker):
-        """Test the full reconnection flow including subscription restoration."""
-        # Track subscription restoration
-        restored = []
-
-        def on_reconnected():
-            # Simulate what BrokerInput._on_reconnected does
-            active_subscriptions = {"topic/a", "topic/b", "topic/c"}
-            temporary_queue = True
-
-            if temporary_queue and active_subscriptions:
-                success, failed = dev_broker.restore_subscriptions_with_rebind(
-                    subscriptions=active_subscriptions,
-                    queue_name="test_queue",
-                    temporary=temporary_queue,
-                )
-                restored.append((success, failed))
-
-        dev_broker.register_reconnection_callback(on_reconnected)
-        dev_broker.simulate_reconnection()
-
-        assert len(restored) == 1
-        assert restored[0] == (3, 0)  # 3 success, 0 failed
-
-    def test_durable_queue_skips_rebind_on_reconnection(self, dev_broker):
-        """Test that durable queues skip rebind (subscriptions persist)."""
-        rebind_called = [False]
-
-        def on_reconnected():
-            active_subscriptions = {"topic/a", "topic/b"}
-            temporary_queue = False  # Durable queue
-
-            if temporary_queue and active_subscriptions:
-                dev_broker.restore_subscriptions_with_rebind(
-                    subscriptions=active_subscriptions,
-                    queue_name="test_queue",
-                    temporary=temporary_queue,
-                )
-                rebind_called[0] = True
-
-        dev_broker.register_reconnection_callback(on_reconnected)
-        dev_broker.simulate_reconnection()
-
-        # Rebind should NOT have been called for durable queue
-        assert rebind_called[0] is False
-
-    def test_empty_subscriptions_skips_restore(self, dev_broker):
-        """Test that empty subscriptions don't trigger restore."""
-        restore_called = [False]
-
-        def on_reconnected():
-            active_subscriptions = set()  # Empty
-
-            if active_subscriptions:
-                dev_broker.restore_subscriptions_with_rebind(
-                    subscriptions=active_subscriptions,
-                    queue_name="test_queue",
-                    temporary=True,
-                )
-                restore_called[0] = True
-
-        dev_broker.register_reconnection_callback(on_reconnected)
-        dev_broker.simulate_reconnection()
-
-        assert restore_called[0] is False
-
     def test_multiple_reconnections(self, dev_broker):
         """Test that multiple reconnections work correctly."""
         reconnection_count = [0]
@@ -573,3 +371,192 @@ class TestDevBrokerSimulateReconnection:
             t.join()
 
         assert call_count[0] == 10
+
+
+class TestBrokerInputReconnection:
+    """Integration tests for BrokerInput reconnection using real DevBroker.
+
+    These tests exercise the production BrokerInput._on_reconnected code path
+    by creating a real BrokerInput backed by DevBroker, then triggering
+    simulate_reconnection() on the underlying messaging service.
+    """
+
+    def test_reconnection_restores_subscriptions_for_temporary_queue(self):
+        """Reconnection calls restore_subscriptions_with_rebind for temporary queues."""
+        broker_input = _make_broker_input(
+            subscriptions=[{"topic": "test/topic/a"}, {"topic": "test/topic/b"}],
+            temporary_queue=True,
+        )
+        dev_broker = broker_input.messaging_service
+
+        # Spy on restore_subscriptions_with_rebind to verify it's called
+        restore_calls = []
+        original_restore = dev_broker.restore_subscriptions_with_rebind
+
+        def spy_restore(**kwargs):
+            restore_calls.append(kwargs)
+            return original_restore(**kwargs)
+
+        dev_broker.restore_subscriptions_with_rebind = spy_restore
+
+        dev_broker.simulate_reconnection()
+
+        assert len(restore_calls) == 1
+        assert restore_calls[0]["subscriptions"] == {"test/topic/a", "test/topic/b"}
+        assert restore_calls[0]["temporary"] is True
+
+    def test_reconnection_skips_restore_for_durable_queue(self):
+        """Reconnection does NOT call restore_subscriptions_with_rebind for durable queues."""
+        broker_input = _make_broker_input(
+            subscriptions=[{"topic": "test/topic"}],
+            queue_name="my_durable_queue",
+            temporary_queue=False,
+        )
+        dev_broker = broker_input.messaging_service
+
+        restore_called = [False]
+        original_restore = dev_broker.restore_subscriptions_with_rebind
+
+        def spy_restore(**kwargs):
+            restore_called[0] = True
+            return original_restore(**kwargs)
+
+        dev_broker.restore_subscriptions_with_rebind = spy_restore
+
+        dev_broker.simulate_reconnection()
+
+        assert restore_called[0] is False
+
+    def test_dynamically_added_subscriptions_restored_on_reconnection(self):
+        """Subscriptions added via add_subscription are included in reconnection restore."""
+        broker_input = _make_broker_input(
+            subscriptions=[{"topic": "initial/topic"}],
+            temporary_queue=True,
+        )
+        dev_broker = broker_input.messaging_service
+
+        # Dynamically add a subscription via BrokerInput
+        broker_input.add_subscription("dynamic/topic")
+
+        # Verify it's tracked
+        assert "dynamic/topic" in broker_input.get_active_subscriptions()
+
+        # Spy on restore to capture the subscription set
+        restore_calls = []
+        original_restore = dev_broker.restore_subscriptions_with_rebind
+
+        def spy_restore(**kwargs):
+            restore_calls.append(kwargs)
+            return original_restore(**kwargs)
+
+        dev_broker.restore_subscriptions_with_rebind = spy_restore
+
+        dev_broker.simulate_reconnection()
+
+        assert len(restore_calls) == 1
+        restored_subs = restore_calls[0]["subscriptions"]
+        assert "initial/topic" in restored_subs
+        assert "dynamic/topic" in restored_subs
+
+    def test_reconnection_with_no_subscriptions_is_noop(self):
+        """Reconnection with empty subscription set does not call restore."""
+        broker_input = _make_broker_input(
+            subscriptions=[],
+            temporary_queue=True,
+        )
+        dev_broker = broker_input.messaging_service
+
+        restore_called = [False]
+        original_restore = dev_broker.restore_subscriptions_with_rebind
+
+        def spy_restore(**kwargs):
+            restore_called[0] = True
+            return original_restore(**kwargs)
+
+        dev_broker.restore_subscriptions_with_rebind = spy_restore
+
+        dev_broker.simulate_reconnection()
+
+        assert restore_called[0] is False
+
+    def test_concurrent_subscription_modification_during_reconnection(self):
+        """Adding/removing subscriptions from threads during reconnection doesn't crash."""
+        broker_input = _make_broker_input(
+            subscriptions=[{"topic": f"topic/{i}"} for i in range(5)],
+            temporary_queue=True,
+        )
+        dev_broker = broker_input.messaging_service
+        errors = []
+
+        def add_subs():
+            try:
+                for i in range(10):
+                    broker_input.add_subscription(f"new/topic/{i}")
+            except Exception as e:
+                errors.append(e)
+
+        def remove_subs():
+            try:
+                for i in range(5):
+                    broker_input.remove_subscription(f"topic/{i}")
+            except Exception as e:
+                errors.append(e)
+
+        def reconnect():
+            try:
+                for _ in range(3):
+                    dev_broker.simulate_reconnection()
+            except Exception as e:
+                errors.append(e)
+
+        threads = [
+            threading.Thread(target=add_subs),
+            threading.Thread(target=remove_subs),
+            threading.Thread(target=reconnect),
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(errors) == 0
+
+    def test_broker_input_registers_reconnection_handler(self):
+        """BrokerInput automatically registers its reconnection handler with DevBroker."""
+        broker_input = _make_broker_input(
+            subscriptions=[{"topic": "test/topic"}],
+        )
+        dev_broker = broker_input.messaging_service
+
+        # BrokerInput._register_reconnection_handler should have registered
+        # _on_reconnected as a callback
+        assert len(dev_broker._reconnection_callbacks) == 1
+        assert dev_broker._reconnection_callbacks[0] == broker_input._on_reconnected
+
+    def test_removed_subscription_not_restored_on_reconnection(self):
+        """Subscriptions removed via remove_subscription are excluded from restore."""
+        broker_input = _make_broker_input(
+            subscriptions=[{"topic": "keep/this"}, {"topic": "remove/this"}],
+            temporary_queue=True,
+        )
+        dev_broker = broker_input.messaging_service
+
+        # Remove one subscription
+        broker_input.remove_subscription("remove/this")
+
+        # Spy on restore
+        restore_calls = []
+        original_restore = dev_broker.restore_subscriptions_with_rebind
+
+        def spy_restore(**kwargs):
+            restore_calls.append(kwargs)
+            return original_restore(**kwargs)
+
+        dev_broker.restore_subscriptions_with_rebind = spy_restore
+
+        dev_broker.simulate_reconnection()
+
+        assert len(restore_calls) == 1
+        restored_subs = restore_calls[0]["subscriptions"]
+        assert "keep/this" in restored_subs
+        assert "remove/this" not in restored_subs

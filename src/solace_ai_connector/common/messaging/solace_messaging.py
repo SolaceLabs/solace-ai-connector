@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 import certifi
 import threading
 import concurrent.futures
@@ -655,38 +656,73 @@ class SolaceMessaging(Messaging):
                 if old_receiver in self.persistent_receivers:
                     self.persistent_receivers.remove(old_receiver)
                 self.persistent_receiver = None
-                # Brief pause for broker to release binding
-                import time
-                time.sleep(0.5)
-            except Exception:
-                log.exception(f"{self.error_prefix} Error terminating old receiver")
+            except Exception as e:
+                log.exception(
+                    f"{self.error_prefix} Error terminating old receiver: {e}"
+                )
 
         # Convert subscriptions to format expected by bind_to_queue
         subscription_list = [{"topic": topic} for topic in subscriptions]
 
-        try:
-            self.bind_to_queue(
-                queue_name=queue_name,
-                subscriptions=subscription_list,
-                temporary=temporary,
-                max_redelivery_count=max_redelivery_count,
-                create_queue_on_start=True,
-            )
-            log.info(
-                f"{self.error_prefix} Successfully recreated receiver "
-                f"with {len(subscriptions)} subscriptions"
-            )
-            return (len(subscriptions), 0)
-        except PubSubPlusClientError as e:
-            log.error(f"{self.error_prefix} Failed to recreate receiver: {e}")
-            return (0, len(subscriptions))
-        except Exception as e:
-            log.error(f"{self.error_prefix} Unexpected error recreating receiver: {e}")
-            return (0, len(subscriptions))
+        # Wait for broker to release the exclusive binding from the old receiver
+        initial_delay = 0.5
+        time.sleep(initial_delay)
+
+        max_attempts = 5
+        retry_delay = 0.5
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self.bind_to_queue(
+                    queue_name=queue_name,
+                    subscriptions=subscription_list,
+                    temporary=temporary,
+                    max_redelivery_count=max_redelivery_count,
+                    create_queue_on_start=True,
+                )
+                log.info(
+                    f"{self.error_prefix} Successfully recreated receiver "
+                    f"with {len(subscriptions)} subscriptions"
+                )
+                return (len(subscriptions), 0)
+            except PubSubPlusClientError as e:
+                self.persistent_receiver = None
+                if attempt < max_attempts:
+                    log.warning(
+                        f"{self.error_prefix} Bind attempt {attempt}/{max_attempts} "
+                        f"failed: {e}. Retrying in {retry_delay}s..."
+                    )
+                    time.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, 5.0)
+                else:
+                    log.error(
+                        f"{self.error_prefix} Failed to recreate receiver "
+                        f"after {max_attempts} attempts: {e}"
+                    )
+            except Exception as e:
+                self.persistent_receiver = None
+                log.error(
+                    f"{self.error_prefix} Unexpected error recreating receiver: {e}"
+                )
+                return (0, len(subscriptions))
+
+        return (0, len(subscriptions))
 
     def ack_message(self, broker_message):
         if "_original_message" in broker_message:
-            self.persistent_receiver.ack(broker_message["_original_message"])
+            if not self.persistent_receiver:
+                log.warning(
+                    f"{self.error_prefix} Cannot acknowledge message: "
+                    "receiver is not available (reconnection in progress). "
+                    "The broker will redeliver this message."
+                )
+                return
+            try:
+                self.persistent_receiver.ack(broker_message["_original_message"])
+            except (IllegalStateError, PubSubPlusClientError) as e:
+                log.warning(
+                    f"{self.error_prefix} Cannot acknowledge message: {e}. "
+                    "The broker will redeliver this message."
+                )
         else:
             log.warning(
                 f"{self.error_prefix} Cannot acknowledge message: original Solace message not found"
@@ -705,9 +741,22 @@ class SolaceMessaging(Messaging):
             outcome (Message_NACK_Outcome): The outcome to be used for settling the message.
         """
         if "_original_message" in broker_message:
-            self.persistent_receiver.settle(
-                broker_message["_original_message"], outcome
-            )
+            if not self.persistent_receiver:
+                log.warning(
+                    f"{self.error_prefix} Cannot settle message: "
+                    "receiver is not available (reconnection in progress). "
+                    "The broker will redeliver this message."
+                )
+                return
+            try:
+                self.persistent_receiver.settle(
+                    broker_message["_original_message"], outcome
+                )
+            except (IllegalStateError, PubSubPlusClientError) as e:
+                log.warning(
+                    f"{self.error_prefix} Cannot settle message: {e}. "
+                    "The broker will redeliver this message."
+                )
         else:
             log.warning(
                 f"{self.error_prefix} Cannot drop message: original Solace message not found"
