@@ -90,6 +90,18 @@ base_info = {
             "description": "Create a queue for the broker",
             "default": True,
         },
+        {
+            "name": "dev_broker_network_enabled",
+            "required": False,
+            "description": "Enable network server for dev broker (allows remote connections)",
+            "default": False,
+        },
+        {
+            "name": "dev_broker_network_port",
+            "required": False,
+            "description": "Port for dev broker network server (default: 55555)",
+            "default": 55555,
+        },
     ],
 }
 
@@ -175,6 +187,10 @@ class BrokerBase(ComponentBase):
             "retry_interval": self.get_config("retry_interval"),
             "max_redelivery_count": self.get_config("max_redelivery_count"),
             "create_queue_on_start": self.get_config("create_queue_on_start", True),
+            "dev_broker_network_enabled": self.get_config("dev_broker_network_enabled", False),
+            "dev_broker_network_port": self.get_config("dev_broker_network_port", 55555),
+            "dev_broker_host": self.get_config("dev_broker_host"),
+            "dev_broker_port": self.get_config("dev_broker_port"),
         }
         return broker_properties
 
