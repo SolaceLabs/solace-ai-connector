@@ -80,7 +80,7 @@ class DevBroker(Messaging):
         with self._reconnection_lock:
             self._reconnection_callbacks.append(callback)
 
-    def restore_subscriptions(self, subscriptions: set, max_retries: int = 5):
+    def restore_subscriptions(self, subscriptions: set, cancel_event=None):
         """No-op for DevBroker - subscriptions persist in memory."""
         return (len(subscriptions), 0)
 

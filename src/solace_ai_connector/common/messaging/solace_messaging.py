@@ -617,19 +617,29 @@ class SolaceMessaging(Messaging):
             )
             return False
 
-    def restore_subscriptions(self, subscriptions: set, max_retries: int = 5):
+    def restore_subscriptions(self, subscriptions: set, cancel_event=None):
         """Restore subscriptions by removing and re-adding them on the existing receiver.
+
+        Retries each add_subscription call forever with exponential backoff
+        (0.5s initial, doubling up to 8s) until it succeeds or cancel_event
+        is set by a newer reconnection.
 
         Args:
             subscriptions: Set of topic subscription strings to restore.
-            max_retries: Max retry attempts per subscription for add failures.
+            cancel_event: Optional threading.Event; when set, abort the
+                restore early (a newer reconnection has superseded this one).
         """
         log.info(
             f"{self.error_prefix} Restoring {len(subscriptions)} subscriptions"
         )
         success = 0
-        failed = 0
         for topic in subscriptions:
+            if cancel_event and cancel_event.is_set():
+                log.info(
+                    f"{self.error_prefix} Subscription restore cancelled "
+                    "by newer reconnection"
+                )
+                return (success, len(subscriptions) - success)
             sub = TopicSubscription.of(topic)
             try:
                 self.persistent_receiver.remove_subscription(sub)
@@ -639,31 +649,35 @@ class SolaceMessaging(Messaging):
                     "before re-adding (may not have existed)"
                 )
             delay = 0.5
-            for attempt in range(1, max_retries + 1):
+            attempt = 0
+            while True:
+                if cancel_event and cancel_event.is_set():
+                    log.info(
+                        f"{self.error_prefix} Subscription restore cancelled "
+                        "by newer reconnection"
+                    )
+                    return (success, len(subscriptions) - success)
+                attempt += 1
                 try:
                     self.persistent_receiver.add_subscription(sub)
                     success += 1
                     break
                 except Exception:
-                    if attempt < max_retries:
-                        log.warning(
-                            f"{self.error_prefix} Failed to re-add subscription "
-                            f"'{topic}' (attempt {attempt}/{max_retries}), "
-                            f"retrying in {delay}s"
-                        )
-                        time.sleep(delay)
-                        delay = min(delay * 2, 8.0)
+                    log.warning(
+                        f"{self.error_prefix} Failed to re-add subscription "
+                        f"'{topic}' (attempt {attempt}), "
+                        f"retrying in {delay}s"
+                    )
+                    if cancel_event:
+                        cancel_event.wait(delay)
                     else:
-                        log.error(
-                            f"{self.error_prefix} Failed to re-add subscription "
-                            f"'{topic}' after {max_retries} attempts"
-                        )
-                        failed += 1
+                        time.sleep(delay)
+                    delay = min(delay * 2, 8.0)
         log.info(
             f"{self.error_prefix} Subscription restore complete: "
-            f"{success} succeeded, {failed} failed"
+            f"{success} succeeded"
         )
-        return (success, failed)
+        return (success, 0)
 
     def ack_message(self, broker_message):
         if "_original_message" in broker_message:

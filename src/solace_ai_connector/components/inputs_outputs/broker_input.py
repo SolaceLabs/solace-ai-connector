@@ -84,6 +84,8 @@ class BrokerInput(BrokerBase):
         self.temporary_queue = self.get_config("temporary_queue", False)
         self.active_subscriptions = set()
         self._subscription_lock = threading.Lock()
+        self._restore_cancel = threading.Event()
+        self._restore_lock = threading.Lock()
         # If broker_queue_name is not provided, use temporary queue
         if not self.get_config("broker_queue_name"):
             self.temporary_queue = True
@@ -118,13 +120,19 @@ class BrokerInput(BrokerBase):
         if not subscriptions_to_restore:
             return
 
-        # Only rebind for temporary queues - durable queues retain subscriptions
+        # Only restore for temporary queues - durable queues retain subscriptions
         if not self.temporary_queue:
             log.info(
                 "%s Durable queue - subscriptions persist on broker",
                 self.log_identifier,
             )
             return
+
+        # Cancel any in-progress restore and create a fresh cancel event
+        with self._restore_lock:
+            self._restore_cancel.set()
+            cancel_event = threading.Event()
+            self._restore_cancel = cancel_event
 
         log.info(
             "%s Restoring %d subscriptions after reconnection",
@@ -135,6 +143,7 @@ class BrokerInput(BrokerBase):
         if hasattr(self.messaging_service, "restore_subscriptions"):
             success, failed = self.messaging_service.restore_subscriptions(
                 subscriptions_to_restore,
+                cancel_event=cancel_event,
             )
             if failed > 0:
                 log.error(

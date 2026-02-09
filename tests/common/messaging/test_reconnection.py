@@ -269,9 +269,9 @@ class TestBrokerInputReconnection:
         restore_calls = []
         original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(subscriptions, max_retries=5):
+        def spy_restore(subscriptions, cancel_event=None):
             restore_calls.append(subscriptions)
-            return original_restore(subscriptions, max_retries=max_retries)
+            return original_restore(subscriptions, cancel_event=cancel_event)
 
         dev_broker.restore_subscriptions = spy_restore
 
@@ -292,9 +292,9 @@ class TestBrokerInputReconnection:
         restore_called = [False]
         original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(subscriptions, max_retries=5):
+        def spy_restore(subscriptions, cancel_event=None):
             restore_called[0] = True
-            return original_restore(subscriptions, max_retries=max_retries)
+            return original_restore(subscriptions, cancel_event=cancel_event)
 
         dev_broker.restore_subscriptions = spy_restore
 
@@ -320,9 +320,9 @@ class TestBrokerInputReconnection:
         restore_calls = []
         original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(subscriptions, max_retries=5):
+        def spy_restore(subscriptions, cancel_event=None):
             restore_calls.append(subscriptions)
-            return original_restore(subscriptions, max_retries=max_retries)
+            return original_restore(subscriptions, cancel_event=cancel_event)
 
         dev_broker.restore_subscriptions = spy_restore
 
@@ -343,9 +343,9 @@ class TestBrokerInputReconnection:
         restore_called = [False]
         original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(subscriptions, max_retries=5):
+        def spy_restore(subscriptions, cancel_event=None):
             restore_called[0] = True
-            return original_restore(subscriptions, max_retries=max_retries)
+            return original_restore(subscriptions, cancel_event=cancel_event)
 
         dev_broker.restore_subscriptions = spy_restore
 
@@ -421,9 +421,9 @@ class TestBrokerInputReconnection:
         restore_calls = []
         original_restore = dev_broker.restore_subscriptions
 
-        def spy_restore(subscriptions, max_retries=5):
+        def spy_restore(subscriptions, cancel_event=None):
             restore_calls.append(subscriptions)
-            return original_restore(subscriptions, max_retries=max_retries)
+            return original_restore(subscriptions, cancel_event=cancel_event)
 
         dev_broker.restore_subscriptions = spy_restore
 
