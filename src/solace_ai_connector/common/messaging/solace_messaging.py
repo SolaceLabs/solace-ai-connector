@@ -660,14 +660,26 @@ class SolaceMessaging(Messaging):
                 attempt += 1
                 try:
                     self.persistent_receiver.add_subscription(sub)
+                    if attempt > 1:
+                        log.info(
+                            f"{self.error_prefix} Successfully re-added "
+                            f"subscription '{topic}' after {attempt} attempts"
+                        )
                     success += 1
                     break
                 except Exception:
-                    log.warning(
-                        f"{self.error_prefix} Failed to re-add subscription "
-                        f"'{topic}' (attempt {attempt}), "
-                        f"retrying in {delay}s"
-                    )
+                    if attempt >= 10 and attempt % 10 == 0:
+                        log.error(
+                            f"{self.error_prefix} Still failing to re-add "
+                            f"subscription '{topic}' after {attempt} attempts, "
+                            "will keep retrying"
+                        )
+                    else:
+                        log.warning(
+                            f"{self.error_prefix} Failed to re-add subscription "
+                            f"'{topic}' (attempt {attempt}), "
+                            f"retrying in {delay}s"
+                        )
                     if cancel_event:
                         cancel_event.wait(delay)
                     else:
