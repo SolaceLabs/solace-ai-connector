@@ -79,7 +79,12 @@ class TimerManager:
         log.debug("Stopping timer manager")
         self.stop_signal.set()
         self.event.set()  # Wake up the timer thread
-        self.thread.join()
+        self.thread.join(timeout=2.0)
+        if self.thread.is_alive():
+            log.warning(
+                "Timer manager thread did not exit within timeout. "
+                "Thread will be abandoned (daemon thread)."
+            )
         log.debug("Timer manager stopped")
 
     def cleanup(self):

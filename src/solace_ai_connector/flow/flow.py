@@ -220,7 +220,7 @@ class Flow:
 
     def wait_for_threads(self):
         for thread in self.threads:
-            thread.join()
+            thread.join(timeout=2.0)
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""

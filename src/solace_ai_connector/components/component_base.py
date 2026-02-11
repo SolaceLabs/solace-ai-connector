@@ -108,8 +108,8 @@ class ComponentBase:
                 self.handle_component_error(e, event)
 
         self.stop_component()
-        monitoring_thread.join()
-        connection_status_thread.join()
+        monitoring_thread.join(timeout=2.0)
+        connection_status_thread.join(timeout=2.0)
 
     def process_event_with_tracing(self, event):
         if self.trace_queue:
