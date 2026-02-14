@@ -3,14 +3,19 @@
 This client implements the Messaging interface, allowing it to be used as a
 drop-in replacement for the in-process DevBroker when the broker runs on a
 different host (e.g., when testing with Docker containers).
+
+Supports automatic reconnection when the server restarts or the connection
+drops. Dynamically-added subscriptions are tracked and re-established after
+reconnect.
 """
 
 import json
 import logging
 import socket
 import threading
+import time
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from .messaging import Messaging
 from .dev_broker_protocol import (
@@ -55,6 +60,10 @@ class NetworkDevBroker(Messaging):
     Connects to a DevBrokerServer over TCP and translates Messaging interface
     calls to network protocol commands.
 
+    Automatically reconnects when the connection drops (e.g., when the server
+    restarts). Dynamically-added subscriptions are tracked and re-established
+    after reconnect.
+
     Configuration via broker_properties:
         - dev_broker_host: Server hostname (default: "localhost")
         - dev_broker_port: Server port (default: 55555)
@@ -77,47 +86,114 @@ class NetworkDevBroker(Messaging):
         # For interface compatibility
         self.persistent_receiver = {}
 
+        # Track dynamically added subscriptions for reconnect
+        self._dynamic_subscriptions: Set[str] = set()
+        # Prevent recursive reconnect attempts
+        self._reconnecting = False
+
     def connect(self):
-        """Connect to the remote dev broker server."""
+        """Connect to the remote dev broker server.
+
+        Retries on connection refused errors (e.g. the server hasn't started
+        yet).  The retry behaviour is controlled by broker_properties:
+          - connect_retries: max attempts (default 0 = retry forever)
+          - connect_retry_delay_ms: delay between attempts in ms (default 3000)
+        """
         if self._connected:
             log.warning("NetworkDevBroker: Already connected")
             return
 
-        try:
-            log.info(
-                f"NetworkDevBroker: Connecting to {self._host}:{self._port}"
-            )
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.connect((self._host, self._port))
-            self._socket_file = self._socket.makefile("rb")
+        max_retries = int(self.broker_properties.get("connect_retries", 0))
+        retry_delay = int(self.broker_properties.get("connect_retry_delay_ms", 3000)) / 1000.0
+        attempt = 0
 
-            # Send CONNECT command
-            queue_name = self.broker_properties.get("queue_name", "")
-            subscriptions_config = self.broker_properties.get("subscriptions") or []
-            subscriptions = [s.get("topic", s) if isinstance(s, dict) else s for s in subscriptions_config]
-
-            connect_cmd = {
-                "cmd": CMD_CONNECT,
-                "client_id": self._client_id,
-                "queue_name": queue_name,
-                "subscriptions": subscriptions,
-            }
-            response = self._send_command(connect_cmd)
-
-            if response.get("status") != STATUS_OK:
-                raise ConnectionError(
-                    f"Connect failed: {response.get('error_message', 'Unknown error')}"
+        while True:
+            attempt += 1
+            try:
+                log.info(
+                    "NetworkDevBroker: Connecting to %s:%s (attempt %d)",
+                    self._host, self._port, attempt,
                 )
+                self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._socket.settimeout(5)
+                self._socket.connect((self._host, self._port))
+                self._socket.settimeout(None)  # Back to blocking for normal I/O
+                self._socket_file = self._socket.makefile("rb")
 
-            self._connected = True
-            log.info(
-                f"NetworkDevBroker: Connected as {self._client_id} with queue {queue_name}"
-            )
+                # Send CONNECT command
+                queue_name = self.broker_properties.get("queue_name", "")
+                subscriptions_config = self.broker_properties.get("subscriptions") or []
+                subscriptions = [s.get("topic", s) if isinstance(s, dict) else s for s in subscriptions_config]
 
-        except Exception as e:
-            log.error(f"NetworkDevBroker: Connection failed: {e}")
+                # Include dynamically added subscriptions
+                all_subscriptions = list(subscriptions) + [
+                    s for s in self._dynamic_subscriptions if s not in subscriptions
+                ]
+
+                connect_cmd = {
+                    "cmd": CMD_CONNECT,
+                    "client_id": self._client_id,
+                    "queue_name": queue_name,
+                    "subscriptions": all_subscriptions,
+                }
+                response = self._send_command(connect_cmd)
+
+                if response.get("status") != STATUS_OK:
+                    raise ConnectionError(
+                        f"Connect failed: {response.get('error_message', 'Unknown error')}"
+                    )
+
+                self._connected = True
+                log.info(
+                    "NetworkDevBroker: Connected as %s with queue %s",
+                    self._client_id, queue_name,
+                )
+                return
+
+            except (ConnectionRefusedError, ConnectionResetError, OSError) as e:
+                self._cleanup_socket()
+                if max_retries > 0 and attempt > max_retries:
+                    log.error("NetworkDevBroker: Connection failed after %d attempts: %s", attempt, e)
+                    raise
+                if max_retries > 0:
+                    log.info(
+                        "NetworkDevBroker: Connection refused, retrying in %.1fs (%d/%d)...",
+                        retry_delay, attempt, max_retries,
+                    )
+                else:
+                    log.info(
+                        "NetworkDevBroker: Connection refused, retrying in %.1fs (attempt %d)...",
+                        retry_delay, attempt,
+                    )
+                time.sleep(retry_delay)
+
+            except Exception as e:
+                log.error("NetworkDevBroker: Connection failed: %s", e)
+                self._cleanup_socket()
+                raise
+
+    def _reconnect(self) -> bool:
+        """Attempt to reconnect after a connection drop.
+
+        Returns True if reconnection succeeds, False otherwise.
+        Thread-safe: only one reconnect attempt runs at a time.
+        """
+        if self._reconnecting:
+            return False
+
+        self._reconnecting = True
+        try:
+            log.warning("NetworkDevBroker: Connection lost, attempting to reconnect...")
             self._cleanup_socket()
-            raise
+            self._connected = False
+            self.connect()
+            log.info("NetworkDevBroker: Reconnected successfully")
+            return True
+        except Exception as e:
+            log.error("NetworkDevBroker: Reconnect failed: %s", e)
+            return False
+        finally:
+            self._reconnecting = False
 
     def disconnect(self):
         """Disconnect from the remote dev broker."""
@@ -160,7 +236,10 @@ class NetworkDevBroker(Messaging):
     def receive_message(self, timeout_ms: int, queue_name: str):
         """Receive the next message from the queue with timeout."""
         if not self._connected:
-            raise RuntimeError("NetworkDevBroker: Not connected")
+            # Try to reconnect if we know we were previously connected
+            if not self._reconnect():
+                time.sleep(1)  # Back off before caller retries
+                return None
 
         try:
             receive_cmd = {
@@ -198,13 +277,22 @@ class NetworkDevBroker(Messaging):
 
         except socket.timeout:
             return None
+        except (BrokenPipeError, ConnectionError, ConnectionResetError, OSError) as e:
+            log.warning("NetworkDevBroker: Connection error during receive: %s", e)
+            self._connected = False
+            self._reconnect()
+            return None
         except Exception as e:
             log.error(f"NetworkDevBroker: Receive error: {e}")
+            self._connected = False
             return None
         finally:
             # Reset socket timeout
             if self._socket:
-                self._socket.settimeout(None)
+                try:
+                    self._socket.settimeout(None)
+                except Exception:
+                    pass
 
     def send_message(
         self,
@@ -215,7 +303,8 @@ class NetworkDevBroker(Messaging):
     ):
         """Publish a message to a topic."""
         if not self._connected:
-            raise RuntimeError("NetworkDevBroker: Not connected")
+            if not self._reconnect():
+                raise RuntimeError("NetworkDevBroker: Not connected and reconnect failed")
 
         try:
             # BrokerOutput encodes payload to bytes; decode for JSON transport
@@ -242,9 +331,17 @@ class NetworkDevBroker(Messaging):
             if user_context and "callback" in user_context:
                 user_context["callback"](user_context)
 
-        except Exception as e:
-            log.error(f"NetworkDevBroker: Publish error: {e}")
-            raise
+        except (BrokenPipeError, ConnectionError, ConnectionResetError, OSError) as e:
+            log.warning("NetworkDevBroker: Connection error during publish: %s", e)
+            self._connected = False
+            # Try to reconnect and retry once
+            if self._reconnect():
+                log.info("NetworkDevBroker: Retrying publish after reconnect")
+                self.send_message(destination_name, payload, user_properties, user_context)
+            else:
+                raise RuntimeError(
+                    f"NetworkDevBroker: Publish failed after reconnect: {e}"
+                ) from e
 
     def subscribe(self, subscription: str, queue_name: str):
         """Subscribe to a topic pattern."""
@@ -268,6 +365,9 @@ class NetworkDevBroker(Messaging):
 
     def add_topic_to_queue(self, topic_str: str, queue_name: str) -> bool:
         """Add a topic subscription to a specific queue."""
+        # Track the subscription for reconnect even if we fail to subscribe now
+        self._dynamic_subscriptions.add(topic_str)
+
         if not self._connected:
             log.error("NetworkDevBroker: Cannot subscribe - not connected")
             return False
@@ -294,6 +394,8 @@ class NetworkDevBroker(Messaging):
 
     def remove_topic_from_queue(self, topic_str: str, queue_name: str) -> bool:
         """Remove a topic subscription from a specific queue."""
+        self._dynamic_subscriptions.discard(topic_str)
+
         if not self._connected:
             log.error("NetworkDevBroker: Cannot unsubscribe - not connected")
             return False
