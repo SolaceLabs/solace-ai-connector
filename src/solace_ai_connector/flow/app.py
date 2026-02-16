@@ -1,6 +1,8 @@
 """App class for the Solace AI Event Connector"""
 
 import logging
+import threading
+import time
 from typing import List, Dict, Any, Optional
 from copy import deepcopy
 
@@ -15,6 +17,42 @@ from ..common.utils import (
 # Import the validation utility function
 from ..common.config_validation import validate_config_block
 from .request_response_flow_controller import RequestResponseFlowController
+
+# App status constants
+APP_STATUS_CREATED = "created"
+APP_STATUS_STARTING = "starting"
+APP_STATUS_RUNNING = "running"
+APP_STATUS_STOPPING = "stopping"
+APP_STATUS_STOPPED = "stopped"
+APP_STATUS_ERROR = "error"
+
+
+class _CombinedStopSignal:
+    """Combines a connector-level and an app-level stop signal.
+
+    Duck-typed replacement for threading.Event. Components call .is_set()
+    and .wait(timeout=...) which this class supports. Returns is_set()=True
+    if either the connector-level or app-level signal is set.
+    """
+
+    def __init__(self, connector_signal, app_signal):
+        self._connector = connector_signal
+        self._app = app_signal
+
+    def is_set(self):
+        return self._connector.is_set() or self._app.is_set()
+
+    def set(self):
+        self._app.set()
+
+    def wait(self, timeout=None):
+        # Wait on the app signal with the given timeout.
+        # After waiting, return whether either signal is set.
+        self._app.wait(timeout=timeout)
+        return self.is_set()
+
+    def clear(self):
+        self._app.clear()
 
 
 class App:
@@ -83,7 +121,11 @@ class App:
         self.name = self.app_info.get("name", f"app_{app_index}")
         self.num_instances = self.app_info.get("num_instances", 1)
         self.flows: List[Flow] = []
-        self.stop_signal = stop_signal
+        self._connector_stop_signal = stop_signal
+        self._app_stop_signal = threading.Event()
+        self.stop_signal = _CombinedStopSignal(stop_signal, self._app_stop_signal)
+        self.enabled = True
+        self.status = APP_STATUS_CREATED
         self.error_queue = error_queue
         self.instance_name = instance_name
         self.trace_queue = trace_queue
@@ -339,8 +381,10 @@ class App:
 
     def run(self):
         """Run all flows in the app"""
+        self.status = APP_STATUS_STARTING
         for flow in self.flows:
             flow.run()
+        self.status = APP_STATUS_RUNNING
 
     def wait_for_flows(self):
         """Wait for all flows to complete"""
@@ -390,6 +434,168 @@ class App:
             bool: True if the app is ready, False otherwise
         """
         return True
+
+    def pre_stop(self, timeout=30):
+        """Override in subclasses to do graceful shutdown before component threads stop.
+
+        Use this to:
+        - Stop accepting new work (e.g., unsubscribe from request topics)
+        - Wait for in-flight work to complete
+        - Clean up app-specific state (sessions, task contexts)
+
+        The stop signal has NOT been set yet when this is called, so components
+        are still running and can finish processing in-flight messages.
+
+        Args:
+            timeout: Time budget in seconds. Return before this expires.
+        """
+
+    def stop(self, timeout=30):
+        """Stop the app gracefully.
+
+        Three-phase shutdown:
+        1. pre_stop() — app-specific drain (components still running)
+        2. Set stop signal — component run loops exit
+        3. Cleanup — disconnect broker, drain queues
+
+        Args:
+            timeout: Maximum time in seconds for the entire stop operation.
+        """
+        if self.status == APP_STATUS_STOPPED:
+            return
+        log.info("Stopping app '%s' (timeout=%ds)", self.name, timeout)
+        self.status = APP_STATUS_STOPPING
+
+        # Phase 1: App-specific graceful drain
+        start = time.monotonic()
+        try:
+            self.pre_stop(timeout=timeout)
+        except Exception:
+            log.exception("Error in pre_stop for app '%s'", self.name)
+        elapsed = time.monotonic() - start
+        remaining = max(0, timeout - elapsed)
+
+        # Phase 2: Stop component threads
+        self._app_stop_signal.set()
+        all_threads = [
+            thread for flow in self.flows for thread in flow.threads
+        ]
+        if all_threads and remaining > 0:
+            per_thread_timeout = remaining / len(all_threads)
+            for thread in all_threads:
+                if thread.is_alive():
+                    thread.join(timeout=per_thread_timeout)
+            still_alive = [t for t in all_threads if t.is_alive()]
+            if still_alive:
+                log.warning(
+                    "App '%s': %d threads still alive after timeout",
+                    self.name,
+                    len(still_alive),
+                )
+
+        # Phase 3: Cleanup
+        for flow in self.flows:
+            try:
+                flow.cleanup()
+            except Exception:
+                log.exception("Error cleaning up flow in app '%s'", self.name)
+        self.flows.clear()
+        self.flow_input_queues.clear()
+        self._broker_output_component = None
+        if self.request_response_controller:
+            self.request_response_controller = None
+        self.status = APP_STATUS_STOPPED
+        self.enabled = False
+        log.info("App '%s' stopped", self.name)
+
+    def start(self):
+        """Start (or restart) the app.
+
+        Only callable when the app is in 'stopped' status. Recreates flows,
+        components, and threads from the current configuration.
+
+        Raises:
+            RuntimeError: If the app is not in 'stopped' status.
+        """
+        if self.status != APP_STATUS_STOPPED:
+            raise RuntimeError(
+                f"Cannot start app '{self.name}': status is '{self.status}', expected '{APP_STATUS_STOPPED}'"
+            )
+        log.info("Starting app '%s'", self.name)
+
+        # Reset the app-level stop signal
+        self._app_stop_signal = threading.Event()
+        self.stop_signal = _CombinedStopSignal(
+            self._connector_stop_signal, self._app_stop_signal
+        )
+
+        # Reinitialize flows (creates components and threads)
+        self._initialize_flows()
+
+        # Reinitialize RRC if needed
+        broker_config = self.app_info.get("broker", {})
+        if broker_config.get("request_reply_enabled", False):
+            try:
+                self.request_response_controller = RequestResponseFlowController(
+                    config={"broker_config": broker_config},
+                    connector=self.connector,
+                )
+            except Exception:
+                log.exception(
+                    "Failed to initialize RRC for app '%s' during start",
+                    self.name,
+                )
+                self.status = APP_STATUS_ERROR
+                raise
+
+        # Run all flows
+        self.run()
+
+        # Re-register flows with connector
+        if self.connector and hasattr(self.connector, "_register_app_flows"):
+            self.connector._register_app_flows(self)
+
+        self.enabled = True
+
+    def get_info(self):
+        """Return a dict with basic information about the app.
+
+        Returns:
+            Dict with name, enabled, status, num_instances, and app_module.
+        """
+        return {
+            "name": self.name,
+            "enabled": self.enabled,
+            "status": self.status,
+            "num_instances": self.num_instances,
+            "app_module": self.app_info.get("app_module"),
+        }
+
+    def get_management_endpoints(self):
+        """Return a list of custom management endpoints for this app.
+
+        Override in subclasses to advertise type-specific management endpoints.
+
+        Returns:
+            List of endpoint descriptors (dicts with method, path, description).
+        """
+        return []
+
+    def handle_management_request(self, method, path_parts, body, context):
+        """Handle a custom management request.
+
+        Override in subclasses to handle type-specific management requests.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, PATCH, DELETE)
+            path_parts: List of path segments after /apps/{name}/
+            body: Request body (dict)
+            context: Request context (dict with user identity, etc.)
+
+        Returns:
+            Result dict on success, or None if the endpoint is not handled.
+        """
+        return None
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""

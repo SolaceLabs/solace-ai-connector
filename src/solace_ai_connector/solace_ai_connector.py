@@ -31,6 +31,7 @@ class SolaceAiConnector:
         self.config = config or {}
         self.apps: List[App] = []
         self.flows: List[Flow] = []  # For backward compatibility
+        self._apps_lock = threading.Lock()
         self.trace_queue = None
         self.trace_thread = None
         self.flow_input_queues = {}
@@ -144,8 +145,9 @@ class SolaceAiConnector:
             trace_queue=self.trace_queue,
             connector=self,
         )
-        self._register_app(app)
-        
+        with self._apps_lock:
+            self._register_app(app)
+
     def _create_configured_apps(self, apps_config):
         """Create apps from the apps configuration"""
         for index, app_info in enumerate(apps_config):
@@ -175,7 +177,8 @@ class SolaceAiConnector:
                     trace_queue=self.trace_queue,
                     connector=self,
                 )
-                self._register_app(app_obj)
+                with self._apps_lock:
+                    self._register_app(app_obj)
                 
     def _get_app_class(self, app_info):
         """Determine the appropriate App class to use based on app_info"""
@@ -223,19 +226,25 @@ class SolaceAiConnector:
         return found_class
         
     def _register_app(self, app):
-        """Register an app with the connector"""
+        """Register an app with the connector.
+
+        Must be called while holding self._apps_lock.
+        """
         self.apps.append(app)
-        
+
         # For backward compatibility, also add flows to the flows list
         self.flows.extend(app.flows)
-        
+
         # Add flow input queues to the connector's flow_input_queues
-        for name, queue in app.flow_input_queues.items():
-            self.flow_input_queues[name] = queue
+        for name, q in app.flow_input_queues.items():
+            self.flow_input_queues[name] = q
 
     def create_internal_app(self, app_name: str, flows: List[Dict[str, Any]]) -> App:
         """
         Create an internal app for use by components like the request-response controller.
+
+        Internal apps are tracked in self.apps but their flows are NOT added to
+        self.flows (they are not user-visible flows).
 
         Args:
             app_name: Name for the app
@@ -257,14 +266,101 @@ class SolaceAiConnector:
             connector=self,
         )
 
-        # Add the app to the connector's apps list
-        self.apps.append(app)
-
-        # Add flow input queues to the connector's flow_input_queues
-        for name, queue in app.flow_input_queues.items():
-            self.flow_input_queues[name] = queue
+        with self._apps_lock:
+            # Register app but don't add flows to self.flows (internal apps are hidden)
+            self.apps.append(app)
+            for name, q in app.flow_input_queues.items():
+                self.flow_input_queues[name] = q
 
         return app
+
+    def add_app(self, app_info: Dict[str, Any]) -> App:
+        """Add and start a new app at runtime.
+
+        Creates, registers, and runs an app using the same pipeline as startup.
+
+        Args:
+            app_info: App configuration dict (same structure as YAML apps[] entry).
+
+        Returns:
+            The created and running App instance.
+
+        Raises:
+            ValueError: If app name is missing or already exists.
+        """
+        app_name = app_info.get("name")
+        if not app_name:
+            raise ValueError("App name is required")
+
+        with self._apps_lock:
+            if any(a.name == app_name for a in self.apps):
+                raise ValueError(f"App '{app_name}' already exists")
+
+        # Create the app (same pipeline as _create_configured_apps for a single app)
+        app_class = self._get_app_class(app_info)
+        app_obj = app_class(
+            app_info=app_info,
+            app_index=len(self.apps),
+            stop_signal=self.stop_signal,
+            error_queue=self.error_queue,
+            instance_name=self.instance_name,
+            trace_queue=self.trace_queue,
+            connector=self,
+        )
+
+        with self._apps_lock:
+            # Double-check uniqueness after creation (another thread may have added one)
+            if any(a.name == app_name for a in self.apps):
+                raise ValueError(f"App '{app_name}' already exists")
+            self._register_app(app_obj)
+
+        app_obj.run()
+        log.info("Runtime app '%s' added and started", app_name)
+        return app_obj
+
+    def remove_app(self, app_name: str, timeout: int = 30):
+        """Stop, deregister, and clean up an app at runtime.
+
+        Args:
+            app_name: Name of the app to remove.
+            timeout: Maximum time in seconds to wait for the app to stop.
+
+        Raises:
+            ValueError: If the app is not found.
+        """
+        with self._apps_lock:
+            app = next((a for a in self.apps if a.name == app_name), None)
+            if not app:
+                raise ValueError(f"App '{app_name}' not found")
+
+        # Stop the app (outside lock — this may take time due to graceful drain)
+        app.stop(timeout=timeout)
+
+        with self._apps_lock:
+            # Deregister from tracking structures
+            if app in self.apps:
+                self.apps.remove(app)
+            for flow in app.flows:
+                if flow in self.flows:
+                    self.flows.remove(flow)
+            for name in list(app.flow_input_queues.keys()):
+                self.flow_input_queues.pop(name, None)
+
+        app.cleanup()
+        log.info("Runtime app '%s' removed", app_name)
+
+    def _register_app_flows(self, app):
+        """Re-register an app's flows and queues after restart.
+
+        Called by App.start() when an app is restarted.
+
+        Args:
+            app: The app whose flows/queues to re-register.
+        """
+        with self._apps_lock:
+            self.flows.extend(app.flows)
+            for name, q in app.flow_input_queues.items():
+                self.flow_input_queues[name] = q
 
     def create_flows(self):
         """
@@ -336,13 +432,16 @@ class SolaceAiConnector:
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
         log.info("Cleaning up Solace AI Event Connector")
-        for app in self.apps:
+        with self._apps_lock:
+            apps_to_clean = list(self.apps)
+        for app in apps_to_clean:
             try:
                 app.cleanup()
             except Exception:
                 log.exception("Error cleaning up app")
-        self.apps.clear()
-        self.flows.clear()  # Keep for backward compatibility refs?
+        with self._apps_lock:
+            self.apps.clear()
+            self.flows.clear()
 
         # Clean up queues
         for queue_name, q in self.flow_input_queues.items():

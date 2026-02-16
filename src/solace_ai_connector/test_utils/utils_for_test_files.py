@@ -192,6 +192,8 @@ def stop_test_flows(connector):
     # For each of the flows, check if the last component is a TestOutputComponent
     # If so, stop its output
     for flow in connector.get_flows():
+        if not flow.component_groups:
+            continue
         last_component = flow.component_groups[-1][-1]
         # Get its next component
         next_component = last_component.get_next_component()
