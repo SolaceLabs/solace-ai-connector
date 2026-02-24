@@ -61,18 +61,26 @@ class TimerManager:
 
             self.event.clear()
 
+            expired = []
             with self.lock:
                 now = time.time()
                 while self.timers and self.timers[0].expiration <= now:
                     timer = heapq.heappop(self.timers)
-                    event = Event(
-                        EventType.TIMER,
-                        {"timer_id": timer.timer_id, "payload": timer.payload},
-                    )
-                    timer.component.enqueue(event)
+                    expired.append(timer)
                     if timer.interval is not None:
                         timer.expiration += timer.interval / 1000.0
                         heapq.heappush(self.timers, timer)
+
+            for timer in expired:
+                event = Event(
+                    EventType.TIMER,
+                    {"timer_id": timer.timer_id, "payload": timer.payload},
+                )
+                threading.Thread(
+                    target=timer.component.enqueue,
+                    args=(event,),
+                    daemon=True,
+                ).start()
 
     def stop(self):
         # Signal the thread to stop
