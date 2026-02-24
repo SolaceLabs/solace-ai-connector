@@ -4,8 +4,6 @@ import queue
 import threading
 import time
 
-import pytest
-
 from solace_ai_connector.flow.timer_manager import TimerManager
 from solace_ai_connector.common.event import EventType
 
@@ -44,6 +42,7 @@ class TestTimerManagerBasics:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
 
     def test_recurring_timer_fires_multiple_times(self):
         stop = threading.Event()
@@ -58,6 +57,7 @@ class TestTimerManagerBasics:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
 
     def test_cancel_timer_prevents_firing(self):
         stop = threading.Event()
@@ -73,6 +73,7 @@ class TestTimerManagerBasics:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
 
     def test_timer_payload_delivered(self):
         stop = threading.Event()
@@ -88,6 +89,7 @@ class TestTimerManagerBasics:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
 
 
 class TestTimerManagerDeadlockFix:
@@ -107,7 +109,7 @@ class TestTimerManagerDeadlockFix:
         1. Create a component with a small queue (depth 2).
         2. Register a fast-firing recurring timer to fill that queue.
         3. Wait for the queue to fill (nobody is draining it).
-        4. Call add_timer() from the main thread — this must not hang.
+        4. From another thread, call add_timer() — this must not hang.
         """
         stop = threading.Event()
         tm = TimerManager(stop)
@@ -126,7 +128,7 @@ class TestTimerManagerDeadlockFix:
                 tm.add_timer(5000, comp_b, "second_timer")
                 add_completed.set()
 
-            t = threading.Thread(target=attempt_add)
+            t = threading.Thread(target=attempt_add, daemon=True)
             t.start()
             t.join(timeout=3)
 
@@ -139,6 +141,7 @@ class TestTimerManagerDeadlockFix:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
 
     def test_multiple_components_with_mixed_queue_states(self):
         """One component's full queue must not prevent timers for others.
@@ -164,7 +167,7 @@ class TestTimerManagerDeadlockFix:
                 tm.add_timer(50, healthy_comp, "healthy")
                 add_completed.set()
 
-            t = threading.Thread(target=add_healthy)
+            t = threading.Thread(target=add_healthy, daemon=True)
             t.start()
             t.join(timeout=3)
 
@@ -184,6 +187,7 @@ class TestTimerManagerDeadlockFix:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
 
     def test_slow_enqueue_does_not_starve_other_timers(self):
         """A slow enqueue on one component must not prevent timers for another.
@@ -212,7 +216,7 @@ class TestTimerManagerDeadlockFix:
                 tm.add_timer(50, fast_comp, "fast")
                 add_completed.set()
 
-            t = threading.Thread(target=add_fast)
+            t = threading.Thread(target=add_fast, daemon=True)
             t.start()
             t.join(timeout=3)
 
@@ -231,3 +235,4 @@ class TestTimerManagerDeadlockFix:
             stop.set()
             tm.event.set()
             tm.thread.join(timeout=2)
+            assert not tm.thread.is_alive()
