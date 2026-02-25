@@ -30,10 +30,12 @@ class MessagingServiceBuilder:
             and dev_mode.lower() == "true"
             or self.broker_properties.get("broker_type") == "dev_broker"
         ):
-            # Check if connecting to a remote dev broker over the network
+            # Check if connecting to a remote dev broker over the network.
+            # Use `or` instead of get() default because broker_properties may
+            # contain an explicit None for dev_broker_host.
             dev_broker_host = self.broker_properties.get(
-                "dev_broker_host", os.getenv("DEV_BROKER_HOST")
-            )
+                "dev_broker_host"
+            ) or os.getenv("DEV_BROKER_HOST")
             if dev_broker_host:
                 from .network_dev_broker import NetworkDevBroker
 

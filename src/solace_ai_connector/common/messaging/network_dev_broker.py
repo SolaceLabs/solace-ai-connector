@@ -11,6 +11,7 @@ reconnect.
 
 import json
 import logging
+import os
 import socket
 import threading
 import time
@@ -73,8 +74,8 @@ class NetworkDevBroker(Messaging):
 
     def __init__(self, broker_properties: dict):
         super().__init__(broker_properties)
-        self._host = broker_properties.get("dev_broker_host", "localhost")
-        self._port = int(broker_properties.get("dev_broker_port", 55555))
+        self._host = broker_properties.get("dev_broker_host") or os.getenv("DEV_BROKER_HOST", "localhost")
+        self._port = int(broker_properties.get("dev_broker_port") or os.getenv("DEV_BROKER_PORT", "55555"))
         self._socket: Optional[socket.socket] = None
         self._socket_file = None
         self._connected = False
