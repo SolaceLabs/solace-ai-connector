@@ -7,6 +7,7 @@ Protocol format: Newline-delimited JSON (each message is a JSON object followed 
 """
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Literal
@@ -169,3 +170,26 @@ def decode_response(data: bytes) -> Response:
         message_id=d.get("message_id"),
         message=d.get("message"),
     )
+
+
+def subscription_to_regex(subscription: str) -> str:
+    """Convert a Solace-style topic subscription to a regex pattern.
+
+    Handles ``*`` (single-level wildcard) and ``>`` (multi-level wildcard)
+    while escaping any other regex metacharacters in literal segments.
+    """
+    parts = subscription.split("/")
+    regex_parts = []
+    for part in parts:
+        if part == "*":
+            regex_parts.append("[^/]+")
+        elif part == ">":
+            regex_parts.append(".*")
+        else:
+            regex_parts.append(re.escape(part))
+    return "/".join(regex_parts)
+
+
+def topic_matches(subscription_regex: str, topic: str) -> bool:
+    """Check if a topic matches a subscription regex pattern."""
+    return re.match(f"^{subscription_regex}$", topic) is not None

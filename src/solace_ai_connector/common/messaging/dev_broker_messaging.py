@@ -6,11 +6,11 @@ import os
 import threading
 from typing import Dict, List, Any, Optional
 import queue
-import re
 from copy import deepcopy
 from enum import Enum
 
 from .messaging import Messaging
+from .dev_broker_protocol import subscription_to_regex, topic_matches
 from ...common import Message_NACK_Outcome
 
 log = logging.getLogger(__name__)
@@ -240,11 +240,11 @@ class DevBroker(Messaging):
 
     @staticmethod
     def _topic_matches(subscription: str, topic: str) -> bool:
-        return re.match(f"^{subscription}$", topic) is not None
+        return topic_matches(subscription, topic)
 
     @staticmethod
     def _subscription_to_regex(subscription: str) -> str:
-        return subscription.replace("*", "[^/]+").replace(">", ".*")
+        return subscription_to_regex(subscription)
 
     # --- Network Server Support ---
 
@@ -306,8 +306,8 @@ class DevBroker(Messaging):
                         ),
                         server._loop,
                     )
-                except Exception:
-                    pass  # Server may be shutting down
+                except Exception as exc:
+                    log.debug("DevBroker: Failed to forward to network server: %s", exc)
 
             self.flow_kv_store.set("dev_broker:network_route_fn", network_route_fn)
 

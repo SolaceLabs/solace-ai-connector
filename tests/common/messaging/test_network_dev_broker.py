@@ -26,10 +26,15 @@ from solace_ai_connector.common.messaging.dev_broker_protocol import (
 )
 from solace_ai_connector.common.messaging.dev_broker_server import (
     start_server_in_thread,
+    DevBrokerServer,
 )
 from solace_ai_connector.common.messaging.network_dev_broker import (
     NetworkDevBroker,
     NetworkConnectionStatus,
+)
+from solace_ai_connector.common.messaging.dev_broker_protocol import (
+    subscription_to_regex,
+    topic_matches,
 )
 
 
@@ -309,3 +314,113 @@ class TestNetworkDevBrokerEndToEnd:
             "connect_retry_delay_ms": 100,
         })
         assert client.receive_message(100, "q") is None
+
+    def test_multiple_subscribers_all_receive(self, server):
+        """When two clients subscribe to the same topic, both should receive the message."""
+        recv1 = self._make_client(server, client_name="multi-recv1")
+        recv2 = self._make_client(server, client_name="multi-recv2")
+        sender = self._make_client(server, client_name="multi-send", subscriptions=[])
+        recv1.connect()
+        recv2.connect()
+        sender.connect()
+
+        try:
+            sender.send_message("test/multi", {"fan": "out"})
+
+            msg1 = recv1.receive_message(3000, "test-queue")
+            msg2 = recv2.receive_message(3000, "test-queue")
+            assert msg1 is not None
+            assert msg2 is not None
+            assert msg1["payload"] == {"fan": "out"}
+            assert msg2["payload"] == {"fan": "out"}
+        finally:
+            sender.disconnect()
+            recv1.disconnect()
+            recv2.disconnect()
+
+    def test_disconnect_and_reconnect_preserves_subscriptions(self, server):
+        """After reconnecting, dynamically-added subscriptions should be
+        re-established and the client should receive messages again."""
+        receiver = self._make_client(server, client_name="reconn-recv", subscriptions=[])
+        sender = self._make_client(server, client_name="reconn-send", subscriptions=[])
+        receiver.connect()
+        sender.connect()
+
+        try:
+            # Add a dynamic subscription and verify it works
+            receiver.add_topic_to_queue("reconn/>", "test-queue")
+            sender.send_message("reconn/before", "one")
+            msg = receiver.receive_message(3000, "test-queue")
+            assert msg is not None
+            assert msg["payload"] == "one"
+
+            # Simulate disconnect + reconnect
+            receiver.disconnect()
+            receiver._shutdown.clear()  # Reset so we can reconnect
+            receiver._connected = False
+            receiver.connect()
+
+            # The dynamic subscription should have been re-established
+            sender.send_message("reconn/after", "two")
+            msg = receiver.receive_message(3000, "test-queue")
+            assert msg is not None
+            assert msg["payload"] == "two"
+        finally:
+            sender.disconnect()
+            receiver.disconnect()
+
+    def test_shutdown_interrupts_connect_retry(self):
+        """Calling disconnect (setting the shutdown event) should interrupt
+        the connect retry loop instead of waiting for all retries."""
+        import time as _time
+
+        client = NetworkDevBroker({
+            "dev_broker_host": "127.0.0.1",
+            "dev_broker_port": 1,
+            "connect_retries": 0,  # retry forever
+            "connect_retry_delay_ms": 5000,
+        })
+
+        import threading as _threading
+        errors = []
+
+        def try_connect():
+            try:
+                client.connect()
+            except ConnectionError:
+                errors.append("interrupted")
+
+        t = _threading.Thread(target=try_connect)
+        t.start()
+        _time.sleep(0.5)  # Let the first attempt fail and start sleeping
+        client._shutdown.set()  # Signal shutdown
+        t.join(timeout=3)
+        assert not t.is_alive(), "Connect retry loop was not interrupted by shutdown"
+        assert len(errors) == 1
+
+
+# ── Topic Matching / Regex Escaping ────────────────────────────────────
+
+
+class TestTopicMatching:
+    """Verify that topic subscription patterns handle metacharacters correctly."""
+
+    def test_literal_dot_does_not_match_any_char(self):
+        """A dot in a topic segment should match only a literal dot,
+        not act as a regex wildcard."""
+        regex = subscription_to_regex("sensor.1/temperature")
+        assert topic_matches(regex, "sensor.1/temperature") is True
+        assert topic_matches(regex, "sensorX1/temperature") is False
+
+    def test_literal_plus_in_topic(self):
+        """A plus sign in a topic segment should be treated as literal."""
+        regex = subscription_to_regex("a+b/c")
+        assert topic_matches(regex, "a+b/c") is True
+        assert topic_matches(regex, "ab/c") is False
+
+    def test_multi_level_wildcard_at_end(self):
+        """The > wildcard should match one or more trailing levels."""
+        regex = subscription_to_regex("a/b/>")
+        assert topic_matches(regex, "a/b/c") is True
+        assert topic_matches(regex, "a/b/c/d/e") is True
+        assert topic_matches(regex, "a/b") is False

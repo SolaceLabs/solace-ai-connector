@@ -8,12 +8,11 @@ import asyncio
 import json
 import logging
 import queue
-import re
 import threading
 import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from .dev_broker_protocol import (
     CMD_ACK,
@@ -29,6 +28,8 @@ from .dev_broker_protocol import (
     STATUS_ERROR,
     STATUS_OK,
     STATUS_TIMEOUT,
+    subscription_to_regex,
+    topic_matches,
 )
 
 log = logging.getLogger(__name__)
@@ -75,7 +76,12 @@ class DevBrokerServer:
         Initialize the server.
 
         Args:
-            host: Host to bind to (default: all interfaces)
+            host: Host to bind to.  Defaults to ``0.0.0.0`` (all interfaces)
+                  so that Docker containers on the host network can reach the
+                  broker.  For local-only use, pass ``127.0.0.1`` instead.
+                  **Note:** binding to ``0.0.0.0`` exposes the broker to all
+                  network interfaces with no authentication — only use this in
+                  trusted development environments.
             port: Port to listen on (0 for auto-assign)
             local_broker: Optional DevBroker instance to integrate with
         """
@@ -107,7 +113,7 @@ class DevBrokerServer:
 
         async with self._lock:
             for pattern, client_ids in self._subscriptions.items():
-                if self._topic_matches(pattern, topic):
+                if topic_matches(pattern, topic):
                     for client_id in client_ids:
                         if client_id in self._clients:
                             session = self._clients[client_id]
@@ -300,7 +306,7 @@ class DevBrokerServer:
 
             # Process initial subscriptions
             for topic_pattern in subscriptions:
-                regex = self._subscription_to_regex(topic_pattern)
+                regex = subscription_to_regex(topic_pattern)
                 session.subscriptions.add(regex)
                 if regex not in self._subscriptions:
                     self._subscriptions[regex] = []
@@ -342,7 +348,7 @@ class DevBrokerServer:
                 "error_message": "Missing topic_pattern",
             }
 
-        regex = self._subscription_to_regex(topic_pattern)
+        regex = subscription_to_regex(topic_pattern)
 
         async with self._lock:
             session.subscriptions.add(regex)
@@ -366,7 +372,7 @@ class DevBrokerServer:
                 "error_message": "Missing topic_pattern",
             }
 
-        regex = self._subscription_to_regex(topic_pattern)
+        regex = subscription_to_regex(topic_pattern)
 
         async with self._lock:
             session.subscriptions.discard(regex)
@@ -399,7 +405,7 @@ class DevBrokerServer:
         # Route to matching network clients
         async with self._lock:
             for pattern, client_ids in self._subscriptions.items():
-                if self._topic_matches(pattern, topic):
+                if topic_matches(pattern, topic):
                     for client_id in client_ids:
                         if client_id in self._clients and client_id != session.client_id:
                             target = self._clients[client_id]
@@ -449,17 +455,6 @@ class DevBrokerServer:
         writer.write(data)
         await writer.drain()
 
-    @staticmethod
-    def _topic_matches(subscription: str, topic: str) -> bool:
-        """Check if a topic matches a subscription pattern (regex)."""
-        return re.match(f"^{subscription}$", topic) is not None
-
-    @staticmethod
-    def _subscription_to_regex(subscription: str) -> str:
-        """Convert a Solace-style subscription to a regex pattern."""
-        return subscription.replace("*", "[^/]+").replace(">", ".*")
-
-
 def start_server_in_thread(
     host: str = "0.0.0.0", port: int = 55555, local_broker=None
 ) -> "DevBrokerServer":
@@ -474,6 +469,7 @@ def start_server_in_thread(
     """
     server = DevBrokerServer(host=host, port=port, local_broker=local_broker)
     startup_error = [None]  # Use list to allow mutation from inner function
+    ready_event = threading.Event()
 
     def run_server():
         try:
@@ -481,24 +477,22 @@ def start_server_in_thread(
             asyncio.set_event_loop(loop)
             server._loop = loop
             loop.run_until_complete(server.start())
+            ready_event.set()
             loop.run_forever()
         except Exception as e:
             startup_error[0] = e
+            ready_event.set()  # Unblock the waiting thread
             log.error("DevBrokerServer: Failed to start: %s", e)
 
     thread = threading.Thread(target=run_server, daemon=True)
     thread.start()
 
-    # Wait for server to start
-    import time
-    for _ in range(50):  # Wait up to 5 seconds
-        if server.is_running:
-            break
-        if startup_error[0] is not None:
-            raise RuntimeError(
-                f"DevBrokerServer failed to start on port {port}: {startup_error[0]}"
-            ) from startup_error[0]
-        time.sleep(0.1)
+    ready_event.wait(timeout=5)
+
+    if startup_error[0] is not None:
+        raise RuntimeError(
+            f"DevBrokerServer failed to start on port {port}: {startup_error[0]}"
+        ) from startup_error[0]
 
     if not server.is_running:
         raise RuntimeError(

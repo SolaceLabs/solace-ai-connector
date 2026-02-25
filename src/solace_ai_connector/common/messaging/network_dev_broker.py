@@ -28,11 +28,15 @@ from .dev_broker_protocol import (
     CMD_UNSUBSCRIBE,
     STATUS_OK,
     STATUS_TIMEOUT,
-    BrokerMessage,
 )
 from ...common import Message_NACK_Outcome
 
 log = logging.getLogger(__name__)
+
+# Default timeout (seconds) for individual send/receive operations inside
+# _send_command.  This prevents the command lock from being held indefinitely
+# when the server stops responding.
+_DEFAULT_CMD_TIMEOUT = 30
 
 
 class NetworkConnectionStatus(Enum):
@@ -83,14 +87,16 @@ class NetworkDevBroker(Messaging):
             "client_name", f"network-client-{id(self)}"
         )
         self._lock = threading.Lock()
+        self._reconnect_lock = threading.Lock()
         self.messaging_service = NetworkMessagingService()
         # For interface compatibility
         self.persistent_receiver = {}
 
         # Track dynamically added subscriptions for reconnect
         self._dynamic_subscriptions: Set[str] = set()
-        # Prevent recursive reconnect attempts
-        self._reconnecting = False
+
+        # Shutdown event used to interrupt retry loops
+        self._shutdown = threading.Event()
 
     def connect(self):
         """Connect to the remote dev broker server.
@@ -108,7 +114,7 @@ class NetworkDevBroker(Messaging):
         retry_delay = int(self.broker_properties.get("connect_retry_delay_ms", 3000)) / 1000.0
         attempt = 0
 
-        while True:
+        while not self._shutdown.is_set():
             attempt += 1
             try:
                 log.info(
@@ -166,12 +172,16 @@ class NetworkDevBroker(Messaging):
                         "NetworkDevBroker: Connection refused, retrying in %.1fs (attempt %d)...",
                         retry_delay, attempt,
                     )
-                time.sleep(retry_delay)
+                # Use Event.wait so shutdown can interrupt the sleep
+                if self._shutdown.wait(retry_delay):
+                    raise ConnectionError("NetworkDevBroker: Shutdown requested during connect retry") from e
 
             except Exception as e:
                 log.error("NetworkDevBroker: Connection failed: %s", e)
                 self._cleanup_socket()
                 raise
+
+        raise ConnectionError("NetworkDevBroker: Shutdown requested")
 
     def _reconnect(self) -> bool:
         """Attempt to reconnect after a connection drop.
@@ -179,10 +189,9 @@ class NetworkDevBroker(Messaging):
         Returns True if reconnection succeeds, False otherwise.
         Thread-safe: only one reconnect attempt runs at a time.
         """
-        if self._reconnecting:
+        if not self._reconnect_lock.acquire(blocking=False):
             return False
 
-        self._reconnecting = True
         try:
             log.warning("NetworkDevBroker: Connection lost, attempting to reconnect...")
             self._cleanup_socket()
@@ -194,17 +203,19 @@ class NetworkDevBroker(Messaging):
             log.error("NetworkDevBroker: Reconnect failed: %s", e)
             return False
         finally:
-            self._reconnecting = False
+            self._reconnect_lock.release()
 
     def disconnect(self):
         """Disconnect from the remote dev broker."""
+        self._shutdown.set()
+
         if not self._connected:
             return
 
         try:
             self._send_command({"cmd": CMD_DISCONNECT})
         except Exception as e:
-            log.warning(f"NetworkDevBroker: Error during disconnect: {e}")
+            log.warning("NetworkDevBroker: Error during disconnect: %s", e)
         finally:
             self._cleanup_socket()
             self._connected = False
@@ -251,16 +262,14 @@ class NetworkDevBroker(Messaging):
             # Set socket timeout for the receive operation
             # Add buffer for network latency
             socket_timeout = (timeout_ms / 1000) + 5
-            self._socket.settimeout(socket_timeout)
-
-            response = self._send_command(receive_cmd)
+            response = self._send_command(receive_cmd, timeout=socket_timeout)
 
             if response.get("status") == STATUS_TIMEOUT:
                 return None
 
             if response.get("status") != STATUS_OK:
                 log.error(
-                    f"NetworkDevBroker: Receive error: {response.get('error_message')}"
+                    "NetworkDevBroker: Receive error: %s", response.get("error_message")
                 )
                 return None
 
@@ -284,16 +293,9 @@ class NetworkDevBroker(Messaging):
             self._reconnect()
             return None
         except Exception as e:
-            log.error(f"NetworkDevBroker: Receive error: {e}")
+            log.error("NetworkDevBroker: Receive error: %s", e)
             self._connected = False
             return None
-        finally:
-            # Reset socket timeout
-            if self._socket:
-                try:
-                    self._socket.settimeout(None)
-                except Exception:
-                    pass
 
     def send_message(
         self,
@@ -307,42 +309,47 @@ class NetworkDevBroker(Messaging):
             if not self._reconnect():
                 raise RuntimeError("NetworkDevBroker: Not connected and reconnect failed")
 
-        try:
-            # BrokerOutput encodes payload to bytes; decode for JSON transport
-            if isinstance(payload, (bytes, bytearray)):
-                try:
-                    payload = json.loads(payload)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    payload = payload.decode("utf-8", errors="replace")
+        # BrokerOutput encodes payload to bytes; decode for JSON transport
+        if isinstance(payload, (bytes, bytearray)):
+            try:
+                payload = json.loads(payload)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                payload = payload.decode("utf-8", errors="replace")
 
-            publish_cmd = {
-                "cmd": CMD_PUBLISH,
-                "topic": destination_name,
-                "payload": payload,
-                "user_properties": user_properties or {},
-            }
-            response = self._send_command(publish_cmd)
+        publish_cmd = {
+            "cmd": CMD_PUBLISH,
+            "topic": destination_name,
+            "payload": payload,
+            "user_properties": user_properties or {},
+        }
 
-            if response.get("status") != STATUS_OK:
-                log.error(
-                    f"NetworkDevBroker: Publish failed: {response.get('error_message')}"
-                )
+        last_error = None
+        for attempt in range(2):
+            try:
+                response = self._send_command(publish_cmd)
 
-            # Call callback if provided (same pattern as DevBroker)
-            if user_context and "callback" in user_context:
-                user_context["callback"](user_context)
+                if response.get("status") != STATUS_OK:
+                    log.error(
+                        "NetworkDevBroker: Publish failed: %s", response.get("error_message")
+                    )
 
-        except (BrokenPipeError, ConnectionError, ConnectionResetError, OSError) as e:
-            log.warning("NetworkDevBroker: Connection error during publish: %s", e)
-            self._connected = False
-            # Try to reconnect and retry once
-            if self._reconnect():
-                log.info("NetworkDevBroker: Retrying publish after reconnect")
-                self.send_message(destination_name, payload, user_properties, user_context)
-            else:
-                raise RuntimeError(
-                    f"NetworkDevBroker: Publish failed after reconnect: {e}"
-                ) from e
+                # Call callback if provided (same pattern as DevBroker)
+                if user_context and "callback" in user_context:
+                    user_context["callback"](user_context)
+                return
+
+            except (BrokenPipeError, ConnectionError, ConnectionResetError, OSError) as e:
+                last_error = e
+                log.warning("NetworkDevBroker: Connection error during publish: %s", e)
+                self._connected = False
+                if attempt == 0 and self._reconnect():
+                    log.info("NetworkDevBroker: Retrying publish after reconnect")
+                    continue
+                break
+
+        raise RuntimeError(
+            f"NetworkDevBroker: Publish failed after reconnect: {last_error}"
+        ) from last_error
 
     def subscribe(self, subscription: str, queue_name: str):
         """Subscribe to a topic pattern."""
@@ -381,16 +388,16 @@ class NetworkDevBroker(Messaging):
             response = self._send_command(subscribe_cmd)
 
             if response.get("status") == STATUS_OK:
-                log.info(f"NetworkDevBroker: Subscribed to {topic_str}")
+                log.info("NetworkDevBroker: Subscribed to %s", topic_str)
                 return True
             else:
                 log.error(
-                    f"NetworkDevBroker: Subscribe failed: {response.get('error_message')}"
+                    "NetworkDevBroker: Subscribe failed: %s", response.get("error_message")
                 )
                 return False
 
         except Exception as e:
-            log.error(f"NetworkDevBroker: Subscribe error: {e}")
+            log.error("NetworkDevBroker: Subscribe error: %s", e)
             return False
 
     def remove_topic_from_queue(self, topic_str: str, queue_name: str) -> bool:
@@ -409,16 +416,16 @@ class NetworkDevBroker(Messaging):
             response = self._send_command(unsubscribe_cmd)
 
             if response.get("status") == STATUS_OK:
-                log.info(f"NetworkDevBroker: Unsubscribed from {topic_str}")
+                log.info("NetworkDevBroker: Unsubscribed from %s", topic_str)
                 return True
             else:
                 log.error(
-                    f"NetworkDevBroker: Unsubscribe failed: {response.get('error_message')}"
+                    "NetworkDevBroker: Unsubscribe failed: %s", response.get("error_message")
                 )
                 return False
 
         except Exception as e:
-            log.error(f"NetworkDevBroker: Unsubscribe error: {e}")
+            log.error("NetworkDevBroker: Unsubscribe error: %s", e)
             return False
 
     def ack_message(self, message):
@@ -429,19 +436,38 @@ class NetworkDevBroker(Messaging):
         """Negative acknowledge a message (no-op for dev broker)."""
         pass
 
-    def _send_command(self, cmd: Dict[str, Any]) -> Dict[str, Any]:
-        """Send a command and receive the response."""
+    def _send_command(self, cmd: Dict[str, Any], timeout: float = None) -> Dict[str, Any]:
+        """Send a command and receive the response.
+
+        Args:
+            cmd: The command dict to send.
+            timeout: Socket timeout in seconds for this operation.
+                     Defaults to _DEFAULT_CMD_TIMEOUT.
+        """
+        if timeout is None:
+            timeout = _DEFAULT_CMD_TIMEOUT
+
         with self._lock:
             if not self._socket:
                 raise RuntimeError("Socket not connected")
 
-            # Send command
-            data = (json.dumps(cmd) + "\n").encode("utf-8")
-            self._socket.sendall(data)
+            # Always set a timeout so a hung server can't hold the lock forever
+            self._socket.settimeout(timeout)
+            try:
+                # Send command
+                data = (json.dumps(cmd) + "\n").encode("utf-8")
+                self._socket.sendall(data)
 
-            # Receive response
-            response_line = self._socket_file.readline()
-            if not response_line:
-                raise ConnectionError("Connection closed by server")
+                # Receive response
+                response_line = self._socket_file.readline()
+                if not response_line:
+                    raise ConnectionError("Connection closed by server")
 
-            return json.loads(response_line.decode("utf-8"))
+                return json.loads(response_line.decode("utf-8"))
+            finally:
+                # Reset to blocking for other operations
+                if self._socket:
+                    try:
+                        self._socket.settimeout(None)
+                    except Exception:
+                        pass

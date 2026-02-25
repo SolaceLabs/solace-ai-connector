@@ -102,6 +102,17 @@ base_info = {
             "description": "Port for dev broker network server (default: 55555)",
             "default": 55555,
         },
+        {
+            "name": "dev_broker_host",
+            "required": False,
+            "description": "Hostname of a remote dev broker server to connect to (enables network client mode)",
+        },
+        {
+            "name": "dev_broker_port",
+            "required": False,
+            "description": "Port of the remote dev broker server (default: 55555)",
+            "default": 55555,
+        },
     ],
 }
 
