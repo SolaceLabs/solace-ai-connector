@@ -98,7 +98,7 @@ class TestSolaceMessaging:
         mock_message.get_destination_name.return_value = "test/topic"
         mock_message.get_properties.return_value = {"prop": "value"}
         mock_receiver.receive_message.return_value = mock_message
-        solace_messaging.persistent_receivers = [mock_receiver]
+        solace_messaging.persistent_receiver = mock_receiver
 
         # Test receive_message
         message = solace_messaging.receive_message(1000, "test_queue")
@@ -114,7 +114,7 @@ class TestSolaceMessaging:
         # Set up mock receiver
         mock_receiver = MagicMock()
         mock_receiver.receive_message.return_value = None
-        solace_messaging.persistent_receivers = [mock_receiver]
+        solace_messaging.persistent_receiver = mock_receiver
 
         # Test receive_message
         message = solace_messaging.receive_message(1000, "test_queue")

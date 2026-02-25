@@ -3,6 +3,7 @@ messages to/from queues. It supports subscriptions based on topics."""
 
 import logging
 import os
+import threading
 from typing import Dict, List, Any, Optional
 import queue
 import re
@@ -53,6 +54,8 @@ class DevBroker(Messaging):
 
         # Need this to be able to use the same interface as the other brokers
         self.persistent_receiver = {}
+        self._reconnection_callbacks = []
+        self._reconnection_lock = threading.Lock()
 
     def connect(self):
         self.connected = True
@@ -75,6 +78,15 @@ class DevBroker(Messaging):
             if self.connected
             else DevConnectionStatus.DISCONNECTED
         )
+
+    def register_reconnection_callback(self, callback):
+        """Register a callback to be invoked on reconnection."""
+        with self._reconnection_lock:
+            self._reconnection_callbacks.append(callback)
+
+    def restore_subscriptions(self, subscriptions: set, cancel_event=None):
+        """No-op for DevBroker - subscriptions persist in memory."""
+        return (len(subscriptions), 0)
 
     def receive_message(self, timeout_ms, queue_name: str):
         if not self.connected:

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 import certifi
 import threading
 import concurrent.futures
@@ -98,12 +99,14 @@ class ServiceEventHandler(
         retry_interval,
         connection_properties,
         error_prefix="",
+        reconnection_callback=None,
     ):
         self.stop_signal = stop_signal
         self.error_prefix = error_prefix
         self.retry_count = retry_count
         self.retry_interval = retry_interval
         self.connection_properties = connection_properties
+        self.reconnection_callback = reconnection_callback
 
         try:
             self.strategy = ConnectionStrategy(strategy)
@@ -116,6 +119,13 @@ class ServiceEventHandler(
     def on_reconnected(self, service_event: ServiceEvent):
         change_connection_status(self.connection_properties, ConnectionStatus.CONNECTED)
         log.info(f"{self.error_prefix} Successfully reconnected to broker.")
+
+        # Invoke reconnection callback to restore subscriptions
+        if self.reconnection_callback:
+            try:
+                self.reconnection_callback()
+            except Exception:
+                log.exception(f"{self.error_prefix} Error in reconnection callback")
 
     def on_reconnecting(self, event: "ServiceEvent"):
         change_connection_status(
@@ -181,6 +191,8 @@ class SolaceMessaging(Messaging):
         }
 
         self.error_prefix = f"broker[{broker_name}]:"
+        self._reconnection_callbacks = []
+        self._reconnection_lock = threading.Lock()
         # MessagingService.set_core_messaging_log_level(
         #     level="DEBUG", file="/home/efunnekotter/core.log"
         # )
@@ -341,6 +353,7 @@ class SolaceMessaging(Messaging):
                 retry_interval,
                 self.connection_properties,
                 self.error_prefix,
+                reconnection_callback=self._on_reconnected,
             )
             self.messaging_service.add_reconnection_listener(self.service_handler)
             self.messaging_service.add_reconnection_attempt_listener(
@@ -469,6 +482,30 @@ class SolaceMessaging(Messaging):
     def get_connection_status(self):
         return self.connection_properties["status"]
 
+    def register_reconnection_callback(self, callback):
+        """Register a callback to be invoked on reconnection."""
+        with self._reconnection_lock:
+            self._reconnection_callbacks.append(callback)
+
+    def _on_reconnected(self):
+        """Internal handler called when reconnection succeeds.
+
+        Dispatches callbacks to a daemon thread to avoid blocking the
+        SDK's ServiceListenerThread.
+        """
+        with self._reconnection_lock:
+            callbacks = list(self._reconnection_callbacks)
+
+        def run_callbacks():
+            for callback in callbacks:
+                try:
+                    callback()
+                except Exception:
+                    log.exception(f"{self.error_prefix} Error in reconnection callback")
+
+        thread = threading.Thread(target=run_callbacks, daemon=True)
+        thread.start()
+
     def send_message(
         self,
         destination_name: str,
@@ -496,7 +533,8 @@ class SolaceMessaging(Messaging):
         )
 
     def receive_message(self, timeout_ms, queue_id):
-        broker_message = self.persistent_receivers[0].receive_message(timeout_ms)
+        broker_message = self.persistent_receiver.receive_message(timeout_ms)
+
         if broker_message is None:
             return None
 
@@ -524,7 +562,7 @@ class SolaceMessaging(Messaging):
                 f"{self.error_prefix} Cannot add subscription. Messaging service not connected."
             )
             return False
-        if not persistent_receiver or not persistent_receiver.is_running:
+        if not persistent_receiver or not persistent_receiver.is_running():
             log.error(
                 f"{self.error_prefix} Cannot add subscription. Persistent receiver is not valid or not running."
             )
@@ -556,7 +594,7 @@ class SolaceMessaging(Messaging):
                 f"{self.error_prefix} Cannot remove subscription. Messaging service not connected."
             )
             return False
-        if not persistent_receiver or not persistent_receiver.is_running:
+        if not persistent_receiver or not persistent_receiver.is_running():
             log.error(
                 f"{self.error_prefix} Cannot remove subscription. Persistent receiver is not valid or not running."
             )
@@ -578,6 +616,80 @@ class SolaceMessaging(Messaging):
                 f"{self.error_prefix} Unexpected error removing subscription '{topic_str}'."
             )
             return False
+
+    def restore_subscriptions(self, subscriptions: set, cancel_event=None):
+        """Restore subscriptions by removing and re-adding them on the existing receiver.
+
+        Retries each add_subscription call forever with exponential backoff
+        (0.5s initial, doubling up to 8s) until it succeeds or cancel_event
+        is set by a newer reconnection.
+
+        Args:
+            subscriptions: Set of topic subscription strings to restore.
+            cancel_event: Optional threading.Event; when set, abort the
+                restore early (a newer reconnection has superseded this one).
+        """
+        log.info(
+            f"{self.error_prefix} Restoring {len(subscriptions)} subscriptions"
+        )
+        success = 0
+        for topic in subscriptions:
+            if cancel_event and cancel_event.is_set():
+                log.info(
+                    f"{self.error_prefix} Subscription restore cancelled "
+                    "by newer reconnection"
+                )
+                return (success, len(subscriptions) - success)
+            sub = TopicSubscription.of(topic)
+            try:
+                self.persistent_receiver.remove_subscription(sub)
+            except Exception:
+                log.warning(
+                    f"{self.error_prefix} Could not remove subscription '{topic}' "
+                    "before re-adding (may not have existed)"
+                )
+            delay = 0.5
+            attempt = 0
+            while True:
+                if cancel_event and cancel_event.is_set():
+                    log.info(
+                        f"{self.error_prefix} Subscription restore cancelled "
+                        "by newer reconnection"
+                    )
+                    return (success, len(subscriptions) - success)
+                attempt += 1
+                try:
+                    self.persistent_receiver.add_subscription(sub)
+                    if attempt > 1:
+                        log.info(
+                            f"{self.error_prefix} Successfully re-added "
+                            f"subscription '{topic}' after {attempt} attempts"
+                        )
+                    success += 1
+                    break
+                except Exception:
+                    if attempt >= 10 and attempt % 10 == 0:
+                        log.error(
+                            f"{self.error_prefix} Still failing to re-add "
+                            f"subscription '{topic}' after {attempt} attempts, "
+                            "will keep retrying"
+                        )
+                    else:
+                        log.warning(
+                            f"{self.error_prefix} Failed to re-add subscription "
+                            f"'{topic}' (attempt {attempt}), "
+                            f"retrying in {delay}s"
+                        )
+                    if cancel_event:
+                        cancel_event.wait(delay)
+                    else:
+                        time.sleep(delay)
+                    delay = min(delay * 2, 8.0)
+        log.info(
+            f"{self.error_prefix} Subscription restore complete: "
+            f"{success} succeeded"
+        )
+        return (success, 0)
 
     def ack_message(self, broker_message):
         if "_original_message" in broker_message:
