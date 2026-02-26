@@ -163,24 +163,34 @@ class HealthCheckRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_liveness(self):
         """Handle liveness probe - always returns OK"""
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        response = json.dumps({"status": "ok"})
-        self.wfile.write(response.encode())
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            response = json.dumps({"status": "ok"})
+            self.wfile.write(response.encode())
+        except BrokenPipeError:
+            # Client (e.g. kubelet) closed the connection before we finished writing.
+            # This is harmless - suppress the noisy traceback.
+            pass
 
     def _handle_readiness(self):
         """Handle readiness probe - checks if connector is ready"""
-        if self.health_checker.is_ready():
-            self.send_response(200)
-            response = json.dumps({"status": "ok"})
-        else:
-            self.send_response(503)
-            response = json.dumps({"status": "not ready"})
+        try:
+            if self.health_checker.is_ready():
+                self.send_response(200)
+                response = json.dumps({"status": "ok"})
+            else:
+                self.send_response(503)
+                response = json.dumps({"status": "not ready"})
 
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(response.encode())
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(response.encode())
+        except BrokenPipeError:
+            # Client (e.g. kubelet) closed the connection before we finished writing.
+            # This is harmless - suppress the noisy traceback.
+            pass
 
     def _handle_thread_dump(self):
         """Handle thread dump request for debugging deadlocks.
@@ -190,65 +200,76 @@ class HealthCheckRequestHandler(BaseHTTPRequestHandler):
         
         Usage: curl http://localhost:<port>/debug/threads
         """
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/plain')
-        self.end_headers()
-        
-        output = []
-        output.append("=" * 80)
-        output.append("PYTHON THREAD DUMP")
-        output.append(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-        output.append(f"Total threads: {threading.active_count()}")
-        output.append("=" * 80)
-        output.append("")
-        
-        # Get all thread stacks
-        frames = sys._current_frames()
-        for thread_id, frame in frames.items():
-            # Find the thread object for this ID
-            thread_name = "Unknown"
-            thread_daemon = False
-            for thread in threading.enumerate():
-                if thread.ident == thread_id:
-                    thread_name = thread.name
-                    thread_daemon = thread.daemon
-                    break
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
             
-            output.append(f"Thread: {thread_name} (ID: {thread_id}, Daemon: {thread_daemon})")
-            output.append("-" * 40)
-            
-            # Format the stack trace
-            for line in traceback.format_stack(frame):
-                output.append(line.rstrip())
+            output = []
+            output.append("=" * 80)
+            output.append("PYTHON THREAD DUMP")
+            output.append(f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            output.append(f"Total threads: {threading.active_count()}")
+            output.append("=" * 80)
             output.append("")
-        
-        output.append("=" * 80)
-        output.append("END OF THREAD DUMP")
-        output.append("=" * 80)
-        
-        response = "\n".join(output)
-        self.wfile.write(response.encode())
+            
+            # Get all thread stacks
+            frames = sys._current_frames()
+            for thread_id, frame in frames.items():
+                # Find the thread object for this ID
+                thread_name = "Unknown"
+                thread_daemon = False
+                for thread in threading.enumerate():
+                    if thread.ident == thread_id:
+                        thread_name = thread.name
+                        thread_daemon = thread.daemon
+                        break
+                
+                output.append(f"Thread: {thread_name} (ID: {thread_id}, Daemon: {thread_daemon})")
+                output.append("-" * 40)
+                
+                # Format the stack trace
+                for line in traceback.format_stack(frame):
+                    output.append(line.rstrip())
+                output.append("")
+            
+            output.append("=" * 80)
+            output.append("END OF THREAD DUMP")
+            output.append("=" * 80)
+            
+            response = "\n".join(output)
+            self.wfile.write(response.encode())
+        except BrokenPipeError:
+            pass
 
     def _handle_not_found(self):
         """Handle unknown paths"""
-        self.send_response(404)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        response = json.dumps({"error": "not found"})
-        self.wfile.write(response.encode())
+        try:
+            self.send_response(404)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            response = json.dumps({"error": "not found"})
+            self.wfile.write(response.encode())
+        except BrokenPipeError:
+            pass
 
     def _handle_startup(self):
         """Handle startup probe - checks if startup has completed (latches to True)"""
-        if self.health_checker.is_startup_complete():
-            self.send_response(200)
-            response = json.dumps({"status": "ok"})
-        else:
-            self.send_response(503)
-            response = json.dumps({"status": "not ready"})
+        try:
+            if self.health_checker.is_startup_complete():
+                self.send_response(200)
+                response = json.dumps({"status": "ok"})
+            else:
+                self.send_response(503)
+                response = json.dumps({"status": "not ready"})
 
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(response.encode())
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(response.encode())
+        except BrokenPipeError:
+            # Client (e.g. kubelet) closed the connection before we finished writing.
+            # This is harmless - suppress the noisy traceback.
+            pass
 
     def log_message(self, format, *args):
         """Override to suppress default logging"""
