@@ -555,6 +555,189 @@ class TestHealthCheckRequestHandler:
         handler.send_response.assert_called_once_with(200)
 
 
+class TestHealthCheckRequestHandlerBrokenPipe:
+    """Tests for BrokenPipeError handling in health check handlers.
+    
+    These tests verify that when the client (e.g., Kubernetes kubelet) closes
+    the connection before the server finishes writing the response, the
+    BrokenPipeError is silently suppressed instead of producing noisy tracebacks.
+    """
+
+    def test_liveness_handles_broken_pipe_on_write(self):
+        """Test _handle_liveness suppresses BrokenPipeError during wfile.write()"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+        HealthCheckRequestHandler.liveness_path = "/healthz"
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise - BrokenPipeError should be caught and suppressed
+        HealthCheckRequestHandler._handle_liveness(handler)
+
+        # Verify write was attempted
+        handler.wfile.write.assert_called_once()
+
+    def test_liveness_handles_broken_pipe_on_send_response(self):
+        """Test _handle_liveness suppresses BrokenPipeError during send_response()"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.send_response.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_liveness(handler)
+
+        handler.send_response.assert_called_once_with(200)
+
+    def test_readiness_handles_broken_pipe_when_ready(self):
+        """Test _handle_readiness suppresses BrokenPipeError when connector is ready"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_ready.return_value = True
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_readiness(handler)
+
+        handler.send_response.assert_called_once_with(200)
+        handler.wfile.write.assert_called_once()
+
+    def test_readiness_handles_broken_pipe_when_not_ready(self):
+        """Test _handle_readiness suppresses BrokenPipeError when connector is not ready"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_ready.return_value = False
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_readiness(handler)
+
+        handler.send_response.assert_called_once_with(503)
+        handler.wfile.write.assert_called_once()
+
+    def test_startup_handles_broken_pipe_when_complete(self):
+        """Test _handle_startup suppresses BrokenPipeError when startup is complete"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_startup_complete.return_value = True
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_startup(handler)
+
+        handler.send_response.assert_called_once_with(200)
+        handler.wfile.write.assert_called_once()
+
+    def test_startup_handles_broken_pipe_when_not_complete(self):
+        """Test _handle_startup suppresses BrokenPipeError when startup is not complete"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        mock_health_checker.is_startup_complete.return_value = False
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_startup(handler)
+
+        handler.send_response.assert_called_once_with(503)
+        handler.wfile.write.assert_called_once()
+
+    def test_not_found_handles_broken_pipe(self):
+        """Test _handle_not_found suppresses BrokenPipeError"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_not_found(handler)
+
+        handler.send_response.assert_called_once_with(404)
+        handler.wfile.write.assert_called_once()
+
+    def test_thread_dump_handles_broken_pipe(self):
+        """Test _handle_thread_dump suppresses BrokenPipeError"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.wfile = Mock()
+        handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_thread_dump(handler)
+
+        handler.send_response.assert_called_once_with(200)
+        handler.wfile.write.assert_called_once()
+
+    def test_broken_pipe_on_send_header(self):
+        """Test handlers suppress BrokenPipeError during send_header()"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.send_header.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_liveness(handler)
+
+        handler.send_response.assert_called_once_with(200)
+        handler.send_header.assert_called_once()
+
+    def test_broken_pipe_on_end_headers(self):
+        """Test handlers suppress BrokenPipeError during end_headers()"""
+        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+
+        mock_health_checker = Mock()
+        HealthCheckRequestHandler.health_checker = mock_health_checker
+
+        handler = Mock(spec=HealthCheckRequestHandler)
+        handler.health_checker = mock_health_checker
+        handler.end_headers.side_effect = BrokenPipeError("Broken pipe")
+
+        # Should not raise
+        HealthCheckRequestHandler._handle_liveness(handler)
+
+        handler.send_response.assert_called_once_with(200)
+        handler.send_header.assert_called_once()
+        handler.end_headers.assert_called_once()
+
+
 class TestHealthCheckHttpServer:
     def test_server_initialization(self):
         """Test HealthCheckHttpServer initializes correctly"""
