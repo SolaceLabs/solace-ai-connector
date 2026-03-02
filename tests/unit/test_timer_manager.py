@@ -8,6 +8,13 @@ from solace_ai_connector.flow.timer_manager import TimerManager
 from solace_ai_connector.common.event import EventType
 
 
+def _stop_timer_manager(tm):
+    tm.stop_signal.set()
+    tm.event.set()
+    tm.thread.join(timeout=2)
+    assert not tm.thread.is_alive()
+
+
 class FakeComponent:
     """A minimal stand-in for a SAC component with an input queue."""
 
@@ -39,10 +46,7 @@ class TestTimerManagerBasics:
             assert event.event_type == EventType.TIMER
             assert event.data["timer_id"] == "t1"
         finally:
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
 
     def test_recurring_timer_fires_multiple_times(self):
         stop = threading.Event()
@@ -54,10 +58,7 @@ class TestTimerManagerBasics:
             time.sleep(0.6)
             assert comp.input_queue.qsize() >= 4
         finally:
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
 
     def test_cancel_timer_prevents_firing(self):
         stop = threading.Event()
@@ -70,10 +71,7 @@ class TestTimerManagerBasics:
             time.sleep(0.4)
             assert comp.input_queue.empty()
         finally:
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
 
     def test_timer_payload_delivered(self):
         stop = threading.Event()
@@ -86,10 +84,7 @@ class TestTimerManagerBasics:
             event = comp.input_queue.get_nowait()
             assert event.data["payload"] == {"key": "value"}
         finally:
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
 
 
 class TestTimerManagerDeadlockFix:
@@ -117,10 +112,14 @@ class TestTimerManagerDeadlockFix:
         comp_b = FakeComponent(maxsize=10)
 
         try:
-            tm.add_timer(10, comp_a, "fast", interval_ms=10)
+            tm.add_timer(50, comp_a, "fast", interval_ms=50)
 
             time.sleep(0.3)
             assert comp_a.input_queue.full()
+
+            # Release pressure from blocked dispatch threads before the
+            # add_timer() call so GIL contention does not mask a real deadlock.
+            comp_a.stop_signal.set()
 
             add_completed = threading.Event()
 
@@ -137,11 +136,7 @@ class TestTimerManagerDeadlockFix:
                 "thread while it blocks on a full enqueue()"
             )
         finally:
-            comp_a.stop_signal.set()
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
 
     def test_multiple_components_with_mixed_queue_states(self):
         """One component's full queue must not prevent timers for others.
@@ -157,9 +152,13 @@ class TestTimerManagerDeadlockFix:
         healthy_comp = FakeComponent(maxsize=50)
 
         try:
-            tm.add_timer(10, blocked_comp, "blocker", interval_ms=10)
-            time.sleep(0.2)
+            tm.add_timer(50, blocked_comp, "blocker", interval_ms=50)
+            time.sleep(0.3)
             assert blocked_comp.input_queue.full()
+
+            # Release pressure from blocked dispatch threads before the
+            # add_timer() call so GIL contention does not mask a real deadlock.
+            blocked_comp.stop_signal.set()
 
             add_completed = threading.Event()
 
@@ -183,11 +182,7 @@ class TestTimerManagerDeadlockFix:
                 "another component's queue is full"
             )
         finally:
-            blocked_comp.stop_signal.set()
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
 
     def test_slow_enqueue_does_not_starve_other_timers(self):
         """A slow enqueue on one component must not prevent timers for another.
@@ -206,9 +201,13 @@ class TestTimerManagerDeadlockFix:
         fast_comp = FakeComponent(maxsize=50)
 
         try:
-            tm.add_timer(10, slow_comp, "slow", interval_ms=10)
-            time.sleep(0.15)
+            tm.add_timer(50, slow_comp, "slow", interval_ms=50)
+            time.sleep(0.3)
             assert slow_comp.input_queue.full()
+
+            # Release pressure from blocked dispatch threads before the
+            # add_timer() call so GIL contention does not mask a real deadlock.
+            slow_comp.stop_signal.set()
 
             add_completed = threading.Event()
 
@@ -231,8 +230,4 @@ class TestTimerManagerDeadlockFix:
             event = fast_comp.input_queue.get_nowait()
             assert event.data["timer_id"] == "fast"
         finally:
-            slow_comp.stop_signal.set()
-            stop.set()
-            tm.event.set()
-            tm.thread.join(timeout=2)
-            assert not tm.thread.is_alive()
+            _stop_timer_manager(tm)
