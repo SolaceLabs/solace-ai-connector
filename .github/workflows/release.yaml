@@ -24,8 +24,8 @@ on:
       skip_pypi_publish:
         type: boolean
         required: false
-        description: "Will bump and commit the version, but skip the PyPI publish"
-        default: true
+        description: "Skips the PyPI publish step, but still bumps and commits the version"
+        default: false
 
 permissions:
   id-token: write
