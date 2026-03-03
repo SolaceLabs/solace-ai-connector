@@ -61,18 +61,37 @@ class TimerManager:
 
             self.event.clear()
 
+            expired = []
             with self.lock:
                 now = time.time()
                 while self.timers and self.timers[0].expiration <= now:
                     timer = heapq.heappop(self.timers)
-                    event = Event(
-                        EventType.TIMER,
-                        {"timer_id": timer.timer_id, "payload": timer.payload},
-                    )
-                    timer.component.enqueue(event)
+                    expired.append(timer)
                     if timer.interval is not None:
                         timer.expiration += timer.interval / 1000.0
                         heapq.heappush(self.timers, timer)
+
+            for timer in expired:
+                event = Event(
+                    EventType.TIMER,
+                    {"timer_id": timer.timer_id, "payload": timer.payload},
+                )
+                # Each enqueue is dispatched in a daemon thread so a blocked or
+                # slow downstream queue does not stall the run() loop.  Note:
+                # at high timer frequencies with sustained back-pressure this
+                # can accumulate many waiting threads; revisit with a bounded
+                # pool if that becomes a concern.
+                threading.Thread(
+                    target=self._dispatch_timer_event,
+                    args=(timer.component, event),
+                    daemon=True,
+                ).start()
+
+    def _dispatch_timer_event(self, component, event):
+        try:
+            component.enqueue(event)
+        except Exception:  # pylint: disable=broad-except
+            log.exception("Unhandled exception enqueueing timer event")
 
     def stop(self):
         # Signal the thread to stop
