@@ -24,4 +24,4 @@ paths:
     - ./.github
 
 telemetry:
-  scope: off
+  scope: full
