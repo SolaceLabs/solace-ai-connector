@@ -34,13 +34,53 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Run security checks first via reusable workflow
-  security-checks:
+  # Prepare version and create git tag
+  version_prep:
+    name: Version Prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      new_version: ${{ steps.prep.outputs.new_version }}
+      current_version: ${{ steps.prep.outputs.current_version }}
+      skip_bump: ${{ steps.prep.outputs.skip_bump }}
+      commit_hash: ${{ steps.prep.outputs.commit_hash }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          ssh-key: ${{ secrets.COMMIT_KEY }}
+
+      - name: Prepare Release
+        id: prep
+        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-release-prep@main
+        with:
+          version: ${{ github.event.inputs.version || github.event.inputs.version_bump_type }}
+
+  # FOSSA scan on the commit SHA - must pass before publishing
+  fossa_scan:
+    name: FOSSA Scan
+    needs: [version_prep]
+    if: ${{ !fromJSON(github.event.inputs.skip_security_checks) }}
+    uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
+    with:
+      git_ref: ${{ needs.version_prep.outputs.commit_hash }}
+      use_vault: false
+      config_file: '.github/workflow-config.json'
+      setup_actions: '["setup-uv"]'
+      custom_setup_script: 'uv pip compile pyproject.toml --extra all --no-header -o requirements.txt'
+    secrets:
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+
+  # Other security checks (SonarQube, WhiteSource) - run in parallel with FOSSA
+  other_security_checks:
+    name: Security Checks
+    needs: [version_prep]
     if: ${{ !fromJSON(github.event.inputs.skip_security_checks) }}
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_security_checks.yml@main
     with:
       sonarqube_hotspot_check: true
-      fossa_check: true
+      fossa_check: false
       whitesource_project_name: ${{ github.event.repository.name }}
       whitesource_product_name: "solaceai"
     secrets:
@@ -52,13 +92,12 @@ jobs:
       MANIFEST_AWS_ACCESS_KEY_ID: ${{ secrets.MANIFEST_READ_ONLY_AWS_ACCESS_KEY_ID }}
       MANIFEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.MANIFEST_READ_ONLY_AWS_SECRET_ACCESS_KEY }}
       MANIFEST_AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
-      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
-  # Release to PyPI using Trusted Publishing
+  # Release to PyPI using Trusted Publishing - only if all security checks pass
   release:
     name: Release to PyPI
-    needs: security-checks
-    if: always() && (needs.security-checks.result == 'success' || needs.security-checks.result == 'skipped')
+    needs: [version_prep, fossa_scan, other_security_checks]
+    if: always() && (needs.fossa_scan.result == 'success' || needs.fossa_scan.result == 'skipped') && (needs.other_security_checks.result == 'success' || needs.other_security_checks.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: pypi
