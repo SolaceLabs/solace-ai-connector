@@ -39,28 +39,30 @@ Triggered manually via `workflow_dispatch` with the following inputs:
 |-------|----------|-------------|
 | `version_bump_type` | Yes | `patch`, `minor`, or `major` (default: `patch`) |
 | `version` | No | Exact version string (e.g. `1.13.2`). Overrides `version_bump_type` if provided. |
-| `skip_security_checks` | No | Skip FOSSA and other security checks (default: `false`) |
+| `skip_security_checks` | No | Skip FOSSA and other security checks. **Restricted to repository admins only.** (default: `false`) |
 | `skip_pypi_publish` | No | Run the release steps but skip the PyPI publish (default: `false`) |
 
 ### Job Flow
 
 ```
-version_prep
-     ├── fossa_scan          (parallel, skippable)
-     └── other_security_checks (parallel, skippable)
-              └── release (needs all above)
+check_skip_permission (only when skip_security_checks=true)
+     ├── fossa_scan          (parallel, skipped when skip_security_checks=true)
+     └── other_security_checks (parallel, skipped when skip_security_checks=true)
+              └── release
+                       └── fossa_scan_tag (fire-and-forget)
 ```
 
 ### Job Details
 
-#### `version_prep`
-- Checks out the repo with full history
-- Runs `hatch-release-prep` to bump the version in source and commit it
-- Outputs: `new_version`, `current_version`, `skip_bump`, `commit_hash`
+#### `check_skip_permission`
+- Only runs when `skip_security_checks` is `true`
+- Verifies the triggering actor has **admin** permission on the repository via the GitHub API
+- Fails and blocks the entire workflow if the actor is not an admin
+- `fossa_scan` and `other_security_checks` will not start until this job completes successfully
 
-#### `fossa_scan` (parallel)
+#### `fossa_scan` (parallel, after permission check)
 - Skipped if `skip_security_checks` is `true`
-- Scans the commit SHA produced by `version_prep` (tag is not yet pushed at this point)
+- Scans `github.sha` (the commit that triggered the workflow)
 - Generates `requirements.txt` via:
   ```bash
   uv pip compile pyproject.toml --extra all --no-header -o requirements.txt
@@ -68,17 +70,23 @@ version_prep
   This includes all non-test optional dependencies (the `all` group in `pyproject.toml`).
 - Must pass before the release job runs
 
-#### `other_security_checks` (parallel)
+#### `other_security_checks` (parallel, after permission check)
 - Skipped if `skip_security_checks` is `true`
 - Runs SonarQube hotspot check
 - Runs WhiteSource (Mend) scan
 - FOSSA is **not** run here (handled by the dedicated `fossa_scan` job)
 
 #### `release`
-- Runs only when `fossa_scan` and `other_security_checks` both succeed (or are skipped)
-- Re-runs `hatch-release-prep` on the release branch to apply the version bump
+- Runs only when `fossa_scan` and `other_security_checks` both succeed, or when `skip_security_checks` is `true` and `check_skip_permission` passed
+- Deploys to the `pypi` GitHub environment — only branches allowed by environment protection rules can reach this step (typically `main`)
+- Runs `hatch-release-prep` to bump the version and commit it
 - Publishes to PyPI using [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (skipped if `skip_pypi_publish` is `true`)
-- Runs `hatch-release-post` to finalize the release (creates GitHub release, pushes tag, etc.)
+- Runs `hatch-release-post` to push the version tag and finalize the GitHub release
+
+#### `fossa_scan_tag` (fire-and-forget)
+- Runs after `release` succeeds, does not block or gate anything
+- Scans the version tag pushed by `hatch-release-post` so FOSSA UI shows the released version as the revision
+- Uses the same `uv pip compile --extra all` dependency export as the pre-release scan
 
 ---
 
