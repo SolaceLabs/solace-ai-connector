@@ -34,37 +34,13 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Prepare version and create git tag
-  version_prep:
-    name: Version Prep
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      new_version: ${{ steps.prep.outputs.new_version }}
-      current_version: ${{ steps.prep.outputs.current_version }}
-      skip_bump: ${{ steps.prep.outputs.skip_bump }}
-      commit_hash: ${{ steps.prep.outputs.commit_hash }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          fetch-depth: 0
-          ssh-key: ${{ secrets.COMMIT_KEY }}
-
-      - name: Prepare Release
-        id: prep
-        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-release-prep@main
-        with:
-          version: ${{ github.event.inputs.version || github.event.inputs.version_bump_type }}
-
-  # FOSSA scan on the commit SHA - must pass before publishing
+  # FOSSA scan on the triggering SHA - runs in parallel with other security checks, must pass before publishing
   fossa_scan:
     name: FOSSA Scan
-    needs: [version_prep]
     if: ${{ !fromJSON(github.event.inputs.skip_security_checks) }}
     uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
     with:
-      git_ref: ${{ needs.version_prep.outputs.commit_hash }}
+      git_ref: ${{ github.sha }}
       use_vault: false
       config_file: '.github/workflow-config.json'
       setup_actions: '["setup-uv"]'
@@ -75,7 +51,6 @@ jobs:
   # Other security checks (SonarQube, WhiteSource) - run in parallel with FOSSA
   other_security_checks:
     name: Security Checks
-    needs: [version_prep]
     if: ${{ !fromJSON(github.event.inputs.skip_security_checks) }}
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_security_checks.yml@main
     with:
@@ -96,7 +71,7 @@ jobs:
   # Release to PyPI using Trusted Publishing - only if all security checks pass
   release:
     name: Release to PyPI
-    needs: [version_prep, fossa_scan, other_security_checks]
+    needs: [fossa_scan, other_security_checks]
     if: |
       always() &&
       (fromJSON(github.event.inputs.skip_security_checks) ||
@@ -106,7 +81,6 @@ jobs:
     environment: pypi
     outputs:
       new_version: ${{ steps.prep.outputs.new_version }}
-      commit_hash: ${{ steps.prep.outputs.commit_hash }}
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -140,11 +114,11 @@ jobs:
   # Runs after the tag is pushed by hatch-release-post, does not block or gate anything
   fossa_scan_tag:
     name: FOSSA Scan (Tag)
-    needs: [version_prep, release]
+    needs: [release]
     if: needs.release.result == 'success'
     uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
     with:
-      git_ref: ${{ needs.version_prep.outputs.new_version }}
+      git_ref: ${{ needs.release.outputs.new_version }}
       use_vault: false
       config_file: '.github/workflow-config.json'
       setup_actions: '["setup-uv"]'
