@@ -53,10 +53,14 @@ jobs:
           fi
           echo "Permission check passed: ${{ github.actor }} is a repository admin"
 
-  # FOSSA scan on the triggering SHA - runs in parallel with other security checks, must pass before publishing
+  # FOSSA scan on the triggering SHA - runs after permission check, in parallel with other security checks
   fossa_scan:
     name: FOSSA Scan
-    if: ${{ !fromJSON(github.event.inputs.skip_security_checks) }}
+    needs: [check_skip_permission]
+    if: |
+      always() &&
+      needs.check_skip_permission.result != 'failure' &&
+      !fromJSON(github.event.inputs.skip_security_checks)
     uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
     with:
       git_ref: ${{ github.sha }}
@@ -67,10 +71,14 @@ jobs:
     secrets:
       FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
-  # Other security checks (SonarQube, WhiteSource) - run in parallel with FOSSA
+  # Other security checks (SonarQube, WhiteSource) - runs after permission check, in parallel with FOSSA
   other_security_checks:
     name: Security Checks
-    if: ${{ !fromJSON(github.event.inputs.skip_security_checks) }}
+    needs: [check_skip_permission]
+    if: |
+      always() &&
+      needs.check_skip_permission.result != 'failure' &&
+      !fromJSON(github.event.inputs.skip_security_checks)
     uses: SolaceDev/solace-public-workflows/.github/workflows/hatch_release_security_checks.yml@main
     with:
       sonarqube_hotspot_check: true
