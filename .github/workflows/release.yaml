@@ -34,6 +34,23 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Gate: only admins can bypass security checks
+  check_skip_permission:
+    name: Validate Skip Permission
+    runs-on: ubuntu-latest
+    if: ${{ fromJSON(github.event.inputs.skip_security_checks) }}
+    steps:
+      - name: Check actor is repository admin
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PERMISSION=$(gh api repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission --jq '.permission')
+          if [ "$PERMISSION" != "admin" ]; then
+            echo "::error::Only repository admins can use skip_security_checks. '${{ github.actor }}' has permission: $PERMISSION"
+            exit 1
+          fi
+          echo "Permission check passed: ${{ github.actor }} is a repository admin"
+
   # FOSSA scan on the triggering SHA - runs in parallel with other security checks, must pass before publishing
   fossa_scan:
     name: FOSSA Scan
@@ -71,9 +88,10 @@ jobs:
   # Release to PyPI using Trusted Publishing - only if all security checks pass
   release:
     name: Release to PyPI
-    needs: [fossa_scan, other_security_checks]
+    needs: [check_skip_permission, fossa_scan, other_security_checks]
     if: |
       always() &&
+      needs.check_skip_permission.result != 'failure' &&
       (fromJSON(github.event.inputs.skip_security_checks) ||
        (needs.fossa_scan.result == 'success' && needs.other_security_checks.result == 'success'))
     runs-on: ubuntu-latest
