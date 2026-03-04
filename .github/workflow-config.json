@@ -11,7 +11,7 @@
         "block_on": ["critical", "high"]
       },
       "project_id": "SolaceLabs_solace-ai-connector",
-      "team": "sam",
+      "team": "",
       "labels": [ ]
     }
   }
