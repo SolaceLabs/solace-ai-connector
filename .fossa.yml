@@ -5,7 +5,6 @@ project:
   locator: SolaceLabs_solace-ai-connector
   id: SolaceLabs_solace-ai-connector
   name: solace-ai-connector
-  team: sam
   labels:
     - solaceai
     - solacelabs
