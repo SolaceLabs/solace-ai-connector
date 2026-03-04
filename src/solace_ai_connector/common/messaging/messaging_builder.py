@@ -28,19 +28,30 @@ class MessagingServiceBuilder:
             or dev_mode
             and isinstance(dev_mode, str)
             and dev_mode.lower() == "true"
-            or self.broker_properties["broker_type"] == "dev_broker"
+            or self.broker_properties.get("broker_type") == "dev_broker"
         ):
-            return DevBroker(
-                self.broker_properties, self.flow_lock_manager, self.flow_kv_store
-            )
+            # Check if connecting to a remote dev broker over the network.
+            # Use `or` instead of get() default because broker_properties may
+            # contain an explicit None for dev_broker_host.
+            dev_broker_host = self.broker_properties.get(
+                "dev_broker_host"
+            ) or os.getenv("DEV_BROKER_HOST")
+            if dev_broker_host:
+                from .network_dev_broker import NetworkDevBroker
+
+                return NetworkDevBroker(self.broker_properties)
+            else:
+                return DevBroker(
+                    self.broker_properties, self.flow_lock_manager, self.flow_kv_store
+                )
         elif (
-            self.broker_properties["broker_type"] == "solace"
-            or self.broker_properties["broker_type"] is None
+            self.broker_properties.get("broker_type") == "solace"
+            or self.broker_properties.get("broker_type") is None
         ):
             return SolaceMessaging(
                 self.broker_properties, self.broker_name, self.stop_signal
             )
 
         raise ValueError(
-            f"Unsupported broker type: {self.broker_properties['broker_type']}. Please either enable dev_mode or use a supported broker type."
+            f"Unsupported broker type: {self.broker_properties.get('broker_type')}. Please either enable dev_mode or use a supported broker type."
         )

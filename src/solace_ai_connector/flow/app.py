@@ -262,6 +262,10 @@ class App:
                     "payload_encoding": broker_config.get("payload_encoding", "utf-8"),
                     "payload_format": broker_config.get("payload_format", "json"),
                     "max_redelivery_count": broker_config.get("max_redelivery_count"),
+                    "dev_broker_network_enabled": broker_config.get("dev_broker_network_enabled"),
+                    "dev_broker_network_port": broker_config.get("dev_broker_network_port"),
+                    "dev_broker_host": broker_config.get("dev_broker_host"),
+                    "dev_broker_port": broker_config.get("dev_broker_port"),
                     "broker_subscriptions": all_subscriptions,  # Pass collected subscriptions
                 },
             }
@@ -305,6 +309,10 @@ class App:
                     "propagate_acknowledgements": broker_config.get(
                         "propagate_acknowledgements", True
                     ),
+                    "dev_broker_network_enabled": broker_config.get("dev_broker_network_enabled"),
+                    "dev_broker_network_port": broker_config.get("dev_broker_network_port"),
+                    "dev_broker_host": broker_config.get("dev_broker_host"),
+                    "dev_broker_port": broker_config.get("dev_broker_port"),
                     # Add other relevant output-specific configs if needed
                 },
             }

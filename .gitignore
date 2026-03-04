@@ -9,7 +9,7 @@ launch.json
 prompts.txt
 prompts.yaml
 .history/
-
+.claude/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -202,3 +202,4 @@ debug*
  
 #MacOS
 .DS_STORE
+

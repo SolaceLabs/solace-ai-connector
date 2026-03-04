@@ -2,14 +2,15 @@
 messages to/from queues. It supports subscriptions based on topics."""
 
 import logging
+import os
 import threading
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import queue
-import re
 from copy import deepcopy
 from enum import Enum
 
 from .messaging import Messaging
+from .dev_broker_protocol import subscription_to_regex, topic_matches
 from ...common import Message_NACK_Outcome
 
 log = logging.getLogger(__name__)
@@ -65,6 +66,9 @@ class DevBroker(Messaging):
             for subscription in subscriptions:
                 self.subscribe(subscription["topic"], queue_name)
 
+        # Start network server if enabled (only once across all DevBroker instances)
+        self._maybe_start_network_server()
+
     def disconnect(self):
         self.connected = False
 
@@ -114,6 +118,15 @@ class DevBroker(Messaging):
         for queue_name in matching_queue_names:
             # Clone the message for each queue to ensure isolation
             self.queues[queue_name].put(deepcopy(message))
+
+        # Forward to network clients if a network server is running.
+        # Skip if the message originated from a network client (already routed
+        # by DevBrokerServer._handle_publish to avoid duplicates).
+        from_network = user_context and user_context.get("_from_network")
+        if not from_network:
+            network_route_fn = self.flow_kv_store.get("dev_broker:network_route_fn")
+            if network_route_fn:
+                network_route_fn(destination_name, payload, user_properties)
 
         if user_context and "callback" in user_context:
             user_context["callback"](user_context)
@@ -227,8 +240,120 @@ class DevBroker(Messaging):
 
     @staticmethod
     def _topic_matches(subscription: str, topic: str) -> bool:
-        return re.match(f"^{subscription}$", topic) is not None
+        return topic_matches(subscription, topic)
 
     @staticmethod
     def _subscription_to_regex(subscription: str) -> str:
-        return subscription.replace("*", "[^/]+").replace(">", ".*")
+        return subscription_to_regex(subscription)
+
+    # --- Network Server Support ---
+
+    def _maybe_start_network_server(self):
+        """Start network server if enabled in config and not already running."""
+        # Check if network server is enabled via config or environment
+        network_enabled = self.broker_properties.get(
+            "dev_broker_network_enabled",
+            os.getenv("DEV_BROKER_NETWORK_ENABLED", "").lower() in ("true", "1", "yes"),
+        )
+
+        if not network_enabled:
+            return
+
+        # Use flow_kv_store to ensure only one server is started
+        with self.subscriptions_lock:
+            existing_server = self.flow_kv_store.get("dev_broker:network_server")
+            if existing_server is not None:
+                # Server already running, store reference for this instance
+                self._network_server = existing_server
+                log.debug(
+                    "DevBroker: Network server already running on port %d",
+                    existing_server.port,
+                )
+                return
+
+            # Start the server
+            port = self.broker_properties.get(
+                "dev_broker_network_port",
+                int(os.getenv("DEV_BROKER_PORT", "55555")),
+            )
+
+            from .dev_broker_server import start_server_in_thread
+
+            try:
+                self._network_server = start_server_in_thread(
+                    host="0.0.0.0", port=port, local_broker=self
+                )
+            except RuntimeError:
+                log.error(
+                    "DevBroker: Failed to start network server on port %d", port
+                )
+                return
+
+            # Store in flow_kv_store so other DevBroker instances don't start another
+            self.flow_kv_store.set("dev_broker:network_server", self._network_server)
+
+            # Store a synchronous callback that all DevBroker instances can use
+            # to forward messages to network clients
+            server = self._network_server
+
+            def network_route_fn(topic, payload, user_properties):
+                import asyncio as _asyncio
+
+                try:
+                    _asyncio.run_coroutine_threadsafe(
+                        server._route_message_to_network(
+                            topic, payload, user_properties
+                        ),
+                        server._loop,
+                    )
+                except Exception as exc:
+                    log.debug("DevBroker: Failed to forward to network server: %s", exc)
+
+            self.flow_kv_store.set("dev_broker:network_route_fn", network_route_fn)
+
+            log.info(
+                "DevBroker: Network server started on port %d (enabled via config)",
+                self._network_server.port,
+            )
+
+    def start_server(
+        self,
+        host: str = "0.0.0.0",
+        port: Optional[int] = None,
+    ) -> int:
+        """
+        Start a network server to allow remote clients to connect.
+
+        This enables Docker containers or other remote processes to communicate
+        with this DevBroker instance over TCP.
+
+        Args:
+            host: Host to bind to (default: all interfaces)
+            port: Port to listen on. If None, uses DEV_BROKER_PORT env var
+                  or defaults to 55555. Use 0 for auto-assign.
+
+        Returns:
+            The actual port the server is listening on.
+        """
+        if port is None:
+            port = int(os.getenv("DEV_BROKER_PORT", "55555"))
+
+        from .dev_broker_server import start_server_in_thread
+
+        self._network_server = start_server_in_thread(
+            host=host, port=port, local_broker=self
+        )
+        log.info(f"DevBroker: Network server started on port {self._network_server.port}")
+        return self._network_server.port
+
+    def stop_server(self):
+        """Stop the network server if running."""
+        if hasattr(self, "_network_server") and self._network_server:
+            import asyncio
+
+            if self._network_server._loop and self._network_server._loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    self._network_server.stop(), self._network_server._loop
+                )
+            self._network_server = None
+            log.info("DevBroker: Network server stopped")
