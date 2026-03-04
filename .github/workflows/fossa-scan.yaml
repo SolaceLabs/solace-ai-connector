@@ -1,0 +1,35 @@
+name: FOSSA Scan (Manual)
+
+# Manual workflow for ad-hoc FOSSA scanning on any branch
+# Useful for testing FOSSA configuration or scanning feature branches
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to scan (branch, tag, or SHA). Leave empty for current branch.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+  actions: read
+  issues: write
+  checks: write
+  statuses: write
+
+jobs:
+  fossa_scan:
+    name: FOSSA Scan
+    uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
+    with:
+      git_ref: ${{ inputs.git_ref }}
+      use_vault: false
+      config_file: '.github/workflow-config.json'
+      setup_actions: '["setup-uv"]'
+      custom_setup_script: 'uv pip compile pyproject.toml --extra all --no-header -o requirements.txt'
+    secrets:
+      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
