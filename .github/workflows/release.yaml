@@ -112,34 +112,34 @@ jobs:
         with:
           version: ${{ github.event.inputs.version || github.event.inputs.version_bump_type }}
 
-      # Publish using Trusted Publishing - must be directly in workflow, not in composite action
+      # [DRY-RUN] Publish using Trusted Publishing - must be directly in workflow, not in composite action
       # See: https://docs.pypi.org/trusted-publishers/using-a-publisher/
-      - name: Publish package distributions to PyPI
-        if: ${{ !fromJSON(github.event.inputs.skip_pypi_publish) }}
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1
-        with:
-          verbose: true
+      # - name: Publish package distributions to PyPI
+      #   if: ${{ !fromJSON(github.event.inputs.skip_pypi_publish) }}
+      #   uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1
+      #   with:
+      #     verbose: true
 
-      - name: Finalize Release
-        uses: SolaceDev/solace-public-workflows/.github/actions/hatch-release-post@main
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          new_version: ${{ steps.prep.outputs.new_version }}
-          current_version: ${{ steps.prep.outputs.current_version }}
-          skip_bump: ${{ steps.prep.outputs.skip_bump }}
+      # [DRY-RUN] Commented out to avoid pushing version bump and tag to default branch
+      # - name: Finalize Release
+      #   uses: SolaceDev/solace-public-workflows/.github/actions/hatch-release-post@main
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     new_version: ${{ steps.prep.outputs.new_version }}
+      #     current_version: ${{ steps.prep.outputs.current_version }}
+      #     skip_bump: ${{ steps.prep.outputs.skip_bump }}
 
-  # Fire-and-forget FOSSA scan on the version tag - populates FOSSA UI with the released version
-  # Runs after the tag is pushed by hatch-release-post, does not block or gate anything
-  fossa_scan_tag:
-    name: FOSSA Scan (Tag)
-    needs: [release]
-    if: needs.release.result == 'success'
-    uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
-    with:
-      git_ref: ${{ needs.release.outputs.new_version }}
-      use_vault: false
-      config_file: '.github/workflow-config.json'
-      setup_actions: '["setup-uv"]'
-      custom_setup_script: 'uv pip compile pyproject.toml --extra all --no-header -o requirements.txt'
-    secrets:
-      FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
+  # [DRY-RUN] Commented out - no real version tag exists without Finalize Release
+  # fossa_scan_tag:
+  #   name: FOSSA Scan (Tag)
+  #   needs: [release]
+  #   if: needs.release.result == 'success'
+  #   uses: SolaceDev/solace-public-workflows/.github/workflows/sca-scan-and-guard.yaml@main
+  #   with:
+  #     git_ref: ${{ needs.release.outputs.new_version }}
+  #     use_vault: false
+  #     config_file: '.github/workflow-config.json'
+  #     setup_actions: '["setup-uv"]'
+  #     custom_setup_script: 'uv pip compile pyproject.toml --extra all --no-header -o requirements.txt'
+  #   secrets:
+  #     FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
