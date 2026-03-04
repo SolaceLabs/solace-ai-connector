@@ -31,7 +31,9 @@ permissions:
   id-token: write
   checks: write
   contents: write
-  pull-requests: read
+  pull-requests: write
+  actions: read
+  statuses: write
 
 jobs:
   # Gate: only admins can bypass security checks
