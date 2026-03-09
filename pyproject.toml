@@ -99,7 +99,7 @@ mongodb = [
 
 # SQL database
 sql = [
-    "mysql_connector_python==9.3.0",
+    "pymysql==1.1.1",
     "psycopg2-binary==2.9.10",
 ]
 
@@ -329,7 +329,7 @@ all = [
     "pymongo==4.10.1",
 
     # From sql
-    "mysql_connector_python==9.3.0",
+    "pymysql==1.1.1",
     "psycopg2-binary==2.9.10",
     
     # From websocket
