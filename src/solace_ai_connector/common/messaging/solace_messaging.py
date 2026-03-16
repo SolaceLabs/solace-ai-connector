@@ -383,6 +383,7 @@ class SolaceMessaging(Messaging):
                     self.broker_properties.get("temporary_queue"),
                     self.broker_properties.get("max_redelivery_count"),
                     self.broker_properties.get("create_queue_on_start"),
+                    self.broker_properties.get("queue_non_exclusive", False),
                 )
         except KeyboardInterrupt:
             raise
@@ -396,12 +397,15 @@ class SolaceMessaging(Messaging):
         temporary: bool = False,
         max_redelivery_count: int = None,
         create_queue_on_start: bool = True,
+        non_exclusive: bool = False,
     ):
         if subscriptions is None:
             subscriptions = []
 
         if temporary:
             queue = Queue.non_durable_exclusive_queue(queue_name)
+        elif non_exclusive:
+            queue = Queue.durable_non_exclusive_queue(queue_name)
         else:
             queue = Queue.durable_exclusive_queue(queue_name)
 
