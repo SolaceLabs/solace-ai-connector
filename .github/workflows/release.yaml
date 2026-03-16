@@ -65,9 +65,9 @@ jobs:
     with:
       git_ref: ${{ github.sha }}
       use_vault: false
-      config_file: '.github/workflow-config.json'
+      config_file: ".github/workflow-config.json"
       setup_actions: '["setup-uv"]'
-      custom_setup_script: 'uv pip compile pyproject.toml --extra all --no-header -o requirements.txt'
+      custom_setup_script: "uv pip compile pyproject.toml --extra all --no-header -o requirements.txt"
     secrets:
       FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
 
@@ -83,14 +83,11 @@ jobs:
     with:
       sonarqube_hotspot_check: true
       fossa_check: false
-      whitesource_project_name: ${{ github.event.repository.name }}
-      whitesource_product_name: "solaceai"
     secrets:
       SONARQUBE_PROJECT_KEY: ${{ github.event.repository.owner }}_${{ github.event.repository.name }}
       SONARQUBE_PROJECT_MAIN_BRANCH: "main"
       SONARQUBE_QUERY_TOKEN: ${{ secrets.SONARQUBE_TOKEN }}
       SONARQUBE_HOTSPOTS_API_URL: ${{ secrets.SONARQUBE_HOTSPOTS_API_URL }}
-      WHITESOURCE_API_KEY: ${{ secrets.WHITESOURCE_API_KEY }}
       MANIFEST_AWS_ACCESS_KEY_ID: ${{ secrets.MANIFEST_READ_ONLY_AWS_ACCESS_KEY_ID }}
       MANIFEST_AWS_SECRET_ACCESS_KEY: ${{ secrets.MANIFEST_READ_ONLY_AWS_SECRET_ACCESS_KEY }}
       MANIFEST_AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
@@ -148,8 +145,8 @@ jobs:
     with:
       git_ref: ${{ needs.release.outputs.new_version }}
       use_vault: false
-      config_file: '.github/workflow-config.json'
+      config_file: ".github/workflow-config.json"
       setup_actions: '["setup-uv"]'
-      custom_setup_script: 'uv pip compile pyproject.toml --extra all --no-header -o requirements.txt'
+      custom_setup_script: "uv pip compile pyproject.toml --extra all --no-header -o requirements.txt"
     secrets:
       FOSSA_API_KEY: ${{ secrets.FOSSA_API_KEY }}
