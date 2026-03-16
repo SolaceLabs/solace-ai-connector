@@ -36,6 +36,12 @@ info = deep_merge(
                 "default": False,
             },
             {
+                "name": "queue_non_exclusive",
+                "required": False,
+                "description": "Use a non-exclusive queue to allow multiple consumers for horizontal scaling (round-robin delivery). Only applies to durable queues (ignored when temporary_queue is true).",
+                "default": False,
+            },
+            {
                 "name": "broker_subscriptions",
                 "required": True,
                 "description": "Subscriptions for broker",

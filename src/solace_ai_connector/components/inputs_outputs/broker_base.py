@@ -175,6 +175,7 @@ class BrokerBase(ComponentBase):
             "retry_interval": self.get_config("retry_interval"),
             "max_redelivery_count": self.get_config("max_redelivery_count"),
             "create_queue_on_start": self.get_config("create_queue_on_start", True),
+            "queue_non_exclusive": self.get_config("queue_non_exclusive", False),
         }
         return broker_properties
 

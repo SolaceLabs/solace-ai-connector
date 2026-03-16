@@ -142,6 +142,76 @@ class TestSolaceMessaging:
             solace_messaging.ack_message({})
             mock_log.warning.assert_called_once()
 
+    @patch("solace_ai_connector.common.messaging.solace_messaging.Queue")
+    def test_bind_to_queue_exclusive(self, mock_queue, solace_messaging):
+        """Default bind creates a durable exclusive queue"""
+        solace_messaging.messaging_service = MagicMock()
+        solace_messaging.bind_to_queue("test_q")
+        mock_queue.durable_exclusive_queue.assert_called_once_with("test_q")
+        mock_queue.durable_non_exclusive_queue.assert_not_called()
+        mock_queue.non_durable_exclusive_queue.assert_not_called()
+
+    @patch("solace_ai_connector.common.messaging.solace_messaging.Queue")
+    def test_bind_to_queue_non_exclusive(self, mock_queue, solace_messaging):
+        """non_exclusive=True creates a durable non-exclusive queue"""
+        solace_messaging.messaging_service = MagicMock()
+        solace_messaging.bind_to_queue("test_q", non_exclusive=True)
+        mock_queue.durable_non_exclusive_queue.assert_called_once_with("test_q")
+        mock_queue.durable_exclusive_queue.assert_not_called()
+        mock_queue.non_durable_exclusive_queue.assert_not_called()
+
+    @patch("solace_ai_connector.common.messaging.solace_messaging.Queue")
+    def test_bind_to_queue_temporary(self, mock_queue, solace_messaging):
+        """temporary=True creates a non-durable exclusive queue"""
+        solace_messaging.messaging_service = MagicMock()
+        solace_messaging.bind_to_queue("test_q", temporary=True)
+        mock_queue.non_durable_exclusive_queue.assert_called_once_with("test_q")
+        mock_queue.durable_exclusive_queue.assert_not_called()
+        mock_queue.durable_non_exclusive_queue.assert_not_called()
+
+    @patch("solace_ai_connector.common.messaging.solace_messaging.Queue")
+    def test_bind_to_queue_temporary_overrides_non_exclusive(self, mock_queue, solace_messaging):
+        """temporary=True takes precedence over non_exclusive=True"""
+        solace_messaging.messaging_service = MagicMock()
+        solace_messaging.bind_to_queue("test_q", temporary=True, non_exclusive=True)
+        mock_queue.non_durable_exclusive_queue.assert_called_once_with("test_q")
+        mock_queue.durable_non_exclusive_queue.assert_not_called()
+
+    @patch("solace_ai_connector.common.messaging.solace_messaging.MessagingService")
+    def test_connect_passes_queue_non_exclusive(self, mock_messaging_service_cls, stop_signal):
+        """queue_non_exclusive in broker_properties flows through to bind_to_queue"""
+        props = {
+            "broker_type": "solace",
+            "host": "tcp://localhost:55555",
+            "vpn_name": "test_vpn",
+            "username": "test_user",
+            "password": "test_pass",
+            "queue_name": "test_queue",
+            "subscriptions": [{"topic": "test/topic"}],
+            "queue_non_exclusive": True,
+        }
+        done_future = concurrent.futures.Future()
+        done_future.set_result(None)
+        mock_service = (
+            mock_messaging_service_cls.builder.return_value
+            .from_properties.return_value
+            .with_reconnection_retry_strategy.return_value
+            .with_connection_retry_strategy.return_value
+            .build.return_value
+        )
+        mock_service.connect_async.return_value = done_future
+        sm = SolaceMessaging(props, "test_broker", stop_signal)
+        sm.bind_to_queue = MagicMock()
+        sm.connect()
+        sm.bind_to_queue.assert_called_once_with(
+            "test_queue",
+            [{"topic": "test/topic"}],
+            None,
+            None,
+            None,
+            True,
+        )
+
     def test_nack_message(self, solace_messaging):
         """Test nack_message method"""
         # Set up mock receiver

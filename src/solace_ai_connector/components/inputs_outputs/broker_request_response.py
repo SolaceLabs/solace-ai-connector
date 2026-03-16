@@ -113,6 +113,12 @@ info = {
             "default": "__solace_ai_connector_broker_request_reply_metadata__",
         },
         {
+            "name": "queue_non_exclusive",
+            "required": False,
+            "description": "Use a non-exclusive queue to allow multiple consumers for horizontal scaling (round-robin delivery). Only applies to durable queues (ignored when temporary_queue is true).",
+            "default": False,
+        },
+        {
             "name": "request_expiry_ms",
             "required": False,
             "description": "Expiry time for cached requests in milliseconds",
