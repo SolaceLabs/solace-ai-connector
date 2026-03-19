@@ -2,7 +2,9 @@
 
 import logging
 from typing import List, Dict, Any, Optional, Union
-import importlib
+
+import pymysql
+import pymysql.cursors
 
 from .mysql_database_handler import MySQLDatabase
 from .postgres_database_handler import PostgreSQLDatabase
@@ -165,14 +167,11 @@ class SQLHandler:
             else: # For MySQL or other generic path
                 # Ensure connection before getting cursor
                 if getattr(self.db_client, 'connection', None) is None or \
-                    (self.db_type == "mysql" and isinstance(getattr(self.db_client, 'connection', None), importlib.import_module('mysql.connector').connection.MySQLConnection) and not self.db_client.connection.is_connected()) or \
+                    (self.db_type == "mysql" and isinstance(getattr(self.db_client, 'connection', None), pymysql.connections.Connection) and not self.db_client.connection.open) or \
                     (self.db_type == "postgres" and getattr(self.db_client.connection, 'closed', True)):
                     self.connect()
 
-                # MySQL uses dictionary=True for dict results, psycopg2 uses RealDictCursor
                 cursor_kwargs = {}
-                if self.db_type == "mysql":
-                    cursor_kwargs['dictionary'] = True
 
                 actual_cursor = self.db_client.cursor(**cursor_kwargs)
                 actual_cursor.execute(query, params)
@@ -190,7 +189,7 @@ class SQLHandler:
                     return [] # Or raise error
             else:
                 rowcount = cursor.rowcount
-                if self.db_type == "mysql" and self.db_client.connection.autocommit is False:
+                if self.db_type == "mysql" and not self.db_client.connection.get_autocommit():
                      self.db_client.connection.commit()
                 elif self.db_type == "postgres" and self.db_client.connection.autocommit is False:
                      self.db_client.connection.commit()
@@ -201,7 +200,7 @@ class SQLHandler:
         except Exception as e:
             log.exception("Error executing query on %s", self.db_type)
             # Attempt to rollback if autocommit is false and an error occurs
-            if self.db_type == "mysql" and hasattr(self.db_client, 'connection') and self.db_client.connection and self.db_client.connection.autocommit is False:
+            if self.db_type == "mysql" and hasattr(self.db_client, 'connection') and self.db_client.connection and not self.db_client.connection.get_autocommit():
                 self.db_client.connection.rollback()
             elif self.db_type == "postgres" and hasattr(self.db_client, 'connection') and self.db_client.connection and self.db_client.connection.autocommit is False:
                  self.db_client.connection.rollback()
@@ -271,13 +270,11 @@ class SQLHandler:
         
         # Ensure connection
         if getattr(self.db_client, 'connection', None) is None or \
-            (self.db_type == "mysql" and isinstance(getattr(self.db_client, 'connection', None), importlib.import_module('mysql.connector').connection.MySQLConnection) and not self.db_client.connection.is_connected()) or \
+            (self.db_type == "mysql" and isinstance(getattr(self.db_client, 'connection', None), pymysql.connections.Connection) and not self.db_client.connection.open) or \
             (self.db_type == "postgres" and getattr(self.db_client.connection, 'closed', True)):
             self.connect()
 
         cursor_kwargs = {}
-        if self.db_type == "mysql":
-            cursor_kwargs['prepared'] = True # Use prepared statements for MySQL inserts if possible
         
         actual_cursor = None
         try:
@@ -293,7 +290,7 @@ class SQLHandler:
                     total_affected_rows += actual_cursor.rowcount
             
             # Commit if autocommit is off
-            if self.db_type == "mysql" and self.db_client.connection.autocommit is False:
+            if self.db_type == "mysql" and not self.db_client.connection.get_autocommit():
                 self.db_client.connection.commit()
             elif self.db_type == "postgres" and self.db_client.connection.autocommit is False:
                 self.db_client.connection.commit()
@@ -306,7 +303,7 @@ class SQLHandler:
             return total_affected_rows
         except Exception as e:
             log.exception("Error inserting data into %s for %s", table_name, self.db_type)
-            if self.db_type == "mysql" and hasattr(self.db_client, 'connection') and self.db_client.connection and self.db_client.connection.autocommit is False:
+            if self.db_type == "mysql" and hasattr(self.db_client, 'connection') and self.db_client.connection and not self.db_client.connection.get_autocommit():
                 self.db_client.connection.rollback()
             elif self.db_type == "postgres" and hasattr(self.db_client, 'connection') and self.db_client.connection and self.db_client.connection.autocommit is False:
                  self.db_client.connection.rollback()
