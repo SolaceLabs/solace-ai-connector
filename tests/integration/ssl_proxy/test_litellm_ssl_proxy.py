@@ -26,6 +26,10 @@ import sys
 from shutil import copyfile
 import certifi
 
+# Skip all tests in this module if mitmproxy is not available
+# Must be before importing proxy_helper which depends on mitmproxy
+pytest.importorskip("mitmproxy", reason="mitmproxy not installed - SSL proxy tests disabled")
+
 from .proxy_helper import start_mitmproxy, stop_mitmproxy, generate_selfsigned_cert, start_proxy_py, write_bundle, start_https_server
 import requests
 

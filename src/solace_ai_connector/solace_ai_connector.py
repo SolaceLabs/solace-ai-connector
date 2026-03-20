@@ -18,7 +18,9 @@ from .flow.timer_manager import TimerManager
 from .common.event import Event, EventType
 from .services.cache_service import CacheService, create_storage_backend
 from .common.monitoring import Monitoring
-from .common.health_check import HealthChecker, HealthCheckHttpServer
+from .common.health_check import HealthChecker
+from .common.observability.registry import MetricRegistry
+from .common.management_server import ManagementHttpServer
 
 log = logging.getLogger(__name__)
 
@@ -50,25 +52,119 @@ class SolaceAiConnector:
         monitoring_config = self.config.get("monitoring", None)
         self.monitoring = Monitoring(monitoring_config)
 
-        # Initialize health check if enabled
+        # Initialize observability EARLY (before apps)
+        # This ensures MetricRegistry is ready before any instrumented code runs
+        try:
+            self.metric_registry = MetricRegistry(config)
+        except Exception as e:
+            log.error(f"Failed to initialize observability: {e}")
+            raise InitializationError("Observability initialization failed") from e
+
+        # Initialize management server (health + observability)
         self.health_checker = None
-        self.health_server = None
-        if self.config.get("health_check", {}).get("enabled", False):
-            health_config = self.config.get("health_check", {})
+        self.management_server = None
+        self._initialize_management_server(config)
+
+    def _get_management_server_config(self, config: dict) -> dict:
+        """
+        Get management server config with backward compatibility.
+
+        Precedence:
+        1. management_server (new structure - preferred)
+        2. Synthesized from top-level health_check (deprecated)
+        3. Disabled
+        """
+        # Try new management_server structure first
+        if 'management_server' in config:
+            log.debug("Using management_server configuration")
+            return config['management_server']
+
+        # Backward compatibility: synthesize from old health_check structure
+        health_check = config.get('health_check', {})
+
+        if health_check.get('enabled'):
+            log.warning(
+                "Using deprecated top-level 'health_check' config. "
+                "Please migrate to 'management_server' structure."
+            )
+
+            # Synthesize management_server config from legacy
+            synthesized = {
+                'enabled': True,
+                'port': health_check.get('port', 8080),
+                'health': {
+                    'enabled': health_check.get('enabled', False),
+                    'liveness_path': health_check.get('liveness_path', '/healthz'),
+                    'readiness_path': health_check.get('readiness_path', '/readyz'),
+                    'startup_path': health_check.get('startup_path', '/startup'),
+                    'readiness_check_period_seconds': health_check.get('readiness_check_period_seconds', 5),
+                    'startup_check_period_seconds': health_check.get('startup_check_period_seconds', 5)
+                }
+            }
+            return synthesized
+
+        # Not configured - disabled
+        return {'enabled': False}
+
+    def _initialize_management_server(self, config: dict):
+        """
+        Initialize management server with health checks and/or metrics.
+
+        Management server can run with:
+        - Health only (observability disabled)
+        - Observability only (health disabled)
+        - Both health and observability
+        - Neither (management_server disabled entirely)
+        """
+        mgmt_config = self._get_management_server_config(config)
+
+        if not mgmt_config.get('enabled', False):
+            log.info("Management server disabled")
+            return
+
+        # Get health and observability configurations
+        health_config = mgmt_config.get('health', {})
+        obs_config = mgmt_config.get('observability', {})
+
+        health_enabled = health_config.get('enabled', False)
+        obs_enabled = obs_config.get('enabled', False)
+
+        # Check if at least one feature is enabled
+        if not health_enabled and not obs_enabled:
+            log.info("Management server enabled but both health and observability disabled - nothing to serve")
+            return
+
+        # Create health checker if health is enabled
+        if health_enabled:
             self.health_checker = HealthChecker(
                 self,
-                readiness_check_period_seconds=health_config.get("readiness_check_period_seconds", 5),
-                startup_check_period_seconds=health_config.get("startup_check_period_seconds", 5)
+                readiness_check_period_seconds=health_config.get('readiness_check_period_seconds', 5),
+                startup_check_period_seconds=health_config.get('startup_check_period_seconds', 5)
             )
-            self.health_server = HealthCheckHttpServer(
-                self.health_checker,
-                port=health_config.get("port", 8080),
-                liveness_path=health_config.get("liveness_path", "/healthz"),
-                readiness_path=health_config.get("readiness_path", "/readyz"),
-                startup_path=health_config.get("startup_path", "/startup")
-            )
-            self.health_server.start()
-            log.info(f"Health check server started on port {health_config.get('port', 8080)}")
+            log.info("Health checks enabled")
+        else:
+            log.info("Health checks disabled")
+
+        # Create management server (serves health and/or metrics)
+        self.management_server = ManagementHttpServer(
+            health_checker=self.health_checker,
+            port=mgmt_config.get('port', 8080),
+            liveness_path=health_config.get('liveness_path', '/healthz') if health_enabled else None,
+            readiness_path=health_config.get('readiness_path', '/readyz') if health_enabled else None,
+            startup_path=health_config.get('startup_path', '/startup') if health_enabled else None,
+            metrics_path=obs_config.get('path', '/metrics') if obs_enabled else None,
+            metric_registry=self.metric_registry if obs_enabled else None
+        )
+
+        self.management_server.start()
+
+        # Log what's enabled
+        features = []
+        if health_enabled:
+            features.append("health checks")
+        if obs_enabled:
+            features.append("metrics")
+        log.info(f"Management server started on port {mgmt_config.get('port', 8080)} with: {', '.join(features)}")
 
     def run(self):
         """Run the Solace AI Event Connector"""
@@ -677,8 +773,8 @@ class SolaceAiConnector:
         self.stop_signal.set()
 
         # Stop health check components first
-        if self.health_server:
-            self.health_server.stop()
+        if self.management_server:
+            self.management_server.stop()
         if self.health_checker:
             self.health_checker.stop()
 

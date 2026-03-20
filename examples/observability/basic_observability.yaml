@@ -1,0 +1,29 @@
+# Basic observability configuration example
+
+management_server:
+  enabled: true
+  port: 8080
+
+  health:
+    enabled: true
+    liveness_path: /healthz
+    readiness_path: /readyz
+    startup_path: /startup
+
+  observability:
+    enabled: true
+    path: /metrics
+    metric_prefix: sam
+    # Uses all default bucket configurations
+
+# Minimal app for testing
+apps:
+  - name: test_app
+    flows:
+      - name: test_flow
+        components:
+          - component_name: input
+            component_module: stdin_input
+
+          - component_name: output
+            component_module: stdout_output
