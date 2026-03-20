@@ -10,11 +10,10 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.metrics import Observation
 from prometheus_client import generate_latest, REGISTRY
 
-from .config import DEFAULT_METRIC_CONFIGS, load_observability_config, validate_config
+from .config import DEFAULT_DISTRIBUTION_METRICS, DEFAULT_VALUE_METRICS, load_observability_config, validate_config
 from .recorders import MetricRecorder, NoOpRecorder, HistogramRecorder, CounterRecorder, GaugeRecorder
 
 logger = logging.getLogger(__name__)
-
 
 class MetricRegistry:
     """
@@ -35,8 +34,8 @@ class MetricRegistry:
         self.enabled = self.obs_config.get('enabled', False)
         if not self.enabled:
             logger.info("Observability disabled in configuration")
-            self.recorders = {}
-            self._custom_configs = {}
+            self.duration_recorders = {}  # Histogram recorders
+            self._value_recorders = {}    # Counter/gauge recorders
             MetricRegistry._instance = self
             return
 
@@ -46,17 +45,22 @@ class MetricRegistry:
         # Extract prefix (optional)
         self.metric_prefix = self.obs_config.get('metric_prefix', '')
 
-        # Store custom metric configs for factory methods
-        self._custom_configs = self.obs_config.get('custom', {})
+        # Prepare distribution metric configurations (histograms)
+        self.distribution_metric_configs = self._prepare_metric_configs()
+        log.info(f"Prepared {len(self.distribution_metric_configs)} distribution metric configs")
 
-        # Prepare metric configurations (merge user config with defaults)
-        self.metric_configs = self._prepare_metric_configs()
+        # Prepare value metric configurations (counters/gauges)
+        self._value_metric_configs = self._prepare_value_metric_configs()
+        log.info(f"Prepared {len(self._value_metric_configs)} value metric configs")
 
-        # Initialize OpenTelemetry (creates Views + MeterProvider + Histograms)
+        # Initialize OpenTelemetry (creates Views + MeterProvider + Histograms + Counters)
         self._initialize_otel_and_recorders()
 
         MetricRegistry._instance = self
-        logger.info("MetricRegistry initialized with %s active metrics", len(self.recorders))
+        logger.info(
+            f"MetricRegistry initialized with {len(self.duration_recorders)} duration recorders "
+            f"and {len(self._value_recorders)} value recorders"
+        )
 
     @classmethod
     def get_instance(cls) -> 'MetricRegistry':
@@ -71,28 +75,75 @@ class MetricRegistry:
         cls._instance = None
 
     def _prepare_metric_configs(self) -> Dict:
-        """Merge user config with defaults for all metrics."""
+        """Merge user config with defaults for distribution metrics (histograms)."""
         configs = {}
 
-        # Get system config section
-        system_config = self.obs_config.get('system', {})
+        # Get distribution_metrics config section
+        distribution_config = self.obs_config.get('distribution_metrics', {})
 
-        for metric_name, default_config in DEFAULT_METRIC_CONFIGS.items():
-            # Get user config for this metric from system section (if any)
-            user_config = system_config.get(metric_name, {})
+        # Process built-in distribution metrics
+        for metric_name, default_config in DEFAULT_DISTRIBUTION_METRICS.items():
+            # Get user config for this metric (if any)
+            user_config = distribution_config.get(metric_name, {})
+
+            # Check if disabled
+            if user_config.get('exclude_labels') == ["*"]:
+                continue  # Skip disabled metrics
 
             # Start with defaults
             merged = {**default_config}
 
             # Override buckets if user provided
-            if 'values' in user_config:
-                merged['buckets'] = user_config['values']
+            if 'buckets' in user_config:
+                merged['buckets'] = user_config['buckets']
 
             # Override exclude_labels if user provided
             if 'exclude_labels' in user_config:
                 merged['exclude_labels'] = user_config['exclude_labels']
 
             configs[metric_name] = merged
+
+        # Add custom distribution metrics (not in defaults)
+        for metric_name, user_config in distribution_config.items():
+            if metric_name not in DEFAULT_DISTRIBUTION_METRICS:
+                # Custom histogram metric
+                if user_config.get('exclude_labels') == ["*"]:
+                    continue  # Skip disabled
+                configs[metric_name] = user_config
+
+        return configs
+
+    def _prepare_value_metric_configs(self) -> Dict:
+        """Merge user config with defaults for value metrics (counters/gauges)."""
+        configs = {}
+
+        # Get value_metrics config section
+        value_config = self.obs_config.get('value_metrics', {})
+
+        for metric_name, default_config in DEFAULT_VALUE_METRICS.items():
+            # Get user config for this metric (if any)
+            user_config = value_config.get(metric_name, {})
+
+            # Check if disabled
+            if user_config.get('exclude_labels') == ["*"]:
+                continue  # Skip disabled metrics
+
+            # Start with defaults
+            merged = {**default_config}
+
+            # Override exclude_labels if user provided
+            if 'exclude_labels' in user_config:
+                merged['exclude_labels'] = user_config['exclude_labels']
+
+            configs[metric_name] = merged
+
+        # Add custom value metrics (not in defaults)
+        for metric_name, user_config in value_config.items():
+            if metric_name not in DEFAULT_VALUE_METRICS:
+                # Custom value metric
+                if user_config.get('exclude_labels') == ["*"]:
+                    continue  # Skip disabled
+                configs[metric_name] = user_config
 
         return configs
 
@@ -105,10 +156,11 @@ class MetricRegistry:
         2. Create MeterProvider with Views and Prometheus exporter
         3. Create Histogram instruments (Views apply automatically)
         4. Create HistogramRecorders wrapping the instruments
+        5. Create Counter/Gauge recorders
         """
         # Step 1: Create Views for custom buckets (must happen before MeterProvider)
         views = []
-        for metric_name, config in self.metric_configs.items():
+        for metric_name, config in self.distribution_metric_configs.items():
             buckets = config.get('buckets', [])
             if not buckets:
                 continue  # Skip disabled metrics
@@ -137,9 +189,9 @@ class MetricRegistry:
 
         logger.info("OpenTelemetry MeterProvider initialized with %s views", len(views))
 
-        # Step 3 & 4: Create Histograms and Recorders
-        self.recorders: Dict[str, MetricRecorder] = {}
-        for metric_name, config in self.metric_configs.items():
+        # Step 3 & 4: Create Histograms and Recorders (duration/distribution metrics)
+        self.duration_recorders: Dict[str, HistogramRecorder] = {}
+        for metric_name, config in self.distribution_metric_configs.items():
             buckets = config.get('buckets', [])
             if not buckets:
                 continue  # Skip disabled
@@ -160,8 +212,31 @@ class MetricRegistry:
                 excluded_labels=excluded_labels
             )
 
-            self.recorders[metric_name] = recorder
-            logger.debug("Created histogram and recorder for %s", metric_name)
+            self.duration_recorders[metric_name] = recorder
+            logger.debug(f"Created histogram and recorder for {metric_name}")
+
+        # Step 5: Create Counters/Gauges and Recorders for value metrics
+        self._value_recorders: Dict[str, MetricRecorder] = {}  # CounterRecorder or GaugeRecorder
+
+        for metric_name, config in self._value_metric_configs.items():
+            # Create counter instrument
+            full_name = self._get_full_metric_name(metric_name)
+            counter = self.meter.create_counter(
+                name=full_name,
+                unit="1",  # Generic unit for counters
+                description=f"{metric_name} counter"
+            )
+
+            # Create recorder wrapping the counter
+            excluded_labels = config.get('exclude_labels', [])
+            recorder = CounterRecorder(
+                counter=counter,
+                excluded_labels=excluded_labels
+            )
+
+            # Store only the recorder (contains the counter internally)
+            self._value_recorders[metric_name] = recorder
+            logger.debug(f"Created counter and recorder for {metric_name}")
 
     def _get_full_metric_name(self, metric_name: str) -> str:
         """Apply prefix to metric name if configured."""
@@ -169,9 +244,9 @@ class MetricRegistry:
             return f"{self.metric_prefix}.{metric_name}"
         return metric_name
 
-    def _get_custom_excluded_labels(self, name: str) -> list:
-        """Get excluded labels for a metric from custom config."""
-        return self._custom_configs.get(name, {}).get('exclude_labels', [])
+    def _get_value_metric_excluded_labels(self, name: str) -> list:
+        """Get excluded labels for a value metric from config."""
+        return self._value_metric_configs.get(name, {}).get('exclude_labels', [])
 
     def _wrap_gauge_callbacks(self, callbacks: List[Callable], excluded_labels: list) -> List[Callable]:
         """Wrap observable gauge callbacks to filter excluded labels."""
@@ -193,7 +268,7 @@ class MetricRegistry:
 
     def create_counter(self, name: str, description: str = "", unit: str = "1") -> MetricRecorder:
         """
-        Create a counter metric.
+        Create a counter metric dynamically (for custom counters).
 
         Args:
             name: Metric name (without prefix)
@@ -208,14 +283,14 @@ class MetricRegistry:
 
         full_name = self._get_full_metric_name(name)
         counter = self.meter.create_counter(name=full_name, unit=unit, description=description)
-        excluded = self._get_custom_excluded_labels(name)
+        excluded = self._get_value_metric_excluded_labels(name)
         recorder = CounterRecorder(counter=counter, excluded_labels=excluded)
-        self.recorders[name] = recorder
+        self._value_recorders[name] = recorder  # Store in value recorders, not duration!
         return recorder
 
     def create_gauge(self, name: str, description: str = "", unit: str = "1") -> MetricRecorder:
         """
-        Create push-style gauge metric (UpDownCounter).
+        Create push-style gauge metric dynamically (UpDownCounter for custom gauges).
 
         Args:
             name: Metric name (without prefix)
@@ -230,9 +305,9 @@ class MetricRegistry:
 
         full_name = self._get_full_metric_name(name)
         up_down_counter = self.meter.create_up_down_counter(name=full_name, unit=unit, description=description)
-        excluded = self._get_custom_excluded_labels(name)
+        excluded = self._get_value_metric_excluded_labels(name)
         recorder = GaugeRecorder(gauge=up_down_counter, excluded_labels=excluded)
-        self.recorders[name] = recorder
+        self._value_recorders[name] = recorder  # Store in value recorders, not duration!
         return recorder
 
     def create_observable_gauge(
@@ -260,7 +335,7 @@ class MetricRegistry:
             return None
 
         full_name = self._get_full_metric_name(name)
-        excluded = self._get_custom_excluded_labels(name)
+        excluded = self._get_value_metric_excluded_labels(name)
         wrapped = self._wrap_gauge_callbacks(callbacks, excluded) if excluded else callbacks
 
         return self.meter.create_observable_gauge(
@@ -275,7 +350,7 @@ class MetricRegistry:
         Get recorder for a metric.
 
         Args:
-            metric_name: Metric name (e.g., "outbound.request.duration")
+            metric_name: Metric name (e.g., "outbound.request.duration", "gen_ai.tokens.used")
 
         Returns:
             MetricRecorder if metric is enabled, None otherwise
@@ -283,7 +358,34 @@ class MetricRegistry:
         if not self.enabled:
             return None
 
-        return self.recorders.get(metric_name)
+        # Check histogram recorders first
+        recorder = self.duration_recorders.get(metric_name)
+        if recorder:
+            return recorder
+
+        # Check counter recorders
+        return self._value_recorders.get(metric_name)
+
+    def record_counter_from_monitor(self, monitor: 'MonitorInstance', value: float):
+        """
+        Record counter value using Monitor instance.
+
+        Used by built-in Monitor classes (GenAITokenMonitor, GenAICostMonitor).
+
+        Args:
+            monitor: MonitorInstance with monitor_type and labels
+            value: Value to record (tokens, cost, etc.)
+
+        Example:
+            monitor = GenAITokenMonitor.create(model, agent_id, user_id, "input")
+            registry.record_counter_from_monitor(monitor, prompt_tokens)
+        """
+        if not self.enabled:
+            return
+
+        recorder = self._value_recorders.get(monitor.monitor_type)
+        if recorder:
+            recorder.record(value, monitor.labels)
 
     def get_prometheus_metrics(self) -> bytes:
         """

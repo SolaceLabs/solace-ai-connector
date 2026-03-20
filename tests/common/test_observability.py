@@ -6,7 +6,7 @@ from solace_ai_connector.common.observability.registry import MetricRegistry
 from solace_ai_connector.common.observability.config import (
     load_observability_config,
     validate_config,
-    DEFAULT_METRIC_CONFIGS
+    DEFAULT_DISTRIBUTION_METRICS
 )
 from solace_ai_connector.common.observability.recorders import (
     NoOpRecorder,
@@ -76,7 +76,7 @@ class TestConfigurationLoading:
         registry = MetricRegistry(config)
 
         assert registry.enabled is False
-        assert registry.recorders == {}
+        assert registry.duration_recorders == {}
 
     def test_registry_initialization_enabled(self):
         """Test MetricRegistry initialization when enabled."""
@@ -93,7 +93,7 @@ class TestConfigurationLoading:
 
         assert registry.enabled is True
         assert registry.metric_prefix == 'sam'
-        assert len(registry.recorders) == 7  # All 7 default histograms
+        assert len(registry.duration_recorders) == 7  # All 7 default histograms
 
     def test_config_validation_rejects_unknown_top_level_keys(self):
         """Test validation rejects unknown top-level keys (catches stale configs)."""
@@ -111,8 +111,8 @@ class TestConfigurationLoading:
             'enabled': True,
             'metric_prefix': 'sam',
             'path': '/metrics',
-            'system': {},
-            'custom': {}
+            'distribution_metrics': {},
+            'value_metrics': {}
         }
 
         # Should not raise
@@ -146,11 +146,11 @@ class TestDefaultSystemMetrics:
         ]
 
         for metric_name in expected_metrics:
-            assert metric_name in registry.recorders
-            assert isinstance(registry.recorders[metric_name], HistogramRecorder)
+            assert metric_name in registry.duration_recorders
+            assert isinstance(registry.duration_recorders[metric_name], HistogramRecorder)
 
     def test_default_bucket_configurations(self):
-        """Test default bucket sizes match DEFAULT_METRIC_CONFIGS."""
+        """Test default bucket sizes match DEFAULT_DISTRIBUTION_METRICS."""
         config = {
             'management_server': {
                 'observability': {
@@ -162,8 +162,8 @@ class TestDefaultSystemMetrics:
         registry = MetricRegistry(config)
 
         # Verify default buckets for each metric
-        for metric_name, default_config in DEFAULT_METRIC_CONFIGS.items():
-            recorder = registry.recorders[metric_name]
+        for metric_name, default_config in DEFAULT_DISTRIBUTION_METRICS.items():
+            recorder = registry.duration_recorders[metric_name]
             assert recorder._buckets == default_config['buckets']
 
     def test_default_exclude_labels(self):
@@ -179,7 +179,7 @@ class TestDefaultSystemMetrics:
         registry = MetricRegistry(config)
 
         # gen_ai.client.operation.duration should exclude 'tokens' by default
-        genai_recorder = registry.recorders['gen_ai.client.operation.duration']
+        genai_recorder = registry.duration_recorders['gen_ai.client.operation.duration']
         assert 'tokens' in genai_recorder._excluded_labels
 
     def test_metric_prefix_applied(self):
@@ -225,9 +225,9 @@ class TestSystemMetricsOverride:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'system': {
+                    'distribution_metrics': {
                         'gen_ai.client.operation.duration': {
-                            'values': [1.0, 5.0, 10.0, 30.0, 60.0]
+                            'buckets': [1.0, 5.0, 10.0, 30.0, 60.0]
                         }
                     }
                 }
@@ -236,18 +236,19 @@ class TestSystemMetricsOverride:
         registry = MetricRegistry(config)
 
         # Verify custom buckets are applied
-        genai_recorder = registry.recorders['gen_ai.client.operation.duration']
+        genai_recorder = registry.duration_recorders['gen_ai.client.operation.duration']
         assert genai_recorder._buckets == [1.0, 5.0, 10.0, 30.0, 60.0]
 
     def test_custom_exclude_labels_override_defaults(self):
-        """Test custom exclude_labels in system: section override defaults."""
+        """Test custom exclude_labels in distribution_metrics section override defaults."""
         config = {
             'management_server': {
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'system': {
+                    'distribution_metrics': {
                         'db.duration': {
+                            'buckets': [0.001, 0.01, 0.1, 1.0],  # Override default buckets
                             'exclude_labels': ['db.operation.name']
                         }
                     }
@@ -257,7 +258,7 @@ class TestSystemMetricsOverride:
         registry = MetricRegistry(config)
 
         # Verify custom exclude_labels are applied
-        db_recorder = registry.recorders['db.duration']
+        db_recorder = registry.duration_recorders['db.duration']
         assert 'db.operation.name' in db_recorder._excluded_labels
 
     def test_label_filtering_actually_filters(self):
@@ -267,8 +268,9 @@ class TestSystemMetricsOverride:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'system': {
+                    'distribution_metrics': {
                         'db.duration': {
+                            'buckets': [0.001, 0.01, 0.1, 1.0],  # Override default buckets
                             'exclude_labels': ['db.operation.name']
                         }
                     }
@@ -278,7 +280,7 @@ class TestSystemMetricsOverride:
         registry = MetricRegistry(config)
 
         # Get the recorder and verify it filters labels
-        db_recorder = registry.recorders['db.duration']
+        db_recorder = registry.duration_recorders['db.duration']
 
         # Mock the histogram to capture what labels are actually passed
         mock_histogram = Mock()
@@ -302,15 +304,15 @@ class TestSystemMetricsOverride:
         assert 'db.operation.name' not in filtered_labels  # Excluded!
 
     def test_disabled_metric_not_created(self):
-        """Test that metrics with empty buckets are disabled (not created)."""
+        """Test that metrics disabled with exclude_labels: ['*'] are not created."""
         config = {
             'management_server': {
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'system': {
+                    'distribution_metrics': {
                         'gateway.ttfb.duration': {
-                            'values': []  # Disabled
+                            'exclude_labels': ['*']  # Disabled
                         }
                     }
                 }
@@ -319,29 +321,44 @@ class TestSystemMetricsOverride:
         registry = MetricRegistry(config)
 
         # Verify metric was not created
-        assert 'gateway.ttfb.duration' not in registry.recorders
+        assert 'gateway.ttfb.duration' not in registry.duration_recorders
 
-    def test_validation_rejects_unknown_system_metric(self):
-        """Test validation rejects unknown metric names in system: section."""
+    def test_custom_distribution_metrics_allowed(self):
+        """Test that custom distribution metrics are allowed."""
         obs_config = {
             'enabled': True,
-            'system': {
-                'unknown.metric.name': {
-                    'values': [1.0, 2.0]
+            'distribution_metrics': {
+                'my.custom.metric': {
+                    'buckets': [1.0, 2.0, 5.0],
+                    'exclude_labels': ['some_label']
                 }
             }
         }
 
-        with pytest.raises(ValueError, match="Unknown system metric 'unknown.metric.name'"):
-            validate_config(obs_config)
+        # Should not raise - custom metrics are allowed
+        validate_config(obs_config)
+
+        # Verify it actually gets created
+        config = {
+            'management_server': {
+                'observability': obs_config
+            }
+        }
+        registry = MetricRegistry(config)
+
+        # Custom metric should be created
+        assert 'my.custom.metric' in registry.duration_recorders
+        custom_recorder = registry.duration_recorders['my.custom.metric']
+        assert custom_recorder._buckets == [1.0, 2.0, 5.0]
+        assert 'some_label' in custom_recorder._excluded_labels
 
     def test_validation_rejects_invalid_buckets(self):
         """Test validation rejects invalid bucket configurations."""
         obs_config = {
             'enabled': True,
-            'system': {
+            'distribution_metrics': {
                 'db.duration': {
-                    'values': [10.0, 5.0, 1.0]  # Not in ascending order
+                    'buckets': [10.0, 5.0, 1.0]  # Not in ascending order
                 }
             }
         }
@@ -353,9 +370,9 @@ class TestSystemMetricsOverride:
         """Test validation rejects buckets with values <= 0."""
         obs_config = {
             'enabled': True,
-            'system': {
+            'distribution_metrics': {
                 'db.duration': {
-                    'values': [0.0, 1.0, 2.0]  # Zero is not allowed
+                    'buckets': [0.0, 1.0, 2.0]  # Zero is not allowed
                 }
             }
         }
@@ -367,9 +384,9 @@ class TestSystemMetricsOverride:
         """Test validation rejects negative bucket values."""
         obs_config = {
             'enabled': True,
-            'system': {
+            'distribution_metrics': {
                 'db.duration': {
-                    'values': [-1.0, 1.0, 2.0]  # Negative not allowed
+                    'buckets': [-1.0, 1.0, 2.0]  # Negative not allowed
                 }
             }
         }
@@ -378,59 +395,48 @@ class TestSystemMetricsOverride:
             validate_config(obs_config)
 
     def test_validation_rejects_non_list_exclude_labels_in_system(self):
-        """Test validation rejects non-list exclude_labels in system: section."""
+        """Test validation rejects non-list exclude_labels in distribution_metrics section."""
         obs_config = {
             'enabled': True,
-            'system': {
+            'distribution_metrics': {
                 'db.duration': {
+                    'buckets': [0.001, 0.01, 0.1],
                     'exclude_labels': 'not_a_list'  # Should be a list
                 }
             }
         }
 
-        with pytest.raises(ValueError, match="system.db.duration.exclude_labels must be a list"):
+        with pytest.raises(ValueError, match="distribution_metrics.db.duration.exclude_labels must be a list"):
             validate_config(obs_config)
 
     def test_validation_rejects_non_string_in_exclude_labels_system(self):
-        """Test validation rejects non-string values in exclude_labels for system: section."""
+        """Test validation rejects non-string values in exclude_labels for distribution_metrics section."""
         obs_config = {
             'enabled': True,
-            'system': {
+            'distribution_metrics': {
                 'db.duration': {
+                    'buckets': [0.001, 0.01, 0.1],
                     'exclude_labels': ['valid_label', 123, 'another_label']  # 123 is not a string
                 }
             }
         }
 
-        with pytest.raises(ValueError, match="system.db.duration.exclude_labels must contain only strings"):
+        with pytest.raises(ValueError, match="distribution_metrics.db.duration.exclude_labels must contain only strings"):
             validate_config(obs_config)
 
-    def test_empty_buckets_histogram_not_recorded(self):
-        """Test that histogram with empty buckets is not created and cannot record."""
-        config = {
-            'management_server': {
-                'observability': {
-                    'enabled': True,
-                    'path': '/metrics',
-                    'system': {
-                        'gateway.ttfb.duration': {
-                            'values': []  # Empty = disabled
-                        }
-                    }
+    def test_empty_buckets_raises_error(self):
+        """Test that histogram with empty buckets raises validation error."""
+        obs_config = {
+            'enabled': True,
+            'distribution_metrics': {
+                'gateway.ttfb.duration': {
+                    'buckets': []  # Empty = ERROR (not silent disable)
                 }
             }
         }
-        registry = MetricRegistry(config)
 
-        # Verify metric is not in recorders
-        assert 'gateway.ttfb.duration' not in registry.recorders
-
-        # Verify get_recorder returns None
-        recorder = registry.get_recorder('gateway.ttfb.duration')
-        assert recorder is None
-
-        # Verify total number of recorders is 6 (not 7)
-        assert len(registry.recorders) == 6
+        with pytest.raises(ValueError, match="buckets cannot be empty"):
+            validate_config(obs_config)
 
 
 class TestCustomMetricsFactoryMethods:
@@ -454,7 +460,7 @@ class TestCustomMetricsFactoryMethods:
         )
 
         assert isinstance(counter, CounterRecorder)
-        assert 'test.events.count' in registry.recorders
+        assert 'test.events.count' in registry._value_recorders
 
     def test_create_counter_when_disabled(self):
         """Test create_counter returns NoOpRecorder when disabled."""
@@ -486,7 +492,7 @@ class TestCustomMetricsFactoryMethods:
         )
 
         assert isinstance(gauge, GaugeRecorder)
-        assert 'test.queue.depth' in registry.recorders
+        assert 'test.queue.depth' in registry._value_recorders
 
     def test_create_gauge_when_disabled(self):
         """Test create_gauge returns NoOpRecorder when disabled."""
@@ -548,7 +554,7 @@ class TestCustomMetricsFactoryMethods:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'custom': {
+                    'value_metrics': {
                         'gateway.events.processed': {
                             'exclude_labels': ['verbose_detail']
                         }
@@ -574,7 +580,7 @@ class TestCustomMetricsFactoryMethods:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'custom': {
+                    'value_metrics': {
                         'broker.active.connections': {
                             'exclude_labels': ['detail_label']
                         }
@@ -600,7 +606,7 @@ class TestCustomMetricsFactoryMethods:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'custom': {
+                    'value_metrics': {
                         'gateway.events.processed': {
                             'exclude_labels': ['verbose_detail', 'internal_id']
                         }
@@ -688,7 +694,7 @@ class TestCustomMetricsFactoryMethods:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'custom': {
+                    'value_metrics': {
                         'broker.active.connections': {
                             'exclude_labels': ['connection_id']
                         }
@@ -729,7 +735,7 @@ class TestCustomMetricsFactoryMethods:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'custom': {
+                    'value_metrics': {
                         'queue.depth': {
                             'exclude_labels': ['internal_id', 'debug_info']
                         }
@@ -782,7 +788,7 @@ class TestCustomMetricsFactoryMethods:
                 'observability': {
                     'enabled': True,
                     'path': '/metrics',
-                    'custom': {
+                    'value_metrics': {
                         'queue.depth': {
                             'exclude_labels': ['internal_queue_id']
                         }
@@ -817,7 +823,7 @@ class TestCustomMetricsFactoryMethods:
         """Test validation accepts valid custom: section."""
         obs_config = {
             'enabled': True,
-            'custom': {
+            'value_metrics': {
                 'my.custom.metric': {
                     'exclude_labels': ['label1', 'label2']
                 }
@@ -831,7 +837,7 @@ class TestCustomMetricsFactoryMethods:
         """Test validation rejects invalid keys in custom: section."""
         obs_config = {
             'enabled': True,
-            'custom': {
+            'value_metrics': {
                 'my.custom.metric': {
                     'invalid_key': 'value'
                 }
@@ -845,7 +851,7 @@ class TestCustomMetricsFactoryMethods:
         """Test validation rejects non-list exclude_labels in custom: section."""
         obs_config = {
             'enabled': True,
-            'custom': {
+            'value_metrics': {
                 'my.custom.metric': {
                     'exclude_labels': 'not_a_list'
                 }
@@ -859,7 +865,7 @@ class TestCustomMetricsFactoryMethods:
         """Test validation rejects non-string values in exclude_labels for custom: section."""
         obs_config = {
             'enabled': True,
-            'custom': {
+            'value_metrics': {
                 'my.custom.metric': {
                     'exclude_labels': ['valid_label', 456, 'another_label']  # 456 is not a string
                 }

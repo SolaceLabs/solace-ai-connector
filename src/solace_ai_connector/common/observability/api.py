@@ -42,7 +42,6 @@ class MonitorLatency:
             recorder = self._registry.get_recorder(self._instance.monitor_type)
             if recorder is None:
                 return  # Skip recording - zero overhead
-
             # Add error label if exception occurred
             labels = self._instance.labels.copy()
             if exc_type is not None:
@@ -53,17 +52,12 @@ class MonitorLatency:
                     labels['error.type'] = 'error'
             else:
                 labels['error.type'] = 'none'
-
-            # Record metric
             try:
                 recorder.record(duration, labels)
             except Exception as record_err:
                 logger.warning("Failed to record metric: %s", record_err)
-
         except Exception as e:
-            # Catch-all: never crash application
             logger.error("MonitorLatency.__exit__ failed: %s", e)
-
         # Don't suppress original exception
         return False
 
@@ -96,5 +90,24 @@ class MonitorLatency:
         return self
 
     def stop(self):
-        """Manual stop."""
+        """Manual stop - records metric with error.type='none' (success)."""
         self.__exit__(None, None, None)
+
+    def error(self, exc: Exception):
+        """
+        Manual stop with error - records metric with error.type from exception.
+
+        Args:
+            exc: The exception that occurred
+
+        Usage:
+            monitor = MonitorLatency(service)
+            monitor.start()
+            try:
+                risky_operation()
+                monitor.stop()
+            except Exception as e:
+                monitor.error(e)
+                raise
+        """
+        self.__exit__(type(exc), exc, exc.__traceback__)

@@ -8,7 +8,6 @@ from .base import MetricRecorder
 
 logger = logging.getLogger(__name__)
 
-
 class CounterRecorder(MetricRecorder):
     """
     Recorder for counter metrics (monotonically increasing values).

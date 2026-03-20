@@ -247,20 +247,30 @@ class TestLiteLLMChatModelBaseInvokeNonStream:
             ) as mock_load_balance:
                 mock_load_balance.return_value = mock_response
 
-                component = LiteLLMChatModelBase(
-                    info=litellm_chat_info_base,
-                    config={"load_balancer": valid_load_balancer_config},
-                )
+                # Mock _record_token_and_cost_metrics to avoid observability dependencies
+                with patch.object(
+                    LiteLLMChatModelBase, "_record_token_and_cost_metrics"
+                ) as mock_record_metrics:
+                    component = LiteLLMChatModelBase(
+                        info=litellm_chat_info_base,
+                        config={"load_balancer": valid_load_balancer_config},
+                    )
 
-                # Mock send_metrics to avoid side effects
-                component.send_metrics = MagicMock()
+                    # Set load_balancer_config manually (normally set by init_load_balancer)
+                    component.load_balancer_config = valid_load_balancer_config
 
-                messages = [{"role": "user", "content": "Hello"}]
-                result = component.invoke_non_stream(messages)
+                    # Mock send_metrics to avoid side effects
+                    component.send_metrics = MagicMock()
 
-                assert result == {"content": "Hello, I'm an AI"}
-                component.send_metrics.assert_called_once()
-                mock_load_balance.assert_called_once_with(messages, stream=False)
+                    messages = [{"role": "user", "content": "Hello"}]
+                    result = component.invoke_non_stream(messages)
+
+                    assert result == {"content": "Hello, I'm an AI"}
+                    component.send_metrics.assert_called_once()
+                    mock_load_balance.assert_called_once_with(messages, stream=False)
+
+                    # Verify token/cost metrics were recorded
+                    mock_record_metrics.assert_called_once_with("test-model", 10, 5)
 
     def test_invoke_non_stream_api_error(self, valid_load_balancer_config):
         """Test handling of API connection error."""
@@ -283,16 +293,23 @@ class TestLiteLLMChatModelBaseInvokeNonStream:
             ) as mock_load_balance:
                 mock_load_balance.side_effect = api_error
 
-                component = LiteLLMChatModelBase(
-                    info=litellm_chat_info_base,
-                    config={"load_balancer": valid_load_balancer_config},
-                )
+                # Mock _record_token_and_cost_metrics (won't be called on error, but needed for import)
+                with patch.object(
+                    LiteLLMChatModelBase, "_record_token_and_cost_metrics"
+                ):
+                    component = LiteLLMChatModelBase(
+                        info=litellm_chat_info_base,
+                        config={"load_balancer": valid_load_balancer_config},
+                    )
 
-                messages = [{"role": "user", "content": "Hello"}]
-                result = component.invoke_non_stream(messages)
+                    # Set load_balancer_config manually (normally set by init_load_balancer)
+                    component.load_balancer_config = valid_load_balancer_config
 
-                assert "API connection failed" in result["content"]
-                assert result["handle_error"] is True
+                    messages = [{"role": "user", "content": "Hello"}]
+                    result = component.invoke_non_stream(messages)
+
+                    assert "API connection failed" in result["content"]
+                    assert result["handle_error"] is True
 
 
 class TestLiteLLMChatModelBaseInvokeStream:

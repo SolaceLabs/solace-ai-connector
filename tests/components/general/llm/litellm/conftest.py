@@ -14,6 +14,20 @@ from solace_ai_connector.components.general.llm.litellm.litellm_base import (
     litellm_info_base as litellm_base_module_info_dict,
 )
 from solace_ai_connector.common.monitoring import Metrics
+from solace_ai_connector.common.observability.registry import MetricRegistry
+
+
+@pytest.fixture(autouse=True)
+def initialize_metric_registry():
+    """Initialize MetricRegistry before each test and reset after."""
+    # Initialize with observability disabled for tests (avoid side effects)
+    config = {}
+    MetricRegistry(config)
+
+    yield
+
+    # Cleanup: Reset singleton after test
+    MetricRegistry.reset()
 
 
 @pytest.fixture

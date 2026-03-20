@@ -63,7 +63,7 @@ class DBMonitor(Monitor):
         )
 
     @classmethod
-    def update(cls, collection: str) -> MonitorInstance:
+    def update(cls, collection: str):
         """Create monitor instance for update operation."""
         return MonitorInstance(
             monitor_type=cls.monitor_type,
