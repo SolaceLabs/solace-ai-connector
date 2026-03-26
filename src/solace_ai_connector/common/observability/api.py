@@ -9,7 +9,7 @@ from typing import Optional
 from .monitors.base import MonitorInstance
 from .registry import MetricRegistry
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MonitorLatency:
@@ -49,7 +49,7 @@ class MonitorLatency:
                 try:
                     labels['error.type'] = self._instance.error_parser(exc_val)
                 except Exception as parse_err:
-                    log.warning(f"Error parser failed: {parse_err}")
+                    logger.warning("Error parser failed: %s", parse_err)
                     labels['error.type'] = 'error'
             else:
                 labels['error.type'] = 'none'
@@ -58,11 +58,11 @@ class MonitorLatency:
             try:
                 recorder.record(duration, labels)
             except Exception as record_err:
-                log.warning(f"Failed to record metric: {record_err}")
+                logger.warning("Failed to record metric: %s", record_err)
 
         except Exception as e:
             # Catch-all: never crash application
-            log.error(f"MonitorLatency.__exit__ failed: {e}")
+            logger.error("MonitorLatency.__exit__ failed: %s", e)
 
         # Don't suppress original exception
         return False

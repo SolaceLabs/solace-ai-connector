@@ -6,7 +6,7 @@ from opentelemetry.metrics import UpDownCounter
 
 from .base import MetricRecorder
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class GaugeRecorder(MetricRecorder):
@@ -46,4 +46,4 @@ class GaugeRecorder(MetricRecorder):
             # Record to OpenTelemetry gauge
             self._gauge.add(value, attributes=filtered_labels)
         except Exception as e:
-            log.warning(f"Failed to record gauge: {e}")
+            logger.warning("Failed to record gauge: %s", e)

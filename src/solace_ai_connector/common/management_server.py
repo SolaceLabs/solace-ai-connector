@@ -9,7 +9,7 @@ import traceback
 import faulthandler
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ManagementRequestHandler(BaseHTTPRequestHandler):
@@ -115,13 +115,13 @@ class ManagementRequestHandler(BaseHTTPRequestHandler):
         except BrokenPipeError:
             pass
         except Exception as e:
-            log.error(f"Error serving metrics: {e}")
+            logger.error("Error serving metrics: %s", e)
             try:
                 self.send_response(500)
                 self.send_header('Content-Type', 'text/plain; charset=utf-8')
                 self.end_headers()
-                self.wfile.write(f"# Error: {e}\n".encode())
-            except:
+                self.wfile.write(b"# Error: Failed to generate metrics\n")
+            except Exception:
                 pass
 
     def _handle_thread_dump(self):
@@ -230,9 +230,9 @@ class ManagementHttpServer:
         try:
             import signal
             faulthandler.register(signal.SIGUSR1, all_threads=True)
-            log.info("Faulthandler registered for SIGUSR1 - send signal to dump thread stacks")
+            logger.info("Faulthandler registered for SIGUSR1 - send signal to dump thread stacks")
         except Exception as e:
-            log.warning(f"Could not register faulthandler for SIGUSR1: {e}")
+            logger.warning("Could not register faulthandler for SIGUSR1: %s", e)
 
         # Set class attributes for request handler
         ManagementRequestHandler.health_checker = self.health_checker
@@ -264,12 +264,12 @@ class ManagementHttpServer:
             endpoints.append(f"{self.metrics_path} (metrics)")
         endpoints.append("/debug/threads (thread dump)")
 
-        log.info(f"Management server started on port {self.port}")
-        log.info(f"Available endpoints: {', '.join(endpoints)}")
+        logger.info("Management server started on port %s", self.port)
+        logger.info("Available endpoints: %s", ', '.join(endpoints))
 
     def stop(self):
         """Stop the HTTP server"""
         if self.httpd:
             self.httpd.shutdown()
             self.httpd.server_close()
-            log.info("Management server stopped")
+            logger.info("Management server stopped")

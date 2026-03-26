@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # Default configurations for each histogram family
@@ -52,10 +52,10 @@ def load_observability_config(config: dict) -> dict:
     if 'management_server' in config:
         mgmt = config['management_server']
         if 'observability' in mgmt:
-            log.debug("Using management_server.observability config")
+            logger.debug("Using management_server.observability config")
             return mgmt['observability']
 
-    log.debug("No observability config found - disabled")
+    logger.debug("No observability config found - disabled")
     return {'enabled': False}
 
 

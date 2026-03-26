@@ -6,7 +6,7 @@ from opentelemetry.metrics import Counter
 
 from .base import MetricRecorder
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class CounterRecorder(MetricRecorder):
@@ -45,4 +45,4 @@ class CounterRecorder(MetricRecorder):
             # Record to OpenTelemetry counter
             self._counter.add(value, attributes=filtered_labels)
         except Exception as e:
-            log.warning(f"Failed to record counter: {e}")
+            logger.warning("Failed to record counter: %s", e)

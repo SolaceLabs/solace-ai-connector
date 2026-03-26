@@ -40,7 +40,12 @@ class GenAIMonitor(Monitor):
         if isinstance(exc, TimeoutError):
             return "timeout"
         if hasattr(exc, 'status_code'):
-            return f"api_error_{exc.status_code}"
+            code = exc.status_code
+            if 400 <= code < 500:
+                return "4xx_client_error"
+            if 500 <= code < 600:
+                return "5xx_server_error"
+            return f"api_error_{code}"
 
         exc_str = str(exc).lower()
         if "rate_limit" in exc_str or "rate limit" in exc_str:
@@ -51,7 +56,7 @@ class GenAIMonitor(Monitor):
         return exc.__class__.__name__
 
     @classmethod
-    def instance(cls, model: str, tokens: int):
+    def instance(cls, model: str, tokens: int) -> MonitorInstance:
         """
         Create GenAI monitor instance.
 
@@ -85,7 +90,7 @@ class GenAITTFTMonitor(Monitor):
         return GenAIMonitor.parse_error(exc)
 
     @classmethod
-    def instance(cls, model: str):
+    def instance(cls, model: str) -> MonitorInstance:
         """
         Create GenAI TTFT monitor instance.
 

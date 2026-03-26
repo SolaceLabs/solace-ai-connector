@@ -6,7 +6,7 @@ from opentelemetry.metrics import Histogram
 
 from .base import MetricRecorder
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class HistogramRecorder(MetricRecorder):
@@ -49,4 +49,4 @@ class HistogramRecorder(MetricRecorder):
 
         except Exception as e:
             # Never crash application due to metrics
-            log.warning(f"Failed to record histogram: {e}")
+            logger.warning("Failed to record histogram: %s", e)

@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class HealthChecker:
@@ -53,14 +53,14 @@ class HealthChecker:
             # Check if app has custom readiness logic
             if hasattr(app, 'is_ready') and callable(app.is_ready):
                 if not app.is_ready():
-                    log.debug("App '%s' is not ready", app.name)
+                    logger.debug("App '%s' is not ready", app.name)
                     return False
 
             # Check threads
             for flow in app.flows:
                 for thread in flow.threads:
                     if not thread.is_alive():
-                        log.debug("Thread in flow '%s' is not alive", flow.name)
+                        logger.debug("Thread in flow '%s' is not alive", flow.name)
                         return False
         return True
 
@@ -78,13 +78,13 @@ class HealthChecker:
         if self._check_components_ready():
             with self._lock:
                 self._ready = True
-            log.info("Health check: Connector is READY")
+            logger.info("Health check: Connector is READY")
 
             # Only mark startup complete if all apps report startup complete
             if self._check_all_apps_startup_complete():
                 with self._lock:
                     self._startup_complete = True
-                log.info("Health check: Startup complete")
+                logger.info("Health check: Startup complete")
 
     def start_monitoring(self):
         """Start background threads to monitor ongoing health"""
@@ -109,11 +109,11 @@ class HealthChecker:
             if self._ready and not is_healthy:
                 with self._lock:
                     self._ready = False
-                log.warning("Health check: Connector degraded - not ready")
+                logger.warning("Health check: Connector degraded - not ready")
             elif not self._ready and is_healthy:
                 with self._lock:
                     self._ready = True
-                log.info("Health check: Connector recovered - ready")
+                logger.info("Health check: Connector recovered - ready")
 
     def _startup_monitor_loop(self):
         """Periodically check if startup has completed until it latches"""
@@ -125,7 +125,7 @@ class HealthChecker:
             if self._check_all_apps_startup_complete():
                 with self._lock:
                     self._startup_complete = True
-                log.info("Health check: Startup complete")
+                logger.info("Health check: Startup complete")
                 return
 
     def stop(self):

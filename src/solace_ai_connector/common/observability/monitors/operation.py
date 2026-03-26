@@ -25,7 +25,7 @@ class OperationMonitor(Monitor):
         return exc.__class__.__name__
 
     @classmethod
-    def instance(cls, component_type: str, component_name: str, operation: str):
+    def instance(cls, component_type: str, component_name: str, operation: str) -> MonitorInstance:
         """
         Create operation monitor instance.
 

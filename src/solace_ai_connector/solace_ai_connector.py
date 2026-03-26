@@ -22,7 +22,7 @@ from .common.health_check import HealthChecker
 from .common.observability.registry import MetricRegistry
 from .common.management_server import ManagementHttpServer
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 class SolaceAiConnector:
     """Solace AI Connector"""
@@ -57,7 +57,7 @@ class SolaceAiConnector:
         try:
             self.metric_registry = MetricRegistry(config)
         except Exception as e:
-            log.error(f"Failed to initialize observability: {e}")
+            logger.error("Failed to initialize observability: %s", e)
             raise InitializationError("Observability initialization failed") from e
 
         # Initialize management server (health + observability)
@@ -76,14 +76,14 @@ class SolaceAiConnector:
         """
         # Try new management_server structure first
         if 'management_server' in config:
-            log.debug("Using management_server configuration")
+            logger.debug("Using management_server configuration")
             return config['management_server']
 
         # Backward compatibility: synthesize from old health_check structure
         health_check = config.get('health_check', {})
 
         if health_check.get('enabled'):
-            log.warning(
+            logger.warning(
                 "Using deprecated top-level 'health_check' config. "
                 "Please migrate to 'management_server' structure."
             )
@@ -119,7 +119,7 @@ class SolaceAiConnector:
         mgmt_config = self._get_management_server_config(config)
 
         if not mgmt_config.get('enabled', False):
-            log.info("Management server disabled")
+            logger.info("Management server disabled")
             return
 
         # Get health and observability configurations
@@ -131,7 +131,7 @@ class SolaceAiConnector:
 
         # Check if at least one feature is enabled
         if not health_enabled and not obs_enabled:
-            log.info("Management server enabled but both health and observability disabled - nothing to serve")
+            logger.info("Management server enabled but both health and observability disabled - nothing to serve")
             return
 
         # Create health checker if health is enabled
@@ -141,9 +141,9 @@ class SolaceAiConnector:
                 readiness_check_period_seconds=health_config.get('readiness_check_period_seconds', 5),
                 startup_check_period_seconds=health_config.get('startup_check_period_seconds', 5)
             )
-            log.info("Health checks enabled")
+            logger.info("Health checks enabled")
         else:
-            log.info("Health checks disabled")
+            logger.info("Health checks disabled")
 
         # Create management server (serves health and/or metrics)
         self.management_server = ManagementHttpServer(
@@ -164,11 +164,11 @@ class SolaceAiConnector:
             features.append("health checks")
         if obs_enabled:
             features.append("metrics")
-        log.info(f"Management server started on port {mgmt_config.get('port', 8080)} with: {', '.join(features)}")
+        logger.info("Management server started on port %s with: %s", mgmt_config.get('port', 8080), ', '.join(features))
 
     def run(self):
         """Run the Solace AI Event Connector"""
-        log.info("Starting Solace AI Event Connector")
+        logger.info("Starting Solace AI Event Connector")
         try:
             self.create_apps()
 
@@ -177,14 +177,14 @@ class SolaceAiConnector:
             if on_flow_creation:
                 on_flow_creation(self.flows)
 
-            log.info("Solace AI Event Connector started successfully")
+            logger.info("Solace AI Event Connector started successfully")
 
             # Mark health check as ready if enabled
             if self.health_checker:
                 self.health_checker.mark_ready()
                 self.health_checker.start_monitoring()
         except KeyboardInterrupt:
-            log.info("Received keyboard interrupt - stopping")
+            logger.info("Received keyboard interrupt - stopping")
             raise KeyboardInterrupt
         except Exception:
             raise InitializationError("An error occurred during startup")
@@ -207,7 +207,7 @@ class SolaceAiConnector:
                 app_obj.run()
 
         except KeyboardInterrupt:
-            log.info("Received keyboard interrupt - stopping")
+            logger.info("Received keyboard interrupt - stopping")
             raise
         except Exception:
             raise InitializationError("An error occurred during app creation")
@@ -222,7 +222,7 @@ class SolaceAiConnector:
                 os.path.basename(self.config_filenames[0])
             )[0]
 
-        log.info("Creating default app '%s' from flows configuration", app_name)
+        logger.info("Creating default app '%s' from flows configuration", app_name)
         # Create app info structure for the default app
         default_app_info = {
             "name": app_name,
@@ -246,13 +246,13 @@ class SolaceAiConnector:
         """Create apps from the apps configuration"""
         for index, app_info in enumerate(apps_config):
             app_name = app_info.get("name")
-            log.info("Creating app %s", app_name)
+            logger.info("Creating app %s", app_name)
             
             # Handle multiple instances if configured
             num_instances = app_info.get("num_instances", 1)
             if num_instances < 1:
                 num_instances = 1
-                log.warning(
+                logger.warning(
                     "Number of instances for app %s is less than 1. Setting it to 1",
                     app_name,
                 )
@@ -311,7 +311,7 @@ class SolaceAiConnector:
                 f"App module '{app_module}' does not contain an App subclass or define class_name in info."
             )
             
-        log.debug(
+        logger.debug(
             "Using App subclass %s found in module %s",
             found_class.__name__,
             app_module,
@@ -399,11 +399,11 @@ class SolaceAiConnector:
             name, queue = random.choice(matching_queues)
             event = Event(EventType.MESSAGE, message)
             queue.put(event)
-            log.debug("Sent message to flow %s (randomly selected instance of multi-instance flow)", name)
+            logger.debug("Sent message to flow %s (randomly selected instance of multi-instance flow)", name)
             return True
 
         # No matching flow found
-        log.error("Can't send message to flow %s. Not found", flow_name)
+        logger.error("Can't send message to flow %s. Not found", flow_name)
         return False
 
     def wait_for_flows(self):
@@ -426,12 +426,12 @@ class SolaceAiConnector:
                 if not any(thread.is_alive() for thread in all_threads):
                     break
             except KeyboardInterrupt:
-                log.info("Received keyboard interrupt - stopping")
+                logger.info("Received keyboard interrupt - stopping")
                 raise
 
     def cleanup(self):
         """Clean up resources and ensure all threads are properly joined"""
-        log.info("Cleaning up Solace AI Event Connector")
+        logger.info("Cleaning up Solace AI Event Connector")
         for app in self.apps:
             try:
                 app.cleanup()
@@ -462,7 +462,7 @@ class SolaceAiConnector:
             pass
 
         self.timer_manager.cleanup()
-        log.info("Cleanup completed")
+        logger.info("Cleanup completed")
 
     def setup_logging(self):
         """Setup logging"""
@@ -491,7 +491,7 @@ class SolaceAiConnector:
         trace_config = self.config.get("trace", {})
         trace_file = trace_config.get("trace_file", None)
         if trace_file:
-            log.info("Setting up trace to file %s", trace_file)
+            logger.info("Setting up trace to file %s", trace_file)
             # Create a trace queue
             self.trace_queue = queue.Queue()
             # Start a new thread to handle trace messages
@@ -538,7 +538,7 @@ class SolaceAiConnector:
             raise ValueError("No apps or flows defined in configuration file")
 
         if not self.config.get("log"):
-            log.warning("No log config provided - using defaults")
+            logger.warning("No log config provided - using defaults")
 
         # Validate apps if defined
         if self.config.get("apps"):
@@ -561,7 +561,7 @@ class SolaceAiConnector:
                 # If app_module is defined, skip the structural check here.
                 # The App constructor will handle validation after merging.
                 if app.get("app_module"):
-                    log.debug(
+                    logger.debug(
                         "Skipping structural validation for app '%s' (using app_module)",
                         app_name,
                     )
@@ -577,7 +577,7 @@ class SolaceAiConnector:
                             f"App '{app_name}' must define either 'flows' or both 'broker' and 'components'"
                         )
                     if has_flows and (has_broker or has_components):
-                        log.warning(
+                        logger.warning(
                             "App '%s' defines both 'flows' and 'broker'/'components'. "
                             "The 'broker' and 'components' keys will be ignored (standard mode).",
                             app_name,
@@ -585,7 +585,7 @@ class SolaceAiConnector:
 
                     # Simplified Mode Validation (only if structure implies simplified)
                     if has_broker and has_components and not has_flows:
-                        log.debug("Validating simplified app '%s'", app_name)
+                        logger.debug("Validating simplified app '%s'", app_name)
                         broker_config = app.get("broker")
                         components_config = app.get("components")
 
@@ -644,7 +644,7 @@ class SolaceAiConnector:
                             if broker_config.get("input_enabled"):
                                 subscriptions = component.get("subscriptions")
                                 if not subscriptions:
-                                    log.warning(
+                                    logger.warning(
                                         "App '%s' component '%s' has no 'subscriptions' defined, but input is enabled.",
                                         app_name,
                                         comp_name,
@@ -666,7 +666,7 @@ class SolaceAiConnector:
 
                     # Standard Mode Validation (only if structure implies standard)
                     elif has_flows:
-                        log.debug("Validating standard app '%s'", app_name)
+                        logger.debug("Validating standard app '%s'", app_name)
                         self._validate_flows(app.get("flows"), f"app '{app_name}'")
                 # --- End Modified Validation Logic ---
 
@@ -677,12 +677,12 @@ class SolaceAiConnector:
             if not self.config.get(
                 "apps"
             ):  # Only validate top-level if no apps are defined
-                log.warning(
+                logger.warning(
                     "Using deprecated top-level 'flows' definition. Consider defining flows within an 'apps' structure."
                 )
                 self._validate_flows(self.config.get("flows"), "top level")
             else:
-                log.warning(
+                logger.warning(
                     "Ignoring top-level 'flows' definition because 'apps' is also defined."
                 )
 
@@ -769,7 +769,7 @@ class SolaceAiConnector:
 
     def stop(self):
         """Stop the Solace AI Event Connector"""
-        log.info("Stopping Solace AI Event Connector")
+        logger.info("Stopping Solace AI Event Connector")
         self.stop_signal.set()
 
         # Stop health check components first

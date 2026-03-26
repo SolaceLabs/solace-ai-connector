@@ -39,7 +39,7 @@ class DBMonitor(Monitor):
         return root.__class__.__name__
 
     @classmethod
-    def query(cls, collection: str):
+    def query(cls, collection: str) -> MonitorInstance:
         """Create monitor instance for query operation."""
         return MonitorInstance(
             monitor_type=cls.monitor_type,
@@ -51,7 +51,7 @@ class DBMonitor(Monitor):
         )
 
     @classmethod
-    def insert(cls, collection: str):
+    def insert(cls, collection: str) -> MonitorInstance:
         """Create monitor instance for insert operation."""
         return MonitorInstance(
             monitor_type=cls.monitor_type,
@@ -63,7 +63,7 @@ class DBMonitor(Monitor):
         )
 
     @classmethod
-    def update(cls, collection: str):
+    def update(cls, collection: str) -> MonitorInstance:
         """Create monitor instance for update operation."""
         return MonitorInstance(
             monitor_type=cls.monitor_type,
@@ -75,7 +75,7 @@ class DBMonitor(Monitor):
         )
 
     @classmethod
-    def delete(cls, collection: str):
+    def delete(cls, collection: str) -> MonitorInstance:
         """Create monitor instance for delete operation."""
         return MonitorInstance(
             monitor_type=cls.monitor_type,

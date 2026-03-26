@@ -13,7 +13,7 @@ from prometheus_client import generate_latest, REGISTRY
 from .config import DEFAULT_METRIC_CONFIGS, load_observability_config, validate_config
 from .recorders import MetricRecorder, NoOpRecorder, HistogramRecorder, CounterRecorder, GaugeRecorder
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MetricRegistry:
@@ -34,7 +34,7 @@ class MetricRegistry:
         # Check if observability is enabled
         self.enabled = self.obs_config.get('enabled', False)
         if not self.enabled:
-            log.info("Observability disabled in configuration")
+            logger.info("Observability disabled in configuration")
             self.recorders = {}
             self._custom_configs = {}
             MetricRegistry._instance = self
@@ -56,7 +56,7 @@ class MetricRegistry:
         self._initialize_otel_and_recorders()
 
         MetricRegistry._instance = self
-        log.info(f"MetricRegistry initialized with {len(self.recorders)} active metrics")
+        logger.info("MetricRegistry initialized with %s active metrics", len(self.recorders))
 
     @classmethod
     def get_instance(cls) -> 'MetricRegistry':
@@ -121,7 +121,7 @@ class MetricRegistry:
                 aggregation=ExplicitBucketHistogramAggregation(boundaries=buckets)
             )
             views.append(view)
-            log.debug(f"Created view for {full_name} with {len(buckets)} buckets")
+            logger.debug("Created view for %s with %s buckets", full_name, len(buckets))
 
         # Step 2: Create MeterProvider with Prometheus exporter and Views
         self.prometheus_exporter = PrometheusMetricReader()
@@ -135,7 +135,7 @@ class MetricRegistry:
         meter_name = self.metric_prefix if self.metric_prefix else "solace_ai_connector"
         self.meter = self.meter_provider.get_meter(meter_name)
 
-        log.info(f"OpenTelemetry MeterProvider initialized with {len(views)} views")
+        logger.info("OpenTelemetry MeterProvider initialized with %s views", len(views))
 
         # Step 3 & 4: Create Histograms and Recorders
         self.recorders: Dict[str, MetricRecorder] = {}
@@ -161,7 +161,7 @@ class MetricRegistry:
             )
 
             self.recorders[metric_name] = recorder
-            log.debug(f"Created histogram and recorder for {metric_name}")
+            logger.debug("Created histogram and recorder for %s", metric_name)
 
     def _get_full_metric_name(self, metric_name: str) -> str:
         """Apply prefix to metric name if configured."""
@@ -307,7 +307,7 @@ class MetricRegistry:
             exporter: OpenTelemetry metric exporter instance
         """
         if not self.enabled:
-            log.warning("Cannot add exporter - observability is disabled")
+            logger.warning("Cannot add exporter - observability is disabled")
             return
 
         # Wrap exporter in periodic reader
@@ -320,4 +320,4 @@ class MetricRegistry:
         self.meter_provider._sdk_config.metric_readers.append(reader)
         reader._set_meter_provider(self.meter_provider)
 
-        log.info(f"Added metric exporter: {exporter.__class__.__name__}")
+        logger.info("Added metric exporter: %s", exporter.__class__.__name__)

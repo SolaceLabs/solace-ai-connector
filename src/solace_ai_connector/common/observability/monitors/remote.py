@@ -25,9 +25,9 @@ class RemoteRequestMonitor(Monitor):
         if hasattr(exc, 'status_code'):
             code = exc.status_code
             if 400 <= code < 500:
-                return f"{code}_client_error"
+                return f"4xx_client_error"
             if 500 <= code < 600:
-                return f"{code}_server_error"
+                return f"5xx_server_error"
         return exc.__class__.__name__
 
 
@@ -38,7 +38,7 @@ class BrokerMonitor(RemoteRequestMonitor):
     Concrete implementation provided by solace-ai-connector for broker operations.
     """
     @classmethod
-    def publish(cls):
+    def publish(cls) -> MonitorInstance:
         """Create monitor instance for broker publish operation."""
         return MonitorInstance(
             monitor_type=cls.monitor_type,
