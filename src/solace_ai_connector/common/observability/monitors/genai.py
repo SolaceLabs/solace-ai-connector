@@ -79,12 +79,13 @@ class GenAIMonitor(Monitor):
         return exc.__class__.__name__
 
     @classmethod
-    def create(cls, model: str) -> GenAIMonitorInstance:
+    def create(cls, model: str, tokens: int = None) -> GenAIMonitorInstance:
         """
         Create GenAI monitor instance for tracking LLM operation latency.
 
         Args:
             model: Model name from configuration (e.g., "gpt-4", "claude-sonnet-3.5")
+            tokens: amount of tokens
 
         Returns:
             GenAIMonitorInstance with set_prompt_tokens() method
@@ -95,14 +96,19 @@ class GenAIMonitor(Monitor):
                 response = llm.call()
                 monitor.set_prompt_tokens(response.usage.prompt_tokens)
         """
-        return GenAIMonitorInstance(
+        monitor = GenAIMonitorInstance(
             monitor_type=cls.monitor_type,
             labels={
                 "gen_ai.request.model": model,
-                "tokens": "unknown"  # Will be set via set_prompt_tokens()
+                "tokens": "none"
             },
             error_parser=cls.parse_error
         )
+        if tokens:
+           monitor.set_prompt_tokens(tokens)
+
+        return monitor
+
 
 
 class GenAITTFTMonitor(Monitor):
@@ -121,7 +127,7 @@ class GenAITTFTMonitor(Monitor):
         return GenAIMonitor.parse_error(exc)
 
     @classmethod
-    def instance(cls, model: str) -> MonitorInstance:
+    def create(cls, model: str) -> MonitorInstance:
         """
         Create GenAI TTFT monitor instance.
 

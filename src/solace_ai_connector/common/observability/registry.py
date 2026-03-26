@@ -47,11 +47,11 @@ class MetricRegistry:
 
         # Prepare distribution metric configurations (histograms)
         self.distribution_metric_configs = self._prepare_metric_configs()
-        log.info(f"Prepared {len(self.distribution_metric_configs)} distribution metric configs")
+        logger.info(f"Prepared {len(self.distribution_metric_configs)} distribution metric configs")
 
         # Prepare value metric configurations (counters/gauges)
         self._value_metric_configs = self._prepare_value_metric_configs()
-        log.info(f"Prepared {len(self._value_metric_configs)} value metric configs")
+        logger.info(f"Prepared {len(self._value_metric_configs)} value metric configs")
 
         # Initialize OpenTelemetry (creates Views + MeterProvider + Histograms + Counters)
         self._initialize_otel_and_recorders()
