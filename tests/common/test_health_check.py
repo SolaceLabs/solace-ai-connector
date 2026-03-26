@@ -453,18 +453,18 @@ class TestHealthChecker:
         assert checker.is_ready() is False
 
 
-class TestHealthCheckRequestHandler:
+class TestManagementRequestHandler:
     def test_liveness_endpoint_returns_ok(self):
         """Test liveness endpoint always returns 200 OK"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
-        HealthCheckRequestHandler.health_checker = mock_health_checker
-        HealthCheckRequestHandler.liveness_path = "/healthz"
-        HealthCheckRequestHandler.readiness_path = "/readyz"
+        ManagementRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.liveness_path = "/healthz"
+        ManagementRequestHandler.readiness_path = "/readyz"
 
         # Create a mock handler instance
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.liveness_path = "/healthz"
         handler.readiness_path = "/readyz"
@@ -472,90 +472,90 @@ class TestHealthCheckRequestHandler:
         handler.wfile = BytesIO()
 
         # Call the actual method
-        HealthCheckRequestHandler._handle_liveness(handler)
+        ManagementRequestHandler._handle_liveness(handler)
 
         # Verify 200 was sent
         handler.send_response.assert_called_once_with(200)
 
     def test_readiness_endpoint_ready(self):
         """Test readiness endpoint returns 200 when ready"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = True
-        HealthCheckRequestHandler.health_checker = mock_health_checker
-        HealthCheckRequestHandler.liveness_path = "/healthz"
-        HealthCheckRequestHandler.readiness_path = "/readyz"
+        ManagementRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.liveness_path = "/healthz"
+        ManagementRequestHandler.readiness_path = "/readyz"
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = BytesIO()
 
-        HealthCheckRequestHandler._handle_readiness(handler)
+        ManagementRequestHandler._handle_readiness(handler)
 
         handler.send_response.assert_called_once_with(200)
 
     def test_readiness_endpoint_not_ready(self):
         """Test readiness endpoint returns 503 when not ready"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = False
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = BytesIO()
 
-        HealthCheckRequestHandler._handle_readiness(handler)
+        ManagementRequestHandler._handle_readiness(handler)
 
         handler.send_response.assert_called_once_with(503)
 
     def test_unknown_path_returns_404(self):
         """Test unknown paths return 404"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.wfile = BytesIO()
 
-        HealthCheckRequestHandler._handle_not_found(handler)
+        ManagementRequestHandler._handle_not_found(handler)
 
         handler.send_response.assert_called_once_with(404)
 
     def test_startup_endpoint_returns_503_before_startup(self):
         """Test startup endpoint returns 503 before startup complete"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_startup_complete.return_value = False
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = BytesIO()
 
-        HealthCheckRequestHandler._handle_startup(handler)
+        ManagementRequestHandler._handle_startup(handler)
 
         handler.send_response.assert_called_once_with(503)
 
     def test_startup_endpoint_returns_200_after_startup(self):
         """Test startup endpoint returns 200 after startup complete"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_startup_complete.return_value = True
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = BytesIO()
 
-        HealthCheckRequestHandler._handle_startup(handler)
+        ManagementRequestHandler._handle_startup(handler)
 
         handler.send_response.assert_called_once_with(200)
 
 
-class TestHealthCheckRequestHandlerBrokenPipe:
+class TestManagementRequestHandlerBrokenPipe:
     """Tests for BrokenPipeError handling in health check handlers.
     
     These tests verify that when the client (e.g., Kubernetes kubelet) closes
@@ -565,186 +565,186 @@ class TestHealthCheckRequestHandlerBrokenPipe:
 
     def test_liveness_handles_broken_pipe_on_write(self):
         """Test _handle_liveness suppresses BrokenPipeError during wfile.write()"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
-        HealthCheckRequestHandler.health_checker = mock_health_checker
-        HealthCheckRequestHandler.liveness_path = "/healthz"
+        ManagementRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.liveness_path = "/healthz"
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise - BrokenPipeError should be caught and suppressed
-        HealthCheckRequestHandler._handle_liveness(handler)
+        ManagementRequestHandler._handle_liveness(handler)
 
         # Verify write was attempted
         handler.wfile.write.assert_called_once()
 
     def test_liveness_handles_broken_pipe_on_send_response(self):
         """Test _handle_liveness suppresses BrokenPipeError during send_response()"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.send_response.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_liveness(handler)
+        ManagementRequestHandler._handle_liveness(handler)
 
         handler.send_response.assert_called_once_with(200)
 
     def test_readiness_handles_broken_pipe_when_ready(self):
         """Test _handle_readiness suppresses BrokenPipeError when connector is ready"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = True
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_readiness(handler)
+        ManagementRequestHandler._handle_readiness(handler)
 
         handler.send_response.assert_called_once_with(200)
         handler.wfile.write.assert_called_once()
 
     def test_readiness_handles_broken_pipe_when_not_ready(self):
         """Test _handle_readiness suppresses BrokenPipeError when connector is not ready"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = False
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_readiness(handler)
+        ManagementRequestHandler._handle_readiness(handler)
 
         handler.send_response.assert_called_once_with(503)
         handler.wfile.write.assert_called_once()
 
     def test_startup_handles_broken_pipe_when_complete(self):
         """Test _handle_startup suppresses BrokenPipeError when startup is complete"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_startup_complete.return_value = True
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_startup(handler)
+        ManagementRequestHandler._handle_startup(handler)
 
         handler.send_response.assert_called_once_with(200)
         handler.wfile.write.assert_called_once()
 
     def test_startup_handles_broken_pipe_when_not_complete(self):
         """Test _handle_startup suppresses BrokenPipeError when startup is not complete"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
         mock_health_checker.is_startup_complete.return_value = False
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_startup(handler)
+        ManagementRequestHandler._handle_startup(handler)
 
         handler.send_response.assert_called_once_with(503)
         handler.wfile.write.assert_called_once()
 
     def test_not_found_handles_broken_pipe(self):
         """Test _handle_not_found suppresses BrokenPipeError"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_not_found(handler)
+        ManagementRequestHandler._handle_not_found(handler)
 
         handler.send_response.assert_called_once_with(404)
         handler.wfile.write.assert_called_once()
 
     def test_thread_dump_handles_broken_pipe(self):
         """Test _handle_thread_dump suppresses BrokenPipeError"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.wfile = Mock()
         handler.wfile.write.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_thread_dump(handler)
+        ManagementRequestHandler._handle_thread_dump(handler)
 
         handler.send_response.assert_called_once_with(200)
         handler.wfile.write.assert_called_once()
 
     def test_broken_pipe_on_send_header(self):
         """Test handlers suppress BrokenPipeError during send_header()"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.send_header.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_liveness(handler)
+        ManagementRequestHandler._handle_liveness(handler)
 
         handler.send_response.assert_called_once_with(200)
         handler.send_header.assert_called_once()
 
     def test_broken_pipe_on_end_headers(self):
         """Test handlers suppress BrokenPipeError during end_headers()"""
-        from solace_ai_connector.common.health_check import HealthCheckRequestHandler
+        from solace_ai_connector.common.management_server import ManagementRequestHandler
 
         mock_health_checker = Mock()
-        HealthCheckRequestHandler.health_checker = mock_health_checker
+        ManagementRequestHandler.health_checker = mock_health_checker
 
-        handler = Mock(spec=HealthCheckRequestHandler)
+        handler = Mock(spec=ManagementRequestHandler)
         handler.health_checker = mock_health_checker
         handler.end_headers.side_effect = BrokenPipeError("Broken pipe")
 
         # Should not raise
-        HealthCheckRequestHandler._handle_liveness(handler)
+        ManagementRequestHandler._handle_liveness(handler)
 
         handler.send_response.assert_called_once_with(200)
         handler.send_header.assert_called_once()
         handler.end_headers.assert_called_once()
 
 
-class TestHealthCheckHttpServer:
+class TestManagementHttpServer:
     def test_server_initialization(self):
-        """Test HealthCheckHttpServer initializes correctly"""
-        from solace_ai_connector.common.health_check import HealthCheckHttpServer
+        """Test ManagementHttpServer initializes correctly"""
+        from solace_ai_connector.common.management_server import ManagementHttpServer
 
         mock_health_checker = Mock()
-        server = HealthCheckHttpServer(
+        server = ManagementHttpServer(
             mock_health_checker,
             port=8080,
             liveness_path="/healthz",
@@ -762,7 +762,7 @@ class TestHealthCheckHttpServer:
 
     def test_server_starts_and_stops(self):
         """Test server starts and stops correctly"""
-        from solace_ai_connector.common.health_check import HealthCheckHttpServer
+        from solace_ai_connector.common.management_server import ManagementHttpServer
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = True
@@ -772,7 +772,7 @@ class TestHealthCheckHttpServer:
             s.bind(('', 0))
             port = s.getsockname()[1]
 
-        server = HealthCheckHttpServer(
+        server = ManagementHttpServer(
             mock_health_checker,
             port=port,
             liveness_path="/healthz",
@@ -796,7 +796,7 @@ class TestHealthCheckHttpServer:
 
     def test_server_serves_requests(self):
         """Test server actually serves HTTP requests"""
-        from solace_ai_connector.common.health_check import HealthCheckHttpServer
+        from solace_ai_connector.common.management_server import ManagementHttpServer
 
         mock_health_checker = Mock()
         mock_health_checker.is_ready.return_value = True
@@ -806,7 +806,7 @@ class TestHealthCheckHttpServer:
             s.bind(('', 0))
             port = s.getsockname()[1]
 
-        server = HealthCheckHttpServer(
+        server = ManagementHttpServer(
             mock_health_checker,
             port=port,
             liveness_path="/healthz",
