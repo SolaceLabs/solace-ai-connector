@@ -14,26 +14,6 @@ Please see the [documentation](docs/index.md) for more information.
 
 Please see the [getting started guide](docs/getting_started.md) for instructions on how to get started quickly.
 
-## Observability
-
-solace-ai-connector provides OpenTelemetry-based metrics for monitoring duration across:
-- Remote service calls (Solace broker, S3, OAuth, etc.)
-- LLM inference (duration and time-to-first-token)
-- Database operations
-- Gateway request handling
-- Internal operations
-
-Enable in your configuration:
-
-```yaml
-management_server:
-  observability:
-    enabled: true
-    path: /metrics
-```
-
-See [Observability Documentation](docs/observability.md) for details.
-
 ## Support
 
 This is not an officially supported Solace product.
