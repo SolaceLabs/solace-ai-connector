@@ -4,20 +4,39 @@ The Solace AI Connector provides HTTP-based health check endpoints for Kubernete
 
 ## Configuration
 
-Add the following to your connector configuration:
+Health checks are configured as part of the management server. Add the following to your connector configuration:
 
 ```yaml
-health_check:
-  enabled: true                          # Default: false
-  port: 8080                             # Default: 8080
-  liveness_path: /healthz                # Default: /healthz
-  readiness_path: /readyz                # Default: /readyz
-  startup_path: /startup                 # Default: /startup
-  readiness_check_period_seconds: 5      # Default: 5 (should be >= max check duration)
-  startup_check_period_seconds: 5        # Default: 5 (should be >= max check duration)
+management_server:
+  enabled: true
+  port: 8080
+
+  health_check:
+    enabled: true                          # Default: false
+    liveness_path: /healthz                # Default: /healthz
+    readiness_path: /readyz                # Default: /readyz
+    startup_path: /startup                 # Default: /startup
+    readiness_check_period_seconds: 5      # Default: 5 (should be >= max check duration)
+    startup_check_period_seconds: 5        # Default: 5 (should be >= max check duration)
 ```
 
 **Note:** Set `readiness_check_period_seconds` and `startup_check_period_seconds` to at least the maximum time you expect the respective checks to take. If your custom `is_ready()` or `is_startup_complete()` methods perform I/O operations (database pings, HTTP calls, etc.), account for their worst-case latency.
+
+### Deprecated Configuration Format
+
+The legacy top-level `health_check` configuration is deprecated:
+
+```yaml
+# DEPRECATED - Do not use
+health_check:
+  enabled: true
+  port: 8080
+  liveness_path: /healthz
+  readiness_path: /readyz
+  startup_path: /startup
+```
+
+Use the new `management_server` format shown above instead. The port is now shared with other management features like observability.
 
 ## Endpoints
 

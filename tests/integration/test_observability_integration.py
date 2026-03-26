@@ -198,7 +198,7 @@ class TestObservabilityIntegration:
                 "enabled": True,
                 "path": "/metrics",
                 "metric_prefix": "sam",
-                "custom": {
+                "value_metrics": {
                     "active.connections": {
                         "exclude_labels": ["connection_id", "internal_detail"]
                     }
@@ -379,7 +379,7 @@ class TestObservabilityIntegration:
                 "enabled": True,
                 "path": "/metrics",
                 "metric_prefix": "sam",
-                "custom": {
+                "value_metrics": {
                     "requests.total": {
                         "exclude_labels": ["request_id", "trace_id"]
                     }
@@ -465,7 +465,7 @@ class TestObservabilityIntegration:
             time.sleep(0.2)
 
             # Define decorated function
-            @MonitorLatency(OperationMonitor.instance(
+            @MonitorLatency(OperationMonitor.create(
                 component_type="processor",
                 component_name="test_processor",
                 operation="process_data"
@@ -526,7 +526,7 @@ class TestObservabilityIntegration:
             time.sleep(0.2)
 
             # Define async decorated function
-            @MonitorLatency(OperationMonitor.instance(
+            @MonitorLatency(OperationMonitor.create(
                 component_type="async_processor",
                 component_name="test_async",
                 operation="async_process"
@@ -584,7 +584,7 @@ class TestObservabilityIntegration:
             time.sleep(0.2)
 
             # Use context manager
-            with MonitorLatency(OperationMonitor.instance(
+            with MonitorLatency(OperationMonitor.create(
                 component_type="service",
                 component_name="test_service",
                 operation="sync_operation"
@@ -633,7 +633,7 @@ class TestObservabilityIntegration:
 
             # Use async context manager
             async def run_async_context():
-                async with MonitorLatency(OperationMonitor.instance(
+                async with MonitorLatency(OperationMonitor.create(
                     component_type="async_service",
                     component_name="test_async_service",
                     operation="async_context_op"
@@ -683,7 +683,7 @@ class TestObservabilityIntegration:
             time.sleep(0.2)
 
             # Create monitor and use manually
-            monitor = MonitorLatency(OperationMonitor.instance(
+            monitor = MonitorLatency(OperationMonitor.create(
                 component_type="manual",
                 component_name="test_manual",
                 operation="manual_operation"
@@ -734,7 +734,7 @@ class TestObservabilityIntegration:
             time.sleep(0.2)
 
             # Test with decorator
-            @MonitorLatency(OperationMonitor.instance(
+            @MonitorLatency(OperationMonitor.create(
                 component_type="error_test",
                 component_name="test_errors",
                 operation="failing_operation"
@@ -749,7 +749,7 @@ class TestObservabilityIntegration:
 
             # Test with context manager
             try:
-                with MonitorLatency(OperationMonitor.instance(
+                with MonitorLatency(OperationMonitor.create(
                     component_type="error_test",
                     component_name="test_errors",
                     operation="context_fail"
@@ -803,7 +803,7 @@ class TestObservabilityIntegration:
                 "enabled": True,
                 "path": "/metrics",
                 "metric_prefix": "sam",
-                "system": {
+                "distribution_metrics": {
                     "db.duration": {
                         "exclude_labels": ["db.operation.name"]
                     }
@@ -893,7 +893,7 @@ class TestObservabilityIntegration:
             gauge.record(1, {"label": "value"})
 
             # Use built-in histogram
-            with MonitorLatency(OperationMonitor.instance(
+            with MonitorLatency(OperationMonitor.create(
                 component_type="test",
                 component_name="prefix_test",
                 operation="test_op"

@@ -160,7 +160,7 @@ class TestOperationMonitor:
 
     def test_instance_returns_monitor_instance(self):
         """Test instance() returns correct MonitorInstance."""
-        instance = OperationMonitor.instance(
+        instance = OperationMonitor.create(
             component_type="orchestrator",
             component_name="AgentOrchestrator",
             operation="execute"
