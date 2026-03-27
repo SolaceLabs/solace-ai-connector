@@ -47,19 +47,20 @@ class MetricRegistry:
 
         # Prepare distribution metric configurations (histograms)
         self.distribution_metric_configs = self._prepare_metric_configs()
-        logger.info(f"Prepared {len(self.distribution_metric_configs)} distribution metric configs")
+        logger.info("Prepared %s distribution metric configs", len(self.distribution_metric_configs))
 
         # Prepare value metric configurations (counters/gauges)
         self._value_metric_configs = self._prepare_value_metric_configs()
-        logger.info(f"Prepared {len(self._value_metric_configs)} value metric configs")
+        logger.info("Prepared %s value metric configs", len(self._value_metric_configs))
 
         # Initialize OpenTelemetry (creates Views + MeterProvider + Histograms + Counters)
         self._initialize_otel_and_recorders()
 
         MetricRegistry._instance = self
         logger.info(
-            f"MetricRegistry initialized with {len(self.duration_recorders)} duration recorders "
-            f"and {len(self._value_recorders)} value recorders"
+            "MetricRegistry initialized with %s duration recorders and %s value recorders",
+            len(self.duration_recorders),
+            len(self._value_recorders)
         )
 
     @classmethod
@@ -213,7 +214,7 @@ class MetricRegistry:
             )
 
             self.duration_recorders[metric_name] = recorder
-            logger.debug(f"Created histogram and recorder for {metric_name}")
+            logger.debug("Created histogram and recorder for %s", metric_name)
 
         # Step 5: Create Counters/Gauges and Recorders for value metrics
         self._value_recorders: Dict[str, MetricRecorder] = {}  # CounterRecorder or GaugeRecorder
@@ -236,7 +237,7 @@ class MetricRegistry:
 
             # Store only the recorder (contains the counter internally)
             self._value_recorders[metric_name] = recorder
-            logger.debug(f"Created counter and recorder for {metric_name}")
+            logger.debug("Created counter and recorder for %s", metric_name)
 
     def _get_full_metric_name(self, metric_name: str) -> str:
         """Apply prefix to metric name if configured."""

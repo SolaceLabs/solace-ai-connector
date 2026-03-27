@@ -17,37 +17,37 @@ management_server:
     path: /metrics
     metric_prefix: sam
 
-    # Built-in histogram tuning
-    system:
+    # Distribution metrics (histograms)
+    distribution_metrics:
       outbound.request.duration:
-        values: [0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]  # Custom buckets for remote calls
+        buckets: [0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]  # Custom buckets for remote calls
         exclude_labels: []  # No exclusions
 
       gen_ai.client.operation.duration:
-        values: [1.0, 5.0, 10.0, 30.0, 60.0]  # Simpler buckets for LLM calls
+        buckets: [1.0, 5.0, 10.0, 30.0, 60.0]  # Simpler buckets for LLM calls
         exclude_labels: []  # Include tokens dimension (higher cardinality)
 
       gen_ai.client.operation.ttft.duration:
-        values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]  # Custom TTFT buckets
+        buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]  # Custom TTFT buckets
         exclude_labels: []
 
       db.duration:
-        values: [0.001, 0.01, 0.1, 0.5, 1.0]  # Fast DB operations
+        buckets: [0.001, 0.01, 0.1, 0.5, 1.0]  # Fast DB operations
         exclude_labels: [db.operation.name]  # Only track by collection, not operation
 
       gateway.duration:
-        values: [0.01, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0]  # Gateway latency buckets
+        buckets: [0.01, 0.1, 0.5, 1.0, 5.0, 10.0, 30.0]  # Gateway latency buckets
         exclude_labels: []
 
       gateway.ttfb.duration:
-        values: []  # Disabled - not tracking TTFB in this deployment
+        exclude_labels: ['*']  # Disabled - not tracking TTFB in this deployment
 
       operation.duration:
-        values: [0.1, 0.5, 1.0, 5.0, 10.0, 30.0]  # Internal operations
+        buckets: [0.1, 0.5, 1.0, 5.0, 10.0, 30.0]  # Internal operations
         exclude_labels: [type]  # Don't track by component type
 
-    # Custom metric label filtering (for counters, gauges, or future histograms)
-    custom:
+    # Value metrics (counters and gauges)
+    value_metrics:
       gateway.events.processed:
         exclude_labels: [verbose_detail]  # Example counter with filtered labels
 

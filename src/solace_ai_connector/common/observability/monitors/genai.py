@@ -1,5 +1,6 @@
 """Monitors for GenAI operations."""
 
+from typing import Optional
 from .base import Monitor, MonitorInstance
 
 
@@ -79,7 +80,7 @@ class GenAIMonitor(Monitor):
         return exc.__class__.__name__
 
     @classmethod
-    def create(cls, model: str, tokens: int = None) -> GenAIMonitorInstance:
+    def create(cls, model: str, tokens: Optional[int] = None) -> GenAIMonitorInstance:
         """
         Create GenAI monitor instance for tracking LLM operation latency.
 
@@ -104,8 +105,8 @@ class GenAIMonitor(Monitor):
             },
             error_parser=cls.parse_error
         )
-        if tokens:
-           monitor.set_prompt_tokens(tokens)
+        if tokens is not None:
+            monitor.set_prompt_tokens(tokens)
 
         return monitor
 
