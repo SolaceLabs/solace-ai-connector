@@ -34,7 +34,7 @@ The framework provides 7 duration histograms that automatically track latency:
 
 ## Configuration
 
-### Full YAML Configuration
+### Use it to customize metric buckets and labels, otherwise defaults above will be used:
 
 ```yaml
 management_server:
@@ -43,31 +43,11 @@ management_server:
   observability:
     enabled: true
     path: /metrics
-    metric_prefix: sam
+    metric_prefix: sam #customize metric prefix for all metrics
 
-    # Histogram configuration
     distribution_metrics:
       outbound.request.duration:
-        values: [0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
-
-      gen_ai.client.operation.duration:
-        values: [0.5, 1, 2, 5, 10, 20, 30, 60, 120]
-
-      gen_ai.client.operation.ttft.duration:
-        values: [0.1, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30]
-
-      db.duration:
-        values: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1]
-
-      gateway.duration:
-        values: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60]
-
-      gateway.ttfb.duration:
-        values: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60]
-
-      operation.duration:
-        values: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60]
-
+        values: [0.025, 0.05, 0.1]  # Override histogram bucket config
 ```
 
 ### Filtering Labels
@@ -155,15 +135,8 @@ connection_gauge.record(1, {"broker.name": "prod"})   # Increment
 connection_gauge.record(-1, {"broker.name": "prod"})  # Decrement
 ```
 
-## Available Monitor Classes
-
-- **BrokerMonitor** - `publish()`
-- **GenAIMonitor** - `create(model, tokens=None)`
-- **GenAITTFTMonitor** - `create(model)`
-- **DBMonitor** - `query(collection)`, `insert(collection)`, `update(collection)`, `delete(collection)`
-- **OperationMonitor** - `create(component_type, component_name, operation)`
-- **GatewayMonitor** - Abstract base class (implement in downstream repos)
-- **GatewayTTFBMonitor** - Abstract base class (implement in downstream repos)
+## Monitor Classes
+All monitors must extend the base `src.solace_ai_connector.common.observability.base.py#Monitor` class and return an object of type MonitorInstance.
 
 ## See Also
 

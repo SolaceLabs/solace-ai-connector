@@ -21,36 +21,13 @@ class GenAITokenMonitor(Monitor):
 
     @classmethod
     def create(cls, model: str, component_name: str, owner_id: str, token_type: str) -> MonitorInstance:
-        """
-        Create token usage monitor instance.
+        """Create token usage monitor instance.
 
         Args:
             model: Model name (e.g., "gpt-4", "claude-sonnet-3.5")
             component_name: SAM: agent identifier, Connector: flow name
             owner_id: SAM: user identifier, Connector: "none"
             token_type: "input" or "output"
-
-        Returns:
-            MonitorInstance for token tracking
-
-        Usage:
-            # In SAM:
-            monitor = GenAITokenMonitor.create(
-                model="gpt-4",
-                component_name="OrchestratorAgent",
-                owner_id="user@example.com",
-                token_type="input"
-            )
-
-            # In Connector:
-            monitor = GenAITokenMonitor.create(
-                model="gpt-4",
-                component_name="test_flow",
-                owner_id="none",
-                token_type="input"
-            )
-
-            registry.record_counter_from_monitor(monitor, prompt_tokens)
         """
         return MonitorInstance(
             monitor_type=cls.monitor_type,
