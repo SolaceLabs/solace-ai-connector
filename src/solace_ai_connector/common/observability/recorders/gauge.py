@@ -8,7 +8,6 @@ from .base import MetricRecorder
 
 logger = logging.getLogger(__name__)
 
-
 class GaugeRecorder(MetricRecorder):
     """
     Recorder for push-style gauge metrics (values that can go up or down).

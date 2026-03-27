@@ -25,9 +25,9 @@ class GatewayMonitor(Monitor):
         if hasattr(exc, 'status_code'):
             code = exc.status_code
             if 400 <= code < 500:
-                return "4xx_client_error"
+                return "4xx_error"
             if 500 <= code < 600:
-                return "5xx_server_error"
+                return "5xx_error"
             return f"http_{code}"
         return exc.__class__.__name__
 

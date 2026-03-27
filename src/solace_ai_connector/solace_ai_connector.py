@@ -158,7 +158,6 @@ class SolaceAiConnector:
 
         self.management_server.start()
 
-        # Log what's enabled
         features = []
         if health_enabled:
             features.append("health checks")
@@ -436,7 +435,7 @@ class SolaceAiConnector:
             try:
                 app.cleanup()
             except Exception:
-                log.exception("Error cleaning up app")
+                logger.exception("Error cleaning up app")
         self.apps.clear()
         self.flows.clear()  # Keep for backward compatibility refs?
 
@@ -446,7 +445,7 @@ class SolaceAiConnector:
                 while not q.empty():
                     q.get_nowait()
             except Exception:
-                log.exception(f"Error cleaning queue {queue_name}")
+                logger.exception(f"Error cleaning queue {queue_name}")
         self.flow_input_queues.clear()
 
         if hasattr(self, "trace_queue") and self.trace_queue:
@@ -526,7 +525,7 @@ class SolaceAiConnector:
                             break
                         continue
         except Exception:
-            log.exception("Error in trace handler thread")
+            logger.exception("Error in trace handler thread")
 
     def validate_config(self):
         """Validate the configuration structure."""

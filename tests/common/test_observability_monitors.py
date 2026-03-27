@@ -96,7 +96,7 @@ class TestGenAIMonitor:
 
     def test_instance_returns_monitor_instance(self):
         """Test instance() returns correct MonitorInstance."""
-        instance = GenAIMonitor.instance("gpt-4", 1500)
+        instance = GenAIMonitor.create("gpt-4", 1500)
 
         assert isinstance(instance, MonitorInstance)
         assert instance.monitor_type == "gen_ai.client.operation.duration"
@@ -125,7 +125,7 @@ class TestGenAIMonitor:
         ]
 
         for tokens, expected_bucket in test_cases:
-            instance = GenAIMonitor.instance("claude-sonnet-3.5", tokens)
+            instance = GenAIMonitor.create("claude-sonnet-3.5", tokens)
             assert instance.labels["tokens"] == expected_bucket
 
 
@@ -134,7 +134,7 @@ class TestGenAITTFTMonitor:
 
     def test_instance_returns_monitor_instance(self):
         """Test instance() returns correct MonitorInstance."""
-        instance = GenAITTFTMonitor.instance("claude-opus-4")
+        instance = GenAITTFTMonitor.create("claude-opus-4")
 
         assert isinstance(instance, MonitorInstance)
         assert instance.monitor_type == "gen_ai.client.operation.ttft.duration"
@@ -160,7 +160,7 @@ class TestOperationMonitor:
 
     def test_instance_returns_monitor_instance(self):
         """Test instance() returns correct MonitorInstance."""
-        instance = OperationMonitor.instance(
+        instance = OperationMonitor.create(
             component_type="orchestrator",
             component_name="AgentOrchestrator",
             operation="execute"
@@ -221,7 +221,7 @@ class TestErrorParsers:
 
         error = HTTPError("Not found")
         result = RemoteRequestMonitor.parse_error(error)
-        assert result == "4xx_client_error"
+        assert result == "4xx_error"
 
     def test_remote_request_http_5xx_error(self):
         """Test RemoteRequestMonitor parses 5xx status codes."""
@@ -230,7 +230,7 @@ class TestErrorParsers:
 
         error = HTTPError("Service unavailable")
         result = RemoteRequestMonitor.parse_error(error)
-        assert result == "5xx_server_error"
+        assert result == "5xx_error"
 
     def test_remote_request_generic_error(self):
         """Test RemoteRequestMonitor returns class name for unknown errors."""
@@ -316,7 +316,7 @@ class TestErrorParsers:
 
         error = APIError("Too many requests")
         result = GenAIMonitor.parse_error(error)
-        assert result == "4xx_client_error"
+        assert result == "4xx_error"
 
     def test_operation_timeout_error(self):
         """Test OperationMonitor parses TimeoutError."""
@@ -367,4 +367,4 @@ class TestErrorParsers:
 
         error = HTTPError("Internal server error")
         result = GatewayMonitor.parse_error(error)
-        assert result == "5xx_server_error"
+        assert result == "5xx_error"

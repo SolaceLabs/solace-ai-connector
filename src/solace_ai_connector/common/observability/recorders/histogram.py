@@ -8,7 +8,6 @@ from .base import MetricRecorder
 
 logger = logging.getLogger(__name__)
 
-
 class HistogramRecorder(MetricRecorder):
     """
     Recorder for histogram metrics (duration distributions).
@@ -43,7 +42,6 @@ class HistogramRecorder(MetricRecorder):
                 k: v for k, v in labels.items()
                 if k not in self._excluded_labels
             }
-
             # Record to OpenTelemetry histogram
             self._histogram.record(value, attributes=filtered_labels)
 
