@@ -7,7 +7,7 @@ import json
 import sys
 import traceback
 import faulthandler
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 logger = logging.getLogger(__name__)
 
@@ -242,8 +242,10 @@ class ManagementHttpServer:
         ManagementRequestHandler.metrics_path = self.metrics_path
         ManagementRequestHandler.metric_registry = self.metric_registry
 
-        # Create HTTP server
-        self.httpd = HTTPServer(('', self.port), ManagementRequestHandler)
+        # Create HTTP server (ThreadingHTTPServer handles each request in a new thread,
+        # preventing GIL contention from blocking health check responses when agent
+        # threads are busy with LLM calls)
+        self.httpd = ThreadingHTTPServer(('', self.port), ManagementRequestHandler)
 
         # Start server in daemon thread
         self.server_thread = threading.Thread(
