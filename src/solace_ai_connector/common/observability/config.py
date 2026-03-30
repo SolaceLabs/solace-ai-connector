@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 # Default configurations for distribution metrics (histograms)
 DEFAULT_DISTRIBUTION_METRICS = {
     "outbound.request.duration": {
-        "buckets": [0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+        "buckets": [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
         "exclude_labels": []
     },
     "gen_ai.client.operation.duration": {
@@ -16,11 +16,11 @@ DEFAULT_DISTRIBUTION_METRICS = {
         "exclude_labels": ["tokens"]
     },
     "gen_ai.client.operation.ttft.duration": {
-        "buckets": [0.1, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0, 30.0],
+        "buckets": [0.1, 0.25, 0.5, 1.0, 3.0, 5.0, 10.0, 20.0, 30.0],
         "exclude_labels": []
     },
     "db.duration": {
-        "buckets": [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
+        "buckets": [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0],
         "exclude_labels": []
     },
     "gateway.duration": {
@@ -28,11 +28,11 @@ DEFAULT_DISTRIBUTION_METRICS = {
         "exclude_labels": []
     },
     "gateway.ttfb.duration": {
-        "buckets": [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+        "buckets": [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
         "exclude_labels": []
     },
     "operation.duration": {
-        "buckets": [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+        "buckets": [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120],
         "exclude_labels": []
     }
 }

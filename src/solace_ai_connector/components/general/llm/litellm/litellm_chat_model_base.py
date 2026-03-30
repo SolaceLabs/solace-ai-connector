@@ -9,6 +9,14 @@ from .litellm_base import LiteLLMBase
 from .litellm_base import litellm_info_base
 from .....common.message import Message
 from .....common.monitoring import Metrics
+from .....common.observability import (
+    MonitorLatency,
+    GenAIMonitor,
+    GenAITTFTMonitor,
+    GenAITokenMonitor,
+    GenAICostMonitor
+)
+from .....common.observability.registry import MetricRegistry
 
 log = logging.getLogger(__name__)
 
@@ -139,18 +147,37 @@ class LiteLLMChatModelBase(LiteLLMBase):
 
     def invoke_non_stream(self, messages):
         """invoke the model without streaming"""
+        # Get model name for observability
+        model_name = self.load_balancer_config[0]["model_name"]
+
+        # Create monitor instance
+        monitor = GenAIMonitor.create(model=model_name)
+
+        # Track start time for backward compatibility
+        start_time = time.perf_counter()
+
         try:
-            start_time = time.time()
-            response = self.load_balance(messages, stream=False)
+            # Track: gen_ai.client.operation.duration
+            with MonitorLatency(monitor):
+                response = self.load_balance(messages, stream=False)
 
-            end_time = time.time()
-            processing_time = round(end_time - start_time, 3)
-            log.debug("Completion processing time: %s seconds", processing_time)
+                # Extract token usage from API response (ground truth)
+                prompt_tokens = response.usage.prompt_tokens
+                completion_tokens = response.usage.completion_tokens
+                total_tokens = response.usage.total_tokens
 
-            # Extract token usage details
-            prompt_tokens = response.usage.prompt_tokens
-            completion_tokens = response.usage.completion_tokens
-            total_tokens = response.usage.total_tokens
+                # Update histogram label with actual prompt_tokens via typed method
+                monitor.set_prompt_tokens(prompt_tokens)
+
+            # Record token and cost counters
+            self._record_token_and_cost_metrics(
+                model_name,
+                prompt_tokens,
+                completion_tokens
+            )
+
+            # Calculate elapsed time for backward compatibility
+            processing_time = round(time.perf_counter() - start_time, 3)
             self.send_metrics(
                 prompt_tokens,
                 completion_tokens,
@@ -175,54 +202,86 @@ class LiteLLMChatModelBase(LiteLLMBase):
         aggregate_result = ""
         current_batch = ""
         first_chunk = True
+
+        # Get model name for observability
+        model_name = self.load_balancer_config[0]["model_name"]
+        gen_ai_monitor = GenAIMonitor.create(model=model_name)
+
+        ttft_latency = MonitorLatency(GenAITTFTMonitor.create(model=model_name))
+        ttft_recorded = False
+
+        # Keep original timing for backward compatibility        
         start_time = time.time()
-
         try:
-            response = self.load_balance(messages, stream=True)
+            # Track: gen_ai.client.operation.duration (for streaming)
+            with MonitorLatency(gen_ai_monitor):
+                ttft_latency.start()
+                response = self.load_balance(messages, stream=True)
 
-            for chunk in response:
-                if chunk.choices[0].delta.content is not None:
-                    content = chunk.choices[0].delta.content
-                    aggregate_result += content
-                    current_batch += content
-                    if len(current_batch.split()) >= self.stream_batch_size:
-                        if self.stream_to_flow:
-                            self.send_streaming_message(
-                                message,
-                                current_batch,
-                                aggregate_result,
-                                response_uuid,
-                                first_chunk,
-                                False,
-                            )
-                        elif self.stream_to_next_component:
-                            self.send_to_next_component(
-                                message,
-                                current_batch,
-                                aggregate_result,
-                                response_uuid,
-                                first_chunk,
-                                False,
-                            )
-                        current_batch = ""
-                        first_chunk = False
-                if hasattr(chunk, "usage"):
-                    end_time = time.time()
-                    processing_time = round(end_time - start_time, 3)
-                    log.debug("Completion processing time: %s seconds", processing_time)
+                for chunk in response:
+                    if chunk.choices[0].delta.content is not None:
+                        content = chunk.choices[0].delta.content
 
-                    # Extract token usage details
-                    prompt_tokens = chunk.usage.prompt_tokens
-                    completion_tokens = chunk.usage.completion_tokens
-                    total_tokens = chunk.usage.total_tokens
-                    self.send_metrics(
-                        prompt_tokens,
-                        completion_tokens,
-                        total_tokens,
-                        processing_time,
-                    )
+                        # Record TTFT on first content token
+                        if not ttft_recorded:
+                            ttft_latency.stop()  # Records gen_ai.client.operation.ttft.duration with error.type='none'
+                            ttft_recorded = True
+
+                        aggregate_result += content
+                        current_batch += content
+                        if len(current_batch.split()) >= self.stream_batch_size:
+                            if self.stream_to_flow:
+                                self.send_streaming_message(
+                                    message,
+                                    current_batch,
+                                    aggregate_result,
+                                    response_uuid,
+                                    first_chunk,
+                                    False,
+                                )
+                            elif self.stream_to_next_component:
+                                self.send_to_next_component(
+                                    message,
+                                    current_batch,
+                                    aggregate_result,
+                                    response_uuid,
+                                    first_chunk,
+                                    False,
+                                )
+                            current_batch = ""
+                            first_chunk = False
+                    if hasattr(chunk, "usage"):
+                        end_time = time.time()
+                        processing_time = round(end_time - start_time, 3)
+
+                        # Extract token usage details
+                        prompt_tokens = chunk.usage.prompt_tokens
+                        completion_tokens = chunk.usage.completion_tokens
+                        total_tokens = chunk.usage.total_tokens
+
+                        # update token labels
+                        gen_ai_monitor.set_prompt_tokens(prompt_tokens)
+
+                        # Record token and cost counters
+                        self._record_token_and_cost_metrics(
+                            model_name,
+                            prompt_tokens,
+                            completion_tokens
+                        )
+
+                        # Keep old monitoring for backward compatibility
+                        self.send_metrics(
+                            prompt_tokens,
+                            completion_tokens,
+                            total_tokens,
+                            processing_time,
+                        )
 
         except APIConnectionError as e:
+            if not ttft_recorded:
+                # Record TTFT with error if first token never arrived
+                ttft_latency.error(e)
+
             error_str = str(e)
             log.exception("Error invoking LiteLLM")
             return {
@@ -230,7 +289,11 @@ class LiteLLMChatModelBase(LiteLLMBase):
                 "response_uuid": response_uuid,
                 "handle_error": True,
             }
-        except Exception:
+        except Exception as e:
+            if not ttft_recorded:
+                # Record TTFT with error if first token never arrived
+                ttft_latency.error(e)
+
             log.exception("Error invoking LiteLLM")
             raise
 
@@ -370,3 +433,67 @@ class LiteLLMChatModelBase(LiteLLMBase):
             total_tokens,
             cost,
         )
+
+    def _record_token_and_cost_metrics(
+        self, model_name: str, prompt_tokens: int, completion_tokens: int
+    ):
+        """
+        Record token usage and cost counters to observability system.
+
+        Private method to avoid code duplication between streaming and non-streaming modes.
+
+        Args:
+            model_name: LLM model name
+            prompt_tokens: Number of input tokens
+            completion_tokens: Number of output tokens
+        """
+        try:
+            # Get component and owner identifiers
+            # For connector flows: component.name = flow_name (or instance_name as fallback)
+            # owner.id = user_properties.userId if available, otherwise "none"
+            component_name = self.flow_name or self.instance_name
+            owner_id = "none"
+            if self.current_message:
+                user_properties = self.current_message.get_user_properties()
+                if user_properties:
+                    owner_id = user_properties.get("userId", "none")
+
+            # Get registry
+            registry = MetricRegistry.get_instance()
+
+            # Record input tokens
+            input_monitor = GenAITokenMonitor.create(
+                model=model_name,
+                component_name=component_name,
+                owner_id=owner_id,
+                token_type="input"
+            )
+            registry.record_counter_from_monitor(input_monitor, prompt_tokens)
+
+            # Record output tokens
+            output_monitor = GenAITokenMonitor.create(
+                model=model_name,
+                component_name=component_name,
+                owner_id=owner_id,
+                token_type="output"
+            )
+            registry.record_counter_from_monitor(output_monitor, completion_tokens)
+
+            # Calculate and record cost
+            prompt_cost, completion_cost = cost_per_token(
+                model=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens
+            )
+            total_cost = prompt_cost + completion_cost
+
+            cost_monitor = GenAICostMonitor.create(
+                model=model_name,
+                component_name=component_name,
+                owner_id=owner_id
+            )
+            registry.record_counter_from_monitor(cost_monitor, total_cost)
+
+        except Exception as e:
+            # Don't fail LLM calls if observability fails
+            log.warning(f"Failed to record token/cost metrics: {e}")
