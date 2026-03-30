@@ -147,29 +147,20 @@ class LiteLLMChatModelBase(LiteLLMBase):
 
     def invoke_non_stream(self, messages):
         """invoke the model without streaming"""
-        # Get model name for observability
         model_name = self.load_balancer_config[0]["model_name"]
-
-        # Create monitor instance
         monitor = GenAIMonitor.create(model=model_name)
-
-        # Track start time for backward compatibility
         start_time = time.perf_counter()
 
         try:
-            # Track: gen_ai.client.operation.duration
             with MonitorLatency(monitor):
                 response = self.load_balance(messages, stream=False)
 
-                # Extract token usage from API response (ground truth)
                 prompt_tokens = response.usage.prompt_tokens
                 completion_tokens = response.usage.completion_tokens
                 total_tokens = response.usage.total_tokens
 
-                # Update histogram label with actual prompt_tokens via typed method
                 monitor.set_prompt_tokens(prompt_tokens)
 
-            # Record token and cost counters
             self._record_token_and_cost_metrics(
                 model_name,
                 prompt_tokens,
@@ -189,7 +180,7 @@ class LiteLLMChatModelBase(LiteLLMBase):
             error_str = str(e)
             log.exception("Error invoking LiteLLM")
             return {"content": error_str, "handle_error": True}
-        except Exception:
+        except Exception as e:
             log.exception("Error invoking LiteLLM")
             raise
 
@@ -203,17 +194,14 @@ class LiteLLMChatModelBase(LiteLLMBase):
         current_batch = ""
         first_chunk = True
 
-        # Get model name for observability
         model_name = self.load_balancer_config[0]["model_name"]
         gen_ai_monitor = GenAIMonitor.create(model=model_name)
 
         ttft_latency = MonitorLatency(GenAITTFTMonitor.create(model=model_name))
         ttft_recorded = False
 
-        # Keep original timing for backward compatibility        
-        start_time = time.time()
+        start_time = time.perf_counter()
         try:
-            # Track: gen_ai.client.operation.duration (for streaming)
             with MonitorLatency(gen_ai_monitor):
                 ttft_latency.start()
                 response = self.load_balance(messages, stream=True)
@@ -222,9 +210,8 @@ class LiteLLMChatModelBase(LiteLLMBase):
                     if chunk.choices[0].delta.content is not None:
                         content = chunk.choices[0].delta.content
 
-                        # Record TTFT on first content token
                         if not ttft_recorded:
-                            ttft_latency.stop()  # Records gen_ai.client.operation.ttft.duration with error.type='none'
+                            ttft_latency.stop()
                             ttft_recorded = True
 
                         aggregate_result += content
@@ -251,25 +238,21 @@ class LiteLLMChatModelBase(LiteLLMBase):
                             current_batch = ""
                             first_chunk = False
                     if hasattr(chunk, "usage"):
-                        end_time = time.time()
+                        end_time = time.perf_counter()
                         processing_time = round(end_time - start_time, 3)
 
-                        # Extract token usage details
                         prompt_tokens = chunk.usage.prompt_tokens
                         completion_tokens = chunk.usage.completion_tokens
                         total_tokens = chunk.usage.total_tokens
 
-                        # update token labels
                         gen_ai_monitor.set_prompt_tokens(prompt_tokens)
 
-                        # Record token and cost counters
                         self._record_token_and_cost_metrics(
                             model_name,
                             prompt_tokens,
                             completion_tokens
                         )
 
-                        # Keep old monitoring for backward compatibility
                         self.send_metrics(
                             prompt_tokens,
                             completion_tokens,
@@ -279,7 +262,6 @@ class LiteLLMChatModelBase(LiteLLMBase):
 
         except APIConnectionError as e:
             if not ttft_recorded:
-                # Record TTFT with error if first token never arrived
                 ttft_latency.error(e)
 
             error_str = str(e)
@@ -291,14 +273,12 @@ class LiteLLMChatModelBase(LiteLLMBase):
             }
         except Exception as e:
             if not ttft_recorded:
-                # Record TTFT with error if first token never arrived
                 ttft_latency.error(e)
 
             log.exception("Error invoking LiteLLM")
             raise
 
         if self.stream_to_next_component:
-            # Just return the last chunk
             return {
                 "content": aggregate_result,
                 "chunk": current_batch,
@@ -458,10 +438,8 @@ class LiteLLMChatModelBase(LiteLLMBase):
                 if user_properties:
                     owner_id = user_properties.get("userId", "none")
 
-            # Get registry
             registry = MetricRegistry.get_instance()
 
-            # Record input tokens
             input_monitor = GenAITokenMonitor.create(
                 model=model_name,
                 component_name=component_name,
@@ -470,7 +448,6 @@ class LiteLLMChatModelBase(LiteLLMBase):
             )
             registry.record_counter_from_monitor(input_monitor, prompt_tokens)
 
-            # Record output tokens
             output_monitor = GenAITokenMonitor.create(
                 model=model_name,
                 component_name=component_name,
@@ -479,7 +456,6 @@ class LiteLLMChatModelBase(LiteLLMBase):
             )
             registry.record_counter_from_monitor(output_monitor, completion_tokens)
 
-            # Calculate and record cost
             prompt_cost, completion_cost = cost_per_token(
                 model=model_name,
                 prompt_tokens=prompt_tokens,
@@ -496,4 +472,4 @@ class LiteLLMChatModelBase(LiteLLMBase):
 
         except Exception as e:
             # Don't fail LLM calls if observability fails
-            log.warning(f"Failed to record token/cost metrics: {e}")
+            log.warning("Failed to record token/cost metrics: %s", e)

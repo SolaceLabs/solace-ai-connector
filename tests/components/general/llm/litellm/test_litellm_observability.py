@@ -311,6 +311,406 @@ class TestLiteLLMStreamingObservability:
                     assert mock_cost_counter.add.call_args[0][0] == 0.04  # 0.01 + 0.03
 
 
+class TestLiteLLMHistogramRecording:
+    """Test histogram recording for GenAI operation duration."""
+
+    def test_histogram_records_latency_for_non_streaming(self, valid_load_balancer_config):
+        """Test that gen_ai.client.operation.duration histogram records latency."""
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics',
+                    'distribution_metrics': {
+                        'gen_ai.client.operation.duration': {
+                            'exclude_labels': []
+                        }
+                    }
+                }
+            }
+        }
+        MetricRegistry.reset()
+        registry = MetricRegistry(config)
+
+        with patch(
+            "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+        ):
+            mock_response = MagicMock()
+            mock_response.choices[0].message.content = "Response"
+            mock_response.usage.prompt_tokens = 100
+            mock_response.usage.completion_tokens = 50
+            mock_response.usage.total_tokens = 150
+
+            with patch.object(LiteLLMChatModelBase, "load_balance") as mock_load_balance:
+                mock_load_balance.return_value = mock_response
+
+                with patch("solace_ai_connector.components.general.llm.litellm.litellm_chat_model_base.cost_per_token") as mock_cost:
+                    mock_cost.return_value = (0.01, 0.02)
+
+                    component = LiteLLMChatModelBase(
+                        info=litellm_chat_info_base,
+                        config={"load_balancer": valid_load_balancer_config},
+                        instance_name="TestAgent",
+                        flow_name="TestAgent"
+                    )
+                    component.load_balancer_config = valid_load_balancer_config
+                    component.send_metrics = MagicMock()
+
+                    # Mock histogram recorder
+                    duration_recorder = registry.duration_recorders.get('gen_ai.client.operation.duration')
+                    assert duration_recorder is not None, "Histogram recorder should exist"
+
+                    mock_histogram = Mock()
+                    duration_recorder._histogram = mock_histogram
+
+                    messages = [{"role": "user", "content": "Test"}]
+                    component.invoke_non_stream(messages)
+
+                    # Verify histogram.record was called
+                    mock_histogram.record.assert_called_once()
+                    call_args = mock_histogram.record.call_args
+
+                    # Verify duration was recorded (should be > 0)
+                    duration = call_args[0][0]
+                    assert duration >= 0, "Duration should be non-negative"
+
+                    # Verify labels include model and error.type='none'
+                    labels = call_args[1]['attributes']
+                    assert labels['gen_ai.request.model'] == 'test-model'
+                    assert labels['error.type'] == 'none'
+
+    def test_histogram_records_error_type_on_exception(self, valid_load_balancer_config):
+        """Test that histogram records error.type when exception occurs."""
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics',
+                    'distribution_metrics': {
+                        'gen_ai.client.operation.duration': {
+                            'exclude_labels': []
+                        }
+                    }
+                }
+            }
+        }
+        MetricRegistry.reset()
+        registry = MetricRegistry(config)
+
+        with patch(
+            "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+        ):
+            with patch.object(LiteLLMChatModelBase, "load_balance") as mock_load_balance:
+                # Simulate an error
+                mock_load_balance.side_effect = TimeoutError("LLM timeout")
+
+                component = LiteLLMChatModelBase(
+                    info=litellm_chat_info_base,
+                    config={"load_balancer": valid_load_balancer_config},
+                    instance_name="TestAgent",
+                    flow_name="TestAgent"
+                )
+                component.load_balancer_config = valid_load_balancer_config
+                component.send_metrics = MagicMock()
+
+                # Mock histogram recorder
+                duration_recorder = registry.duration_recorders.get('gen_ai.client.operation.duration')
+                mock_histogram = Mock()
+                duration_recorder._histogram = mock_histogram
+
+                messages = [{"role": "user", "content": "Test"}]
+
+                # Should raise but still record histogram
+                with pytest.raises(TimeoutError):
+                    component.invoke_non_stream(messages)
+
+                # Verify histogram recorded with error.type='timeout'
+                mock_histogram.record.assert_called_once()
+                labels = mock_histogram.record.call_args[1]['attributes']
+                assert labels['error.type'] == 'timeout'
+
+
+class TestLiteLLMTokenBucketization:
+    """Test token bucketization in histogram labels."""
+
+    @pytest.mark.parametrize("token_count,expected_bucket", [
+        (100, "1000"),
+        (1000, "1000"),
+        (1001, "5000"),
+        (5000, "5000"),
+        (5001, "10000"),
+        (10000, "10000"),
+        (10001, "50000"),
+        (50000, "50000"),
+        (50001, "100000"),
+        (100000, "100000"),
+        (100001, "200000"),
+        (500000, "200000"),
+    ])
+    def test_token_bucketization_in_histogram_labels(self, valid_load_balancer_config, token_count, expected_bucket):
+        """Test that monitor.set_prompt_tokens() bucketizes correctly in histogram labels."""
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics',
+                    'distribution_metrics': {
+                        'gen_ai.client.operation.duration': {
+                            'exclude_labels': []
+                        }
+                    }
+                }
+            }
+        }
+        MetricRegistry.reset()
+        registry = MetricRegistry(config)
+
+        with patch(
+            "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+        ):
+            mock_response = MagicMock()
+            mock_response.choices[0].message.content = "Response"
+            mock_response.usage.prompt_tokens = token_count
+            mock_response.usage.completion_tokens = 50
+            mock_response.usage.total_tokens = token_count + 50
+
+            with patch.object(LiteLLMChatModelBase, "load_balance") as mock_load_balance:
+                mock_load_balance.return_value = mock_response
+
+                with patch("solace_ai_connector.components.general.llm.litellm.litellm_chat_model_base.cost_per_token") as mock_cost:
+                    mock_cost.return_value = (0.01, 0.02)
+
+                    component = LiteLLMChatModelBase(
+                        info=litellm_chat_info_base,
+                        config={"load_balancer": valid_load_balancer_config},
+                        instance_name="TestAgent",
+                        flow_name="TestAgent"
+                    )
+                    component.load_balancer_config = valid_load_balancer_config
+                    component.send_metrics = MagicMock()
+
+                    # Mock histogram recorder
+                    duration_recorder = registry.duration_recorders.get('gen_ai.client.operation.duration')
+                    mock_histogram = Mock()
+                    duration_recorder._histogram = mock_histogram
+
+                    messages = [{"role": "user", "content": "Test"}]
+                    component.invoke_non_stream(messages)
+
+                    # Verify tokens label has correct bucket
+                    labels = mock_histogram.record.call_args[1]['attributes']
+                    assert labels['tokens'] == expected_bucket, f"Expected bucket {expected_bucket} for {token_count} tokens"
+
+
+class TestLiteLLMTTFTRecording:
+    """Test Time-To-First-Token (TTFT) histogram recording."""
+
+    def test_ttft_recorded_on_successful_stream(self, valid_load_balancer_config):
+        """Test that gen_ai.client.operation.ttft.duration histogram is recorded in streaming mode."""
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics',
+                    'distribution_metrics': {
+                        'gen_ai.client.operation.duration': {
+                            'exclude_labels': []
+                        },
+                        'gen_ai.client.operation.ttft.duration': {
+                            'exclude_labels': []
+                        }
+                    }
+                }
+            }
+        }
+        MetricRegistry.reset()
+        registry = MetricRegistry(config)
+
+        with patch(
+            "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+        ):
+            # Create streaming response chunks
+            chunk1 = MagicMock()
+            chunk1.choices[0].delta.content = "First"
+            delattr(chunk1, 'usage')
+
+            chunk2 = MagicMock()
+            chunk2.choices[0].delta.content = " token"
+            delattr(chunk2, 'usage')
+
+            chunk3 = MagicMock()
+            chunk3.choices[0].delta.content = None
+            chunk3.usage.prompt_tokens = 100
+            chunk3.usage.completion_tokens = 20
+            chunk3.usage.total_tokens = 120
+
+            mock_response = iter([chunk1, chunk2, chunk3])
+
+            with patch.object(LiteLLMChatModelBase, "load_balance") as mock_load_balance:
+                mock_load_balance.return_value = mock_response
+
+                with patch("solace_ai_connector.components.general.llm.litellm.litellm_chat_model_base.cost_per_token") as mock_cost:
+                    mock_cost.return_value = (0.01, 0.02)
+
+                    component = LiteLLMChatModelBase(
+                        info=litellm_chat_info_base,
+                        config={"load_balancer": valid_load_balancer_config},
+                        instance_name="StreamAgent",
+                        flow_name="StreamAgent"
+                    )
+                    component.load_balancer_config = valid_load_balancer_config
+                    component.send_metrics = MagicMock()
+                    component.stream_to_next_component = True
+                    component.stream_batch_size = 15
+
+                    # Mock TTFT histogram recorder
+                    ttft_recorder = registry.duration_recorders.get('gen_ai.client.operation.ttft.duration')
+                    assert ttft_recorder is not None, "TTFT histogram recorder should exist"
+
+                    mock_ttft_histogram = Mock()
+                    ttft_recorder._histogram = mock_ttft_histogram
+
+                    test_message = Message(payload={"text": "test"})
+
+                    messages = [{"role": "user", "content": "Test"}]
+                    component.invoke_stream(test_message, messages)
+
+                    # Verify TTFT histogram was recorded
+                    mock_ttft_histogram.record.assert_called_once()
+                    call_args = mock_ttft_histogram.record.call_args
+
+                    # Verify duration was recorded
+                    duration = call_args[0][0]
+                    assert duration >= 0
+
+                    # Verify labels include model and error.type='none' (success)
+                    labels = call_args[1]['attributes']
+                    assert labels['gen_ai.request.model'] == 'test-model'
+                    assert labels['error.type'] == 'none'
+
+    def test_ttft_error_recorded_when_stream_fails_before_first_token(self, valid_load_balancer_config):
+        """Test TTFT error recording when stream fails before first token arrives."""
+        from litellm import APIConnectionError
+
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics',
+                    'distribution_metrics': {
+                        'gen_ai.client.operation.ttft.duration': {
+                            'exclude_labels': []
+                        }
+                    }
+                }
+            }
+        }
+        MetricRegistry.reset()
+        registry = MetricRegistry(config)
+
+        with patch(
+            "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+        ):
+            # Create generator that raises error before yielding first content token
+            def error_generator():
+                raise APIConnectionError(
+                    "Connection failed",
+                    llm_provider="test",
+                    model="test-model"
+                )
+                yield  # Never reached
+
+            with patch.object(LiteLLMChatModelBase, "load_balance") as mock_load_balance:
+                mock_load_balance.return_value = error_generator()
+
+                component = LiteLLMChatModelBase(
+                    info=litellm_chat_info_base,
+                    config={"load_balancer": valid_load_balancer_config},
+                    instance_name="StreamAgent",
+                    flow_name="StreamAgent"
+                )
+                component.load_balancer_config = valid_load_balancer_config
+                component.send_metrics = MagicMock()
+                component.stream_to_next_component = True
+
+                # Mock TTFT histogram recorder
+                ttft_recorder = registry.duration_recorders.get('gen_ai.client.operation.ttft.duration')
+                mock_ttft_histogram = Mock()
+                ttft_recorder._histogram = mock_ttft_histogram
+
+                test_message = Message(payload={"text": "test"})
+
+                messages = [{"role": "user", "content": "Test"}]
+                result = component.invoke_stream(test_message, messages)
+
+                # Should return error result (not raise)
+                assert result['handle_error'] is True
+
+                # Verify TTFT histogram was recorded with error
+                mock_ttft_histogram.record.assert_called_once()
+                labels = mock_ttft_histogram.record.call_args[1]['attributes']
+
+                # Error type should be set (not 'none')
+                assert labels['error.type'] != 'none'
+                assert labels['gen_ai.request.model'] == 'test-model'
+
+    def test_ttft_error_recorded_on_generic_exception_before_first_token(self, valid_load_balancer_config):
+        """Test TTFT error recording for generic exception before first token."""
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics',
+                    'distribution_metrics': {
+                        'gen_ai.client.operation.ttft.duration': {
+                            'exclude_labels': []
+                        }
+                    }
+                }
+            }
+        }
+        MetricRegistry.reset()
+        registry = MetricRegistry(config)
+
+        with patch(
+            "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
+        ):
+            def error_generator():
+                raise ValueError("Unexpected error")
+                yield
+
+            with patch.object(LiteLLMChatModelBase, "load_balance") as mock_load_balance:
+                mock_load_balance.return_value = error_generator()
+
+                component = LiteLLMChatModelBase(
+                    info=litellm_chat_info_base,
+                    config={"load_balancer": valid_load_balancer_config},
+                    instance_name="StreamAgent",
+                    flow_name="StreamAgent"
+                )
+                component.load_balancer_config = valid_load_balancer_config
+                component.send_metrics = MagicMock()
+                component.stream_to_next_component = True
+
+                # Mock TTFT histogram recorder
+                ttft_recorder = registry.duration_recorders.get('gen_ai.client.operation.ttft.duration')
+                mock_ttft_histogram = Mock()
+                ttft_recorder._histogram = mock_ttft_histogram
+
+                test_message = Message(payload={"text": "test"})
+
+                messages = [{"role": "user", "content": "Test"}]
+
+                # Generic exception should propagate
+                with pytest.raises(ValueError):
+                    component.invoke_stream(test_message, messages)
+
+                # Verify TTFT histogram was recorded with error
+                mock_ttft_histogram.record.assert_called_once()
+                labels = mock_ttft_histogram.record.call_args[1]['attributes']
+                assert labels['error.type'] == 'ValueError'
+
+
 class TestLiteLLMLabelFiltering:
     """Test label filtering behavior in LiteLLM integration."""
 

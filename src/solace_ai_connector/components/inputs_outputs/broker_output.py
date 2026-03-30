@@ -114,7 +114,7 @@ class BrokerOutput(BrokerBase):
 
         if (trace_logger.isEnabledFor(logging.DEBUG)):
             # This is a heavy log
-            trace_logger.debug(f"[{__name__}] Sending message to broker: {payload}")
+            trace_logger.debug("[%s] Sending message to broker: %s", __name__, payload)
         else:
             log.debug("Sending message to broker.")
 
