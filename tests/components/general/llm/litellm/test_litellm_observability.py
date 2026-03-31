@@ -33,7 +33,7 @@ class TestLiteLLMNonStreamingObservability:
             }
         }
         MetricRegistry.reset()  # Clear any previous instance
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -127,7 +127,7 @@ class TestLiteLLMNonStreamingObservability:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -178,7 +178,7 @@ class TestLiteLLMNonStreamingObservability:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -234,7 +234,7 @@ class TestLiteLLMStreamingObservability:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -330,7 +330,7 @@ class TestLiteLLMHistogramRecording:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -395,7 +395,7 @@ class TestLiteLLMHistogramRecording:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -463,7 +463,7 @@ class TestLiteLLMTokenBucketization:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -524,7 +524,7 @@ class TestLiteLLMTTFTRecording:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -606,7 +606,7 @@ class TestLiteLLMTTFTRecording:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -670,7 +670,7 @@ class TestLiteLLMTTFTRecording:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -727,7 +727,7 @@ class TestLiteLLMLabelFiltering:
             }
         }
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
@@ -778,7 +778,7 @@ class TestLiteLLMLabelFiltering:
         """Test that no metrics are recorded when observability is disabled."""
         config = {}  # No observability config = disabled
         MetricRegistry.reset()
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         with patch(
             "solace_ai_connector.components.general.llm.litellm.litellm_base.litellm.Router"
