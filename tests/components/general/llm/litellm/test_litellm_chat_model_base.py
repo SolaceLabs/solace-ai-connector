@@ -252,6 +252,9 @@ class TestLiteLLMChatModelBaseInvokeNonStream:
                     config={"load_balancer": valid_load_balancer_config},
                 )
 
+                # Set load_balancer_config manually (normally set by init_load_balancer)
+                component.load_balancer_config = valid_load_balancer_config
+
                 # Mock send_metrics to avoid side effects
                 component.send_metrics = MagicMock()
 
@@ -287,6 +290,9 @@ class TestLiteLLMChatModelBaseInvokeNonStream:
                     info=litellm_chat_info_base,
                     config={"load_balancer": valid_load_balancer_config},
                 )
+
+                # Set load_balancer_config manually (normally set by init_load_balancer)
+                component.load_balancer_config = valid_load_balancer_config
 
                 messages = [{"role": "user", "content": "Hello"}]
                 result = component.invoke_non_stream(messages)

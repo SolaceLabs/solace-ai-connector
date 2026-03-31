@@ -4,6 +4,7 @@ from .broker_base import BrokerBase
 from .broker_base import base_info
 from ...common.utils import deep_merge
 from ...common.message import Message
+from ...common.observability import MonitorLatency, BrokerMonitor
 
 log = logging.getLogger(__name__)
 trace_logger = logging.getLogger("sam_trace")
@@ -113,22 +114,23 @@ class BrokerOutput(BrokerBase):
 
         if (trace_logger.isEnabledFor(logging.DEBUG)):
             # This is a heavy log
-            trace_logger.debug(f"[{__name__}] Sending message to broker: {payload}")
+            trace_logger.debug("[%s] Sending message to broker: %s", __name__, payload)
         else:
             log.debug("Sending message to broker.")
 
-        user_context = None
-        if self.propagate_acknowledgements:
-            user_context = {
-                "message": message,
-                "callback": self.handle_message_ack_from_broker,
-            }
-        self.messaging_service.send_message(
-            payload=payload,
-            destination_name=topic,
-            user_properties=user_properties,
-            user_context=user_context,
-        )
+        with MonitorLatency(BrokerMonitor.publish()):
+            user_context = None
+            if self.propagate_acknowledgements:
+                user_context = {
+                    "message": message,
+                    "callback": self.handle_message_ack_from_broker,
+                }
+            self.messaging_service.send_message(
+                payload=payload,
+                destination_name=topic,
+                user_properties=user_properties,
+                user_context=user_context,
+            )
 
     def handle_message_ack_from_broker(self, context):
         message = context.get("message")

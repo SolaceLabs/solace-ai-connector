@@ -215,7 +215,7 @@ class TestDefaultSystemMetrics:
         assert full_name == 'outbound.request.duration'
 
 
-class TestSystemMetricsOverride:
+class TestDistributedMetricsOverride:
     """Test system: config overrides and label filtering."""
 
     def test_custom_buckets_override_defaults(self):

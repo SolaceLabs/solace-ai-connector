@@ -25,7 +25,20 @@ class MetricRegistry:
     def __init__(self, config: dict):
         """Initialize registry with configuration."""
         if MetricRegistry._instance is not None:
-            raise RuntimeError("MetricRegistry already initialized. Use get_instance().")
+            # In tests, allow re-initialization if config is identical (idempotent)
+            # Otherwise, require explicit reset first to prevent conflicting configs
+            existing_config = MetricRegistry._instance.obs_config
+            new_config = load_observability_config(config)
+
+            if existing_config == new_config:
+                # Idempotent initialization - return existing instance
+                logger.debug("MetricRegistry already initialized with same config")
+                return
+            else:
+                raise RuntimeError(
+                    "MetricRegistry already initialized with different config. "
+                    "Call MetricRegistry.reset() first."
+                )
 
         # Load observability config
         self.obs_config = load_observability_config(config)
