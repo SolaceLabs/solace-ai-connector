@@ -293,15 +293,16 @@ class TestObservabilityWithoutExplicitInitialization:
         assert instance1 is instance2
 
     def test_explicit_initialization_after_auto_init(self):
-        """Test explicit initialization works after auto-initialization."""
+        """Test explicit initialization overrides auto-initialization."""
         MetricRegistry.reset()
 
-        # Auto-initialize (disabled)
+        # Step 1: Instrumented code calls get_instance() early (auto-init)
         auto_instance = MetricRegistry.get_instance()
         assert auto_instance.enabled is False
+        assert auto_instance._explicitly_initialized is False
 
-        # Reset and explicitly initialize with enabled
-        MetricRegistry.reset()
+        # Step 2: Application startup calls initialize() with real config
+        # This should OVERRIDE the auto-initialized instance (not raise)
         config = {
             'management_server': {
                 'observability': {
@@ -311,5 +312,153 @@ class TestObservabilityWithoutExplicitInitialization:
         }
         explicit_instance = MetricRegistry.initialize(config)
 
+        # Should have created a NEW instance with enabled observability
         assert explicit_instance.enabled is True
+        assert explicit_instance._explicitly_initialized is True
         assert explicit_instance is not auto_instance
+
+        # Subsequent get_instance() calls should return the explicit instance
+        assert MetricRegistry.get_instance() is explicit_instance
+
+    def test_initialize_does_not_override_explicit_init(self):
+        """Test that initialize() raises when trying to override explicit initialization."""
+        MetricRegistry.reset()
+
+        # Explicitly initialize with config A
+        config_a = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'metric_prefix': 'app_a'
+                }
+            }
+        }
+        instance_a = MetricRegistry.initialize(config_a)
+        assert instance_a._explicitly_initialized is True
+
+        # Try to initialize with different config B - should raise
+        config_b = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'metric_prefix': 'app_b'  # Different!
+                }
+            }
+        }
+
+        with pytest.raises(RuntimeError, match="already initialized with different config"):
+            MetricRegistry.initialize(config_b)
+
+    def test_thread_safety_get_instance(self):
+        """Test get_instance() is thread-safe - no duplicate instances."""
+        import threading
+
+        MetricRegistry.reset()
+
+        instances = []
+        errors = []
+
+        def get_instance_in_thread():
+            try:
+                instance = MetricRegistry.get_instance()
+                instances.append(instance)
+            except Exception as e:
+                errors.append(e)
+
+        # Launch 10 threads simultaneously
+        threads = [threading.Thread(target=get_instance_in_thread) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # No errors should occur
+        assert len(errors) == 0
+
+        # All threads should get the SAME instance
+        assert len(instances) == 10
+        first_instance = instances[0]
+        assert all(inst is first_instance for inst in instances)
+
+    def test_thread_safety_initialize(self):
+        """Test initialize() is thread-safe - no duplicate instances."""
+        import threading
+
+        MetricRegistry.reset()
+
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True
+                }
+            }
+        }
+
+        instances = []
+        errors = []
+
+        def initialize_in_thread():
+            try:
+                instance = MetricRegistry.initialize(config)
+                instances.append(instance)
+            except Exception as e:
+                errors.append(e)
+
+        # Launch 10 threads simultaneously
+        threads = [threading.Thread(target=initialize_in_thread) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # No errors should occur
+        assert len(errors) == 0
+
+        # All threads should get the SAME instance
+        assert len(instances) == 10
+        first_instance = instances[0]
+        assert all(inst is first_instance for inst in instances)
+
+    def test_thread_safety_mixed_get_and_initialize(self):
+        """Test mixed get_instance() and initialize() calls are thread-safe."""
+        import threading
+        import random
+
+        MetricRegistry.reset()
+
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True
+                }
+            }
+        }
+
+        instances = []
+        errors = []
+
+        def random_access():
+            try:
+                # Randomly call get_instance() or initialize()
+                if random.choice([True, False]):
+                    instance = MetricRegistry.get_instance()
+                else:
+                    instance = MetricRegistry.initialize(config)
+                instances.append(instance)
+            except Exception as e:
+                errors.append(e)
+
+        # Launch 20 threads with mixed calls
+        threads = [threading.Thread(target=random_access) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # No errors should occur
+        assert len(errors) == 0
+
+        # All should eventually get same explicitly initialized instance
+        final_instance = MetricRegistry.get_instance()
+        assert final_instance._explicitly_initialized is True
+        assert final_instance.enabled is True

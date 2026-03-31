@@ -28,4 +28,7 @@ class NoOpObservableGauge:
     Mimics OpenTelemetry ObservableGauge interface but does nothing.
     Allows consistent Null Object pattern across all metric creation methods.
     """
-    pass  # Observable gauges are callback-based - no methods to implement
+
+    def close(self):
+        """Unregister callbacks (no-op when observability disabled)."""
+        pass

@@ -2,6 +2,7 @@
 
 from typing import Optional, Dict, List, Callable
 import logging
+import threading
 from opentelemetry import metrics
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.view import View, ExplicitBucketHistogramAggregation
@@ -18,17 +19,17 @@ logger = logging.getLogger(__name__)
 class MetricRegistry:
     """
     Singleton registry for metrics collection.
+    Thread-safe singleton with defensive auto-initialization.
     """
-
     _instance: Optional['MetricRegistry'] = None
+    _lock = threading.Lock()
 
     def __init__(self, config: dict):
         """
-        Private constructor - do not call directly.
-
         Use MetricRegistry.initialize(config) for explicit initialization.
         Use MetricRegistry.get_instance() to retrieve singleton.
         """
+        self._explicitly_initialized = False
         # Load observability config
         self.obs_config = load_observability_config(config)
 
@@ -67,36 +68,43 @@ class MetricRegistry:
     def initialize(cls, config: dict) -> 'MetricRegistry':
         """
         Initialize MetricRegistry singleton with configuration.
-
         Call this once at application startup.
-
         Args:
             config: Full application configuration dict
-
         Returns:
             MetricRegistry singleton instance
-
         Raises:
-            RuntimeError: If already initialized with different config
+            RuntimeError: If already explicitly initialized with different config
+        Note:
+            Thread-safe singleton initialization.
+            Will override auto-initialized instances (from get_instance()).
+            This ensures explicit initialization always wins regardless of call order.
         """
-        if cls._instance is not None:
-            # In tests, allow re-initialization if config is identical (idempotent)
-            # Otherwise, require explicit reset first to prevent conflicting configs
-            existing_config = cls._instance.obs_config
-            new_config = load_observability_config(config)
+        with cls._lock:
+            if cls._instance is not None:
+                # Allow override if instance was auto-initialized (not explicit)
+                if not cls._instance._explicitly_initialized:
+                    logger.debug("Overriding auto-initialized instance with explicit config")
+                    cls._instance = cls(config)
+                    cls._instance._explicitly_initialized = True
+                    return cls._instance
 
-            if existing_config == new_config:
-                # Idempotent initialization - return existing instance
-                logger.debug("MetricRegistry already initialized with same config")
-                return cls._instance
-            else:
-                raise RuntimeError(
-                    "MetricRegistry already initialized with different config. "
-                    "Call MetricRegistry.reset() first."
-                )
+                # Instance was explicitly initialized - check for config conflicts
+                existing_config = cls._instance.obs_config
+                new_config = load_observability_config(config)
 
-        cls._instance = cls(config)
-        return cls._instance
+                if existing_config == new_config:
+                    # Idempotent initialization - return existing instance
+                    logger.debug("MetricRegistry already initialized with same config")
+                    return cls._instance
+                else:
+                    raise RuntimeError(
+                        "MetricRegistry already initialized with different config. "
+                        "Call MetricRegistry.reset() first."
+                    )
+            cls._instance = cls(config)
+            cls._instance._explicitly_initialized = True
+            return cls._instance
 
     @classmethod
     def get_instance(cls) -> 'MetricRegistry':
@@ -111,17 +119,22 @@ class MetricRegistry:
 
         Note:
             NEVER raises - always returns a valid instance.
+            Auto-initialized instances can be overridden by subsequent initialize() calls.
             For explicit initialization, use MetricRegistry.initialize(config) instead.
         """
         if cls._instance is None:
-            logger.debug("MetricRegistry not initialized - auto-initializing with observability disabled")
-            cls._instance = cls({})  # Empty config = disabled observability
+            with cls._lock:
+                if cls._instance is None:
+                    logger.debug("MetricRegistry not initialized - auto-initializing with observability disabled")
+                    cls._instance = cls({})  # Empty config = disabled observability
+                    cls._instance._explicitly_initialized = False  # Mark as auto-initialized
         return cls._instance
 
     @classmethod
     def reset(cls):
         """Reset singleton (for testing)."""
-        cls._instance = None
+        with cls._lock:
+            cls._instance = None
 
     def _prepare_metric_configs(self) -> Dict:
         """Merge user config with defaults for distribution metrics (histograms)."""
