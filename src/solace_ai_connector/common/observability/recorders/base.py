@@ -19,3 +19,16 @@ class NoOpRecorder(MetricRecorder):
     def record(self, value: Any, labels: Dict[str, str]):
         """Record a metric value with labels (no-op)."""
         pass
+
+
+class NoOpObservableGauge:
+    """
+    Silent no-op observable gauge returned when observability is disabled.
+
+    Mimics OpenTelemetry ObservableGauge interface but does nothing.
+    Allows consistent Null Object pattern across all metric creation methods.
+    """
+
+    def close(self):
+        """Unregister callbacks (no-op when observability disabled)."""
+        pass

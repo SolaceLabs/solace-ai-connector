@@ -22,7 +22,7 @@ def initialize_metric_registry():
     """Initialize MetricRegistry before each test and reset after."""
     # Initialize with observability disabled for tests (avoid side effects)
     config = {}
-    MetricRegistry(config)
+    MetricRegistry.initialize(config)
 
     yield
 
