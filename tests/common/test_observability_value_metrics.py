@@ -30,7 +30,7 @@ class TestBuiltInValueMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         assert 'gen_ai.tokens.used' in registry._value_recorders
         assert 'gen_ai.cost.total' in registry._value_recorders
@@ -47,7 +47,7 @@ class TestBuiltInValueMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         token_recorder = registry._value_recorders['gen_ai.tokens.used']
         assert 'owner.id' in token_recorder._excluded_labels
         cost_recorder = registry._value_recorders['gen_ai.cost.total']
@@ -56,7 +56,7 @@ class TestBuiltInValueMetrics:
     def test_value_metrics_disabled_when_observability_disabled(self):
         """Test value metrics not created when observability disabled."""
         config = {}
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         assert registry.enabled is False
         assert registry._value_recorders == {}
 
@@ -78,7 +78,7 @@ class TestValueMetricsConfiguration:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         token_recorder = registry._value_recorders['gen_ai.tokens.used']
         assert 'owner.id' not in token_recorder._excluded_labels
 
@@ -97,7 +97,7 @@ class TestValueMetricsConfiguration:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         assert 'gen_ai.cost.total' not in registry._value_recorders
         assert 'gen_ai.tokens.used' in registry._value_recorders
 
@@ -116,7 +116,7 @@ class TestValueMetricsConfiguration:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         assert 'gen_ai.tokens.used' in registry._value_recorders
         counter = registry.create_counter('my.custom.requests.total')
         assert isinstance(counter, CounterRecorder)
@@ -190,7 +190,7 @@ class TestValueMetricsRecording:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         monitor = GenAITokenMonitor.create(
             model="gpt-4",
             component_name="TestAgent",
@@ -225,7 +225,7 @@ class TestValueMetricsRecording:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         monitor = GenAITokenMonitor.create(
             model="gpt-4",
@@ -259,7 +259,7 @@ class TestValueMetricsRecording:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         monitor = GenAICostMonitor.create(
             model="gpt-4",
             component_name="TestAgent",
@@ -286,7 +286,7 @@ class TestValueMetricsRecording:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         monitor = GenAITokenMonitor.create(
             model="gpt-4",
@@ -374,7 +374,7 @@ class TestEndToEndValueMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         token_recorder = registry._value_recorders['gen_ai.tokens.used']
         mock_token_counter = Mock()
         token_recorder._counter = mock_token_counter
@@ -416,7 +416,7 @@ class TestEndToEndValueMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
         duration_recorder = registry.get_recorder('gen_ai.client.operation.duration')
         assert duration_recorder is not None
         token_recorder = registry.get_recorder('gen_ai.tokens.used')

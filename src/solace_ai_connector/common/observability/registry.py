@@ -11,7 +11,7 @@ from opentelemetry.metrics import Observation
 from prometheus_client import generate_latest, REGISTRY
 
 from .config import DEFAULT_DISTRIBUTION_METRICS, DEFAULT_VALUE_METRICS, load_observability_config, validate_config
-from .recorders import MetricRecorder, NoOpRecorder, HistogramRecorder, CounterRecorder, GaugeRecorder
+from .recorders import MetricRecorder, NoOpRecorder, NoOpObservableGauge, HistogramRecorder, CounterRecorder, GaugeRecorder
 
 logger = logging.getLogger(__name__)
 
@@ -23,23 +23,12 @@ class MetricRegistry:
     _instance: Optional['MetricRegistry'] = None
 
     def __init__(self, config: dict):
-        """Initialize registry with configuration."""
-        if MetricRegistry._instance is not None:
-            # In tests, allow re-initialization if config is identical (idempotent)
-            # Otherwise, require explicit reset first to prevent conflicting configs
-            existing_config = MetricRegistry._instance.obs_config
-            new_config = load_observability_config(config)
+        """
+        Private constructor - do not call directly.
 
-            if existing_config == new_config:
-                # Idempotent initialization - return existing instance
-                logger.debug("MetricRegistry already initialized with same config")
-                return
-            else:
-                raise RuntimeError(
-                    "MetricRegistry already initialized with different config. "
-                    "Call MetricRegistry.reset() first."
-                )
-
+        Use MetricRegistry.initialize(config) for explicit initialization.
+        Use MetricRegistry.get_instance() to retrieve singleton.
+        """
         # Load observability config
         self.obs_config = load_observability_config(config)
 
@@ -49,7 +38,6 @@ class MetricRegistry:
             logger.info("Observability disabled in configuration")
             self.duration_recorders = {}  # Histogram recorders
             self._value_recorders = {}    # Counter/gauge recorders
-            MetricRegistry._instance = self
             return
 
         # Validate configuration
@@ -69,7 +57,6 @@ class MetricRegistry:
         # Initialize OpenTelemetry (creates Views + MeterProvider + Histograms + Counters)
         self._initialize_otel_and_recorders()
 
-        MetricRegistry._instance = self
         logger.info(
             "MetricRegistry initialized with %s duration recorders and %s value recorders",
             len(self.duration_recorders),
@@ -77,10 +64,58 @@ class MetricRegistry:
         )
 
     @classmethod
+    def initialize(cls, config: dict) -> 'MetricRegistry':
+        """
+        Initialize MetricRegistry singleton with configuration.
+
+        Call this once at application startup.
+
+        Args:
+            config: Full application configuration dict
+
+        Returns:
+            MetricRegistry singleton instance
+
+        Raises:
+            RuntimeError: If already initialized with different config
+        """
+        if cls._instance is not None:
+            # In tests, allow re-initialization if config is identical (idempotent)
+            # Otherwise, require explicit reset first to prevent conflicting configs
+            existing_config = cls._instance.obs_config
+            new_config = load_observability_config(config)
+
+            if existing_config == new_config:
+                # Idempotent initialization - return existing instance
+                logger.debug("MetricRegistry already initialized with same config")
+                return cls._instance
+            else:
+                raise RuntimeError(
+                    "MetricRegistry already initialized with different config. "
+                    "Call MetricRegistry.reset() first."
+                )
+
+        cls._instance = cls(config)
+        return cls._instance
+
+    @classmethod
     def get_instance(cls) -> 'MetricRegistry':
-        """Get singleton instance."""
+        """
+        Get MetricRegistry singleton instance.
+
+        Auto-initializes with observability disabled if not already initialized.
+        This ensures instrumented code never fails even when observability not configured.
+
+        Returns:
+            MetricRegistry instance (initialized or auto-created no-op instance)
+
+        Note:
+            NEVER raises - always returns a valid instance.
+            For explicit initialization, use MetricRegistry.initialize(config) instead.
+        """
         if cls._instance is None:
-            raise RuntimeError("MetricRegistry not initialized")
+            logger.debug("MetricRegistry not initialized - auto-initializing with observability disabled")
+            cls._instance = cls({})  # Empty config = disabled observability
         return cls._instance
 
     @classmethod
@@ -343,10 +378,14 @@ class MetricRegistry:
             unit: Metric unit (default: "1" for dimensionless)
 
         Returns:
-            ObservableGauge instrument, or None if disabled
+            ObservableGauge instrument (or NoOpObservableGauge if disabled)
+
+        Note:
+            Consistent with create_counter/create_gauge - always returns an object,
+            never None. Uses Null Object pattern for disabled state.
         """
         if not self.enabled:
-            return None
+            return NoOpObservableGauge()
 
         full_name = self._get_full_metric_name(name)
         excluded = self._get_value_metric_excluded_labels(name)

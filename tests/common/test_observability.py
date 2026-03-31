@@ -73,7 +73,7 @@ class TestConfigurationLoading:
     def test_registry_initialization_disabled(self):
         """Test MetricRegistry initialization when disabled."""
         config = {}
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         assert registry.enabled is False
         assert registry.duration_recorders == {}
@@ -89,7 +89,7 @@ class TestConfigurationLoading:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         assert registry.enabled is True
         assert registry.metric_prefix == 'sam'
@@ -132,7 +132,7 @@ class TestDefaultSystemMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Verify all 7 default metrics exist
         expected_metrics = [
@@ -159,7 +159,7 @@ class TestDefaultSystemMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Verify default buckets for each metric
         for metric_name, default_config in DEFAULT_DISTRIBUTION_METRICS.items():
@@ -176,7 +176,7 @@ class TestDefaultSystemMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # gen_ai.client.operation.duration should exclude 'tokens' by default
         genai_recorder = registry.duration_recorders['gen_ai.client.operation.duration']
@@ -193,7 +193,7 @@ class TestDefaultSystemMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Verify prefix is applied
         full_name = registry._get_full_metric_name('outbound.request.duration')
@@ -209,7 +209,7 @@ class TestDefaultSystemMetrics:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         full_name = registry._get_full_metric_name('outbound.request.duration')
         assert full_name == 'outbound.request.duration'
@@ -233,7 +233,7 @@ class TestDistributedMetricsOverride:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Verify custom buckets are applied
         genai_recorder = registry.duration_recorders['gen_ai.client.operation.duration']
@@ -255,7 +255,7 @@ class TestDistributedMetricsOverride:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Verify custom exclude_labels are applied
         db_recorder = registry.duration_recorders['db.duration']
@@ -277,7 +277,7 @@ class TestDistributedMetricsOverride:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Get the recorder and verify it filters labels
         db_recorder = registry.duration_recorders['db.duration']
@@ -318,7 +318,7 @@ class TestDistributedMetricsOverride:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Verify metric was not created
         assert 'gateway.ttfb.duration' not in registry.duration_recorders
@@ -344,7 +344,7 @@ class TestDistributedMetricsOverride:
                 'observability': obs_config
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # Custom metric should be created
         assert 'my.custom.metric' in registry.duration_recorders
@@ -452,7 +452,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         counter = registry.create_counter(
             name='test.events.count',
@@ -465,7 +465,7 @@ class TestCustomMetricsFactoryMethods:
     def test_create_counter_when_disabled(self):
         """Test create_counter returns NoOpRecorder when disabled."""
         config = {}
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         counter = registry.create_counter(
             name='test.events.count',
@@ -484,7 +484,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         gauge = registry.create_gauge(
             name='test.queue.depth',
@@ -497,7 +497,7 @@ class TestCustomMetricsFactoryMethods:
     def test_create_gauge_when_disabled(self):
         """Test create_gauge returns NoOpRecorder when disabled."""
         config = {}
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         gauge = registry.create_gauge(
             name='test.queue.depth',
@@ -516,7 +516,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         def callback(options):
             from opentelemetry.metrics import Observation
@@ -531,9 +531,9 @@ class TestCustomMetricsFactoryMethods:
         assert obs_gauge is not None  # Returns OTel instrument
 
     def test_create_observable_gauge_when_disabled(self):
-        """Test create_observable_gauge returns None when disabled."""
+        """Test create_observable_gauge returns NoOpObservableGauge when disabled."""
         config = {}
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         def callback(options):
             from opentelemetry.metrics import Observation
@@ -545,7 +545,9 @@ class TestCustomMetricsFactoryMethods:
             description='Test observable gauge'
         )
 
-        assert obs_gauge is None
+        # Returns no-op object (not None) for consistency with create_counter/create_gauge
+        from solace_ai_connector.common.observability.recorders import NoOpObservableGauge
+        assert isinstance(obs_gauge, NoOpObservableGauge)
 
     def test_custom_counter_label_filtering(self):
         """Test custom: config filters labels for counters."""
@@ -562,7 +564,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         counter = registry.create_counter(
             name='gateway.events.processed',
@@ -588,7 +590,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         gauge = registry.create_gauge(
             name='broker.active.connections',
@@ -614,7 +616,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         counter = registry.create_counter(
             name='gateway.events.processed',
@@ -654,7 +656,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         gauge = registry.create_gauge(
             name='broker.active.connections',
@@ -702,7 +704,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         gauge = registry.create_gauge(
             name='broker.active.connections',
@@ -743,7 +745,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         gauge = registry.create_gauge(
             name='queue.depth',
@@ -796,7 +798,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         from opentelemetry.metrics import Observation
 
@@ -895,7 +897,7 @@ class TestCustomMetricsFactoryMethods:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         # The full name should have prefix applied
         full_name = registry._get_full_metric_name('custom.metric')
@@ -915,7 +917,7 @@ class TestGetRecorder:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         recorder = registry.get_recorder('db.duration')
         assert isinstance(recorder, HistogramRecorder)
@@ -923,7 +925,7 @@ class TestGetRecorder:
     def test_get_recorder_returns_none_when_disabled(self):
         """Test get_recorder returns None when disabled."""
         config = {}
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         recorder = registry.get_recorder('db.duration')
         assert recorder is None
@@ -938,7 +940,7 @@ class TestGetRecorder:
                 }
             }
         }
-        registry = MetricRegistry(config)
+        registry = MetricRegistry.initialize(config)
 
         recorder = registry.get_recorder('unknown.metric')
         assert recorder is None

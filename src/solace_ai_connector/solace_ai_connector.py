@@ -55,7 +55,7 @@ class SolaceAiConnector:
         # Initialize observability EARLY (before apps)
         # This ensures MetricRegistry is ready before any instrumented code runs
         try:
-            self.metric_registry = MetricRegistry(config)
+            self.metric_registry = MetricRegistry.initialize(config)
         except Exception as e:
             logger.error("Failed to initialize observability: %s", e)
             raise InitializationError("Observability initialization failed") from e
