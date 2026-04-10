@@ -34,6 +34,7 @@ permissions:
   pull-requests: write
   actions: read
   statuses: write
+  packages: read
 
 jobs:
   # Gate: only admins can bypass security checks
