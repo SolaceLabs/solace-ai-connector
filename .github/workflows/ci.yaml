@@ -18,6 +18,7 @@ permissions:
   issues: write
   checks: write
   statuses: write
+  packages: read
 
 jobs:
   # FOSSA security scanning - runs in parallel with CI (skipped for forks, no secret access)
