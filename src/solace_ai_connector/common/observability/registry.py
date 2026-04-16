@@ -24,6 +24,9 @@ class MetricRegistry:
     _instance: Optional['MetricRegistry'] = None
     _lock = threading.Lock()
 
+    # Enterprise hook: Additional metric exporters registered before initialization
+    _additional_exporters: List = []
+
     def __init__(self, config: dict):
         """
         Use MetricRegistry.initialize(config) for explicit initialization.
@@ -131,10 +134,27 @@ class MetricRegistry:
         return cls._instance
 
     @classmethod
+    def register_additional_exporter(cls, exporter):
+        """
+        Register additional metric exporter before MetricRegistry initialization.
+
+        This is a hook to add custom exporters (OTLP, Datadog, etc.)
+        before the MeterProvider is created.
+
+        MUST be called BEFORE MetricRegistry.initialize().
+
+        Args:
+            exporter: MetricExporter instance (e.g., OTLPMetricExporter, DatadogExporter)
+        """
+        cls._additional_exporters.append(exporter)
+        logger.debug("Registered additional metric exporter: %s", exporter.__class__.__name__)
+
+    @classmethod
     def reset(cls):
         """Reset singleton (for testing)."""
         with cls._lock:
             cls._instance = None
+            cls._additional_exporters = []  # Also reset additional exporters
 
     def _prepare_metric_configs(self) -> Dict:
         """Merge user config with defaults for distribution metrics (histograms)."""
@@ -239,8 +259,24 @@ class MetricRegistry:
 
         # Step 2: Create MeterProvider with Prometheus exporter and Views
         self.prometheus_exporter = PrometheusMetricReader()
+
+        # Collect all metric readers (Prometheus + any additional)
+        metric_readers = [self.prometheus_exporter]
+
+        # Add enterprise/plugin exporters registered via register_additional_exporter()
+        if self._additional_exporters:
+            logger.info("Adding %d additional metric exporter(s) from enterprise", len(self._additional_exporters))
+            for exporter in self._additional_exporters:
+                reader = PeriodicExportingMetricReader(
+                    exporter=exporter,
+                    export_interval_millis=60000  # 60 seconds
+                )
+                metric_readers.append(reader)
+                logger.info("Wrapped additional exporter in PeriodicExportingMetricReader: %s", exporter.__class__.__name__)
+
+        # Create MeterProvider with ALL readers (Prometheus + additional)
         self.meter_provider = MeterProvider(
-            metric_readers=[self.prometheus_exporter],
+            metric_readers=metric_readers,
             views=views
         )
         metrics.set_meter_provider(self.meter_provider)
@@ -465,27 +501,3 @@ class MetricRegistry:
         # Generate Prometheus format output from the registry
         return generate_latest(REGISTRY)
 
-    def add_exporter(self, exporter):
-        """
-        Add additional metric exporter (OTLP, Datadog, etc.).
-
-        Called by downstream code (solace-agent-mesh-enterprise).
-
-        Args:
-            exporter: OpenTelemetry metric exporter instance
-        """
-        if not self.enabled:
-            logger.warning("Cannot add exporter - observability is disabled")
-            return
-
-        # Wrap exporter in periodic reader
-        reader = PeriodicExportingMetricReader(
-            exporter=exporter,
-            export_interval_millis=60000  # 60 seconds
-        )
-
-        # Add to meter provider
-        self.meter_provider._sdk_config.metric_readers.append(reader)
-        reader._set_meter_provider(self.meter_provider)
-
-        logger.info("Added metric exporter: %s", exporter.__class__.__name__)

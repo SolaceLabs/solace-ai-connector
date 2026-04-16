@@ -944,3 +944,71 @@ class TestGetRecorder:
 
         recorder = registry.get_recorder('unknown.metric')
         assert recorder is None
+
+
+class TestAdditionalExporters:
+    """Test register_additional_exporter and enterprise exporter integration."""
+
+    def test_register_additional_exporter_adds_to_list(self):
+        """Test that register_additional_exporter appends exporter to class list."""
+        MetricRegistry.reset()
+
+        mock_exporter = Mock()
+        mock_exporter.__class__.__name__ = 'OTLPMetricExporter'
+
+        MetricRegistry.register_additional_exporter(mock_exporter)
+
+        assert mock_exporter in MetricRegistry._additional_exporters
+        assert len(MetricRegistry._additional_exporters) == 1
+
+        MetricRegistry.reset()
+
+    def test_additional_exporters_wrapped_during_initialization(self):
+        """Test that registered exporters are wrapped in PeriodicExportingMetricReader."""
+        MetricRegistry.reset()
+
+        # Create a properly mocked exporter that satisfies OTel's requirements
+        mock_exporter = Mock()
+        mock_exporter.__class__.__name__ = 'OTLPMetricExporter'
+
+        MetricRegistry.register_additional_exporter(mock_exporter)
+
+        config = {
+            'management_server': {
+                'observability': {
+                    'enabled': True,
+                    'path': '/metrics'
+                }
+            }
+        }
+
+        # Mock PeriodicExportingMetricReader to avoid actual OTel initialization issues
+        with patch('solace_ai_connector.common.observability.registry.PeriodicExportingMetricReader') as mock_reader_class:
+            # Create distinct mock instances for each call
+            mock_reader_instance = Mock()
+            mock_reader_class.return_value = mock_reader_instance
+
+            registry = MetricRegistry.initialize(config)
+
+            # Verify PeriodicExportingMetricReader was called with the registered exporter
+            mock_reader_class.assert_called_once_with(
+                exporter=mock_exporter,
+                export_interval_millis=60000
+            )
+
+            assert registry.enabled is True
+
+        MetricRegistry.reset()
+
+    def test_reset_clears_additional_exporters(self):
+        """Test that reset() clears the additional exporters list."""
+        MetricRegistry.reset()
+
+        mock_exporter = Mock()
+        MetricRegistry.register_additional_exporter(mock_exporter)
+
+        assert len(MetricRegistry._additional_exporters) == 1
+
+        MetricRegistry.reset()
+
+        assert len(MetricRegistry._additional_exporters) == 0
