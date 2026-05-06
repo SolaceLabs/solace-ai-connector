@@ -7,7 +7,7 @@ from langchain_core.output_parsers import JsonOutputParser
 
 from .....common.message import Message
 from .....common.utils import get_obj_text
-from langchain.schema.messages import (
+from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
     AIMessage,
