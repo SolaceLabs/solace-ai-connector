@@ -11,7 +11,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # from langchain.memory import ConversationTokenBufferMemory
-from langchain.schema.messages import (
+from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
 )
