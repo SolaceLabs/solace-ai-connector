@@ -41,7 +41,7 @@ dependencies = [
 [project.optional-dependencies]
 # Basic LLM functionality
 llm = [
-    "litellm==1.83.14",
+    "litellm==1.84.0",
 ]
 
 # OpenAI specific dependencies
@@ -138,7 +138,7 @@ llm_ext_release = [
     "jiter==0.9.0",
     "jsonschema==4.23.0",
     "jsonschema-specifications==2024.10.1",
-    "litellm==1.83.14",
+    "litellm==1.84.0",
     "MarkupSafe==3.0.2",
     "multidict==6.2.0",
     "openai==2.24.0",
@@ -291,7 +291,7 @@ all = [
     "langchain==1.2.17",
 
     # From llm
-    "litellm==1.83.14",
+    "litellm==1.84.0",
     
     # From openai
     "openai==2.24.0",
